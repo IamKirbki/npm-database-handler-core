@@ -1,0 +1,32 @@
+{
+  "name": "@iamkirbki/database-handler-core",
+  "version": "4.0.4",
+  "author": "iamkirbki",
+  "description": "Core database abstractions and interfaces",
+  "license": "ISC",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "database",
+    "orm",
+    "query-builder",
+    "typescript"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IamKirbki/npm-database-handler.git",
+    "directory": "packages/core"
+  },
+  "scripts": {
+    "build": "tsc --build && tsc-alias"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "tsc-alias": "^1.8.16"
+  }
+}
