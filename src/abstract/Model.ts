@@ -186,7 +186,7 @@ export default abstract class Model<ModelType extends columnType> {
     }
 
     public all(): Promise<Partial<ModelType>[]> {
-        return this.repository.all(this, this.queryOptions) as Promise<Partial<ModelType>[]>;
+        return this.repository.all(this, this.queryScopes, this.queryOptions) as Promise<Partial<ModelType>[]>;
     }
 
     public static set<ParamterModelType extends Model<columnType>>(

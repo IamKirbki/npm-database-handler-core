@@ -59,11 +59,11 @@ export default class Repository<Type extends columnType, ModelType extends Model
         }
     }
 
-    public async all(Model: Model<Type>, queryOptions?: QueryOptions): Promise<Type[]> {
+    public async all(Model: Model<Type>, queryscopes?: QueryCondition, queryOptions?: QueryOptions): Promise<Type[]> {
         if (Model.JoinedEntities.length > 0) {
             return await this.join(Model);
         } else {
-            return await this.Table.Records(queryOptions).then(records => records.map(record => record.values as Type));
+            return await this.Table.Records({ where: queryscopes, ...queryOptions }).then(records => records.map(record => record.values as Type));
         }
     }
 
