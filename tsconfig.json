@@ -1,14 +1,30 @@
 {
-  "extends": "../../tsconfig.json",
   "compilerOptions": {
+    "target": "ES2015",
+    "module": "ESNext",
+    "strict": true,
     "composite": true,
     "declaration": true,
     "declarationMap": true,
     "outDir": "./dist",
-    "rootDir": "./src"
-  },
-  "paths": {
-    "@core/*": ["src/*"]
+    "rootDir": "./src",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "strictFunctionTypes": true,
+    "strictPropertyInitialization": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "preserveConstEnums": true,
+    "experimentalDecorators": true,
+    "importHelpers": false,
+    "baseUrl": ".",
+    "paths": {
+      "@core/*": ["src/*"]
+    }
   },
   "include": [
     "src/**/*.ts"
