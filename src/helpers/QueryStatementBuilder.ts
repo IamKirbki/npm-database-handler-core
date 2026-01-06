@@ -204,8 +204,6 @@ export default class QueryStatementBuilder {
             queryParts.push(this.buildWhereWithOperators(where as QueryParameters[]));
         }
 
-        console.log("WHERE CLAUSE:");
-        console.log(queryParts.join(" "));
         return queryParts.join(" ");
     }
 

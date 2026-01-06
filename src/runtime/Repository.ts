@@ -86,9 +86,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
     private async join(Model: Model<Type>, conditions?: QueryCondition, queryOptions?: QueryOptions): Promise<Type[]> {
         const Join: Join[] = Model.JoinedEntities.map(join => {
             const relation: relation | undefined = Model.Relations.find(rel => rel.model.Configuration.table.toLowerCase() === join.relation.toLowerCase());
-            console.log("Processing join for relation:", join.relation);
             if (join.queryScopes) {
-                console.log("Merging query scopes for join:", join.queryScopes);
                 conditions = this.mergeQueryConditions(conditions || {}, join.queryScopes);
             }
 
@@ -107,7 +105,6 @@ export default class Repository<Type extends columnType, ModelType extends Model
             }
         })
 
-        console.log(conditions);
         return (await this.Table.Join(Join, { where: conditions, ...queryOptions })).map(record => record.values as Type);
     }
 
