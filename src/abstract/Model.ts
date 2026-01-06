@@ -1,5 +1,6 @@
+import Query from "@core/base/Query.js";
 import Repository from "@core/runtime/Repository.js";
-import { columnType, QueryCondition, QueryValues, ModelConfig, relation, QueryOptions } from "@core/types/index.js";
+import { columnType, QueryCondition, QueryValues, ModelConfig, relation, QueryOptions, joinedEntity, QueryParameters } from "@core/types/index.js";
 
 /** Abstract Model class for ORM-style database interactions */
 export default abstract class Model<ModelType extends columnType> {
@@ -223,10 +224,10 @@ export default abstract class Model<ModelType extends columnType> {
         return this;
     }
 
-    protected joinedEntities: string[] = [];
+    protected joinedEntities: joinedEntity[] = [];
     protected relations: relation[] = [];
 
-    public get JoinedEntities(): string[] {
+    public get JoinedEntities(): joinedEntity[] {
         return this.joinedEntities;
     }
 
@@ -278,24 +279,62 @@ export default abstract class Model<ModelType extends columnType> {
 
     public static with<ParamterModelType extends Model<columnType>>(
         this: new () => ParamterModelType,
-        tableName: string
+        relation: string,
+        queryScopes?: QueryCondition
     ): ParamterModelType {
         const instance = new this();
-        return instance.with(tableName);
+        return instance.with(relation, queryScopes);
     }
 
-    public with(relationName: string): this {
-        this.joinedEntities.push(relationName);
+    public with(relation: string, queryScopes?: QueryCondition): this {
+        this.callRelationMethod(relation);
 
-        const method = Reflect.get(this, relationName);
-        if (typeof method === 'function') {
-            method.call(this);
-        } else {
+        const lastRelation = this.relations[this.relations.length - 1];
+        const tableName = lastRelation.model.Configuration.table;
+
+        const normalizedScopes = this.normalizeQueryScopes(queryScopes, tableName);
+
+        this.joinedEntities.push({
+            relation: relation,
+            queryScopes: normalizedScopes
+        });
+
+        return this;
+    }
+
+    private callRelationMethod(relation: string): void {
+        const method = Reflect.get(this, relation);
+        
+        if (typeof method !== 'function') {
             throw new Error(
-                `Relation method '${relationName}' does not exist on ${this.constructor.name}`
+                `Relation method '${relation}' does not exist on ${this.constructor.name}`
             );
         }
 
-        return this;
+        method.call(this);
+    }
+
+    private normalizeQueryScopes(
+        queryScopes: QueryCondition | undefined,
+        tableName: string
+    ): QueryParameters[] | undefined {
+        if (!queryScopes) {
+            return undefined;
+        }
+
+        const isSingleParameter = 
+            Object.keys(queryScopes).length === 3 &&
+            'column' in queryScopes &&
+            'operator' in queryScopes &&
+            'value' in queryScopes;
+
+        let scopesArray = isSingleParameter 
+            ? [queryScopes as QueryParameters]
+            : Query.ConvertParamsToArray(queryScopes);
+
+        return scopesArray.map(scope => ({
+            ...scope,
+            column: `${tableName}.${scope.column}`
+        }));
     }
 }

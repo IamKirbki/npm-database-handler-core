@@ -1,6 +1,7 @@
 import type Model from "@core/abstract/Model.js";
+import Query from "@core/base/Query.js";
 import Table from "@core/base/Table.js";
-import { columnType, Join, QueryCondition, QueryOptions, relation } from "@core/types/index";
+import { columnType, Join, QueryCondition, QueryOptions, relation, QueryParameters } from "@core/types/index.js";
 
 export default class Repository<Type extends columnType, ModelType extends Model<Type>> {
     private static _instances: Map<string, Repository<columnType, Model<columnType>>> = new Map();
@@ -84,7 +85,11 @@ export default class Repository<Type extends columnType, ModelType extends Model
 
     private async join(Model: Model<Type>, conditions?: QueryCondition, queryOptions?: QueryOptions): Promise<Type[]> {
         const Join: Join[] = Model.JoinedEntities.map(join => {
-            const relation: relation | undefined = Model.Relations.find(rel => rel.model.Configuration.table.toLowerCase() === join.toLowerCase());
+            const relation: relation | undefined = Model.Relations.find(rel => rel.model.Configuration.table.toLowerCase() === join.relation.toLowerCase());
+            if (join.queryScopes) {
+                conditions = this.mergeQueryConditions(conditions || {}, join.queryScopes);
+            }
+
             if (!relation) {
                 throw new Error(`Relation for joined entity ${join} not found.`);
             }
@@ -99,7 +104,11 @@ export default class Repository<Type extends columnType, ModelType extends Model
                 ]
             }
         })
-      
+
         return (await this.Table.Join(Join, { where: conditions, ...queryOptions })).map(record => record.values as Type);
+    }
+
+    private mergeQueryConditions(base: QueryCondition, additional: QueryCondition): QueryParameters[] {
+        return [...Query.ConvertParamsToArray(base), ...Query.ConvertParamsToArray(additional)];
     }
 }

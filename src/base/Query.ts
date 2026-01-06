@@ -1,4 +1,4 @@
-import { columnType, QueryCondition, QueryWhereParameters, TableColumnInfo } from "@core/types/index.js";
+import { columnType, QueryCondition, QueryWhereParameters, TableColumnInfo, QueryParameters } from "@core/types/index.js";
 import { Container, Record, IDatabaseAdapter } from "@core/index.js";
 
 /** Query class for executing custom SQL queries */
@@ -50,6 +50,24 @@ export default class Query {
     const stmt = await this._adapter.prepare(this._query);
     const result = await stmt.get(this.Parameters) as { count: string };
     return parseInt(result.count) || 0;
+  }
+
+  public static ConvertParamsToArray(params: QueryCondition): QueryParameters[] {
+    const paramArray: QueryParameters[] = [];
+    
+    if (Array.isArray(params)) {
+      return params;
+    } else {
+      Object.entries(params).forEach(([key, value]) => {
+        return paramArray.push({
+          column: key,
+          operator: "=",
+          value
+        })
+      })
+    }
+
+    return paramArray;
   }
 
   /** Convert various parameter formats to a consistent object format */
