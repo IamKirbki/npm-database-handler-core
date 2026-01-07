@@ -207,9 +207,9 @@ export default abstract class Model<ModelType extends columnType> {
         return this;
     }
 
-    public save(): this {
+    public async save(): Promise<this> {
         this.originalAttributes = { ...this.originalAttributes, ...this.attributes };
-        this.repository.save(this.originalAttributes as ModelType);
+        await this.repository.save(this.originalAttributes as ModelType);
         this.exists = true;
         this.dirty = false;
         return this;
