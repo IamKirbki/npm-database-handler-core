@@ -10,7 +10,7 @@ export type QueryParameters = {
 
 export type QueryCondition = QueryWhereParameters | QueryParameters[];
 
-export type QueryValues = string | number | boolean | null | bigint
+export type QueryValues = string | number | boolean | null | bigint | Date;
 
 export type DefaultQueryOptions = {
     select?: string;

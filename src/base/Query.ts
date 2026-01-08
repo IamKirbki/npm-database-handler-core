@@ -42,7 +42,7 @@ export default class Query {
     return results ? new Record<Type>(results, this.TableName) : undefined;
   }
 
-  public static async tableColumnInformation(tableName: string) : Promise<TableColumnInfo[]> {
+  public static async tableColumnInformation(tableName: string): Promise<TableColumnInfo[]> {
     return Container.getInstance().getAdapter().tableColumnInformation(tableName);
   }
 
@@ -54,7 +54,7 @@ export default class Query {
 
   public static ConvertParamsToArray(params: QueryCondition): QueryParameters[] {
     const paramArray: QueryParameters[] = [];
-    
+
     if (Array.isArray(params)) {
       return params;
     } else {
@@ -87,7 +87,7 @@ export default class Query {
   /** Databases don't like numeric values when inserting with a query */
   public static ConvertValueToString(params: QueryWhereParameters): QueryWhereParameters {
     return Object.entries(params).map(([key, value]) => {
-      return { [key]: value !== null && value !== undefined ? value.toString() : value };
+      return { [key]: value !== null && !(value instanceof Date) && value !== undefined ? value.toString() : value };
     }).reduce((acc, curr) => ({ ...acc, ...curr }), {});
   }
 }

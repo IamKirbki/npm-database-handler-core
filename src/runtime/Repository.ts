@@ -1,7 +1,8 @@
 import type Model from "@core/abstract/Model.js";
+import Record from "@core/base/Record.js";
 import Query from "@core/base/Query.js";
 import Table from "@core/base/Table.js";
-import { columnType, Join, QueryCondition, QueryOptions, relation, QueryParameters } from "@core/types/index.js";
+import { columnType, Join, QueryCondition, QueryOptions, relation, QueryParameters, QueryWhereParameters } from "@core/types/index.js";
 
 export default class Repository<Type extends columnType, ModelType extends Model<Type>> {
     private static _instances: Map<string, Repository<columnType, Model<columnType>>> = new Map();
@@ -68,19 +69,11 @@ export default class Repository<Type extends columnType, ModelType extends Model
         }
     }
 
-    public async update(attributes: Partial<Type>): Promise<this> {
-        const primaryKey = (this.models.values().next().value as Model<Type>).Configuration.primaryKey;
-        const pkValue = attributes[primaryKey];
-        if (pkValue) {
-            const record = await this.Table.Record({ where: { [primaryKey]: pkValue } });
-            if (record) {
-                await record.Update(attributes);
-            }
-        } else {
-            throw new Error("Primary key value is required for update.");
+    public async update(primaryKey: QueryWhereParameters, newAttributes: Partial<Type>): Promise<Record<Type> | undefined> {
+        const record = await this.Table.Record<Type>({ where: primaryKey as QueryCondition });
+        if (record) {
+            return await record.Update(newAttributes, primaryKey);
         }
-
-        return this;
     }
 
     private async join(Model: Model<Type>, conditions?: QueryCondition, queryOptions?: QueryOptions): Promise<Type[]> {

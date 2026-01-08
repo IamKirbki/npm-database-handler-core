@@ -58,13 +58,13 @@ export default class Record<ColumnValuesType extends columnType> {
     }
 
     /** Update this record in the database */
-    public async Update(newValues: Partial<ColumnValuesType>): Promise<void> {
+    public async Update(newValues: Partial<ColumnValuesType>, primaryKey: QueryWhereParameters): Promise<this> {
         const originalValues = this._values as Partial<ColumnValuesType>;
         if ((originalValues as object & ModelWithTimestamps).updated_at !== undefined) {
             (newValues as object & ModelWithTimestamps).updated_at = new Date().toISOString();
         }
 
-        const queryStr = QueryStatementBuilder.BuildUpdate(this._tableName, newValues as QueryWhereParameters, originalValues as QueryWhereParameters);
+        const queryStr = QueryStatementBuilder.BuildUpdate(this._tableName, newValues as QueryWhereParameters, primaryKey);
         const _query = new Query(this._tableName, queryStr);
 
         // Merge newValues and originalValues for parameters (with 'where_' prefix for where clause)
@@ -77,10 +77,18 @@ export default class Record<ColumnValuesType extends columnType> {
         await _query.Run();
 
         this._values = { ...this._values, ...newValues };
+        return this;
     }
 
     /** Delete this record from the database */
-    public async Delete(): Promise<void> {
+    public async Delete(primaryKey: QueryWhereParameters): Promise<void> {
+        const originalValues = this._values as Partial<ColumnValuesType>;
+        if ((originalValues as object & ModelWithTimestamps).deleted_at !== undefined) {
+            (this._values as object & ModelWithTimestamps).deleted_at = new Date().toISOString();
+            this.Update(this._values, primaryKey);
+            return;
+        }
+
         const queryStr = QueryStatementBuilder.BuildDelete(this._tableName, this._values);
         const _query = new Query(this._tableName, queryStr);
         _query.Parameters = { ...this._values as object };

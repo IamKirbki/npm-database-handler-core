@@ -97,11 +97,11 @@ export default class QueryStatementBuilder {
     public static BuildUpdate(tableName: string, record: QueryCondition, where: QueryCondition): string {
         const queryParts: string[] = [];
         const setClauses = Object.keys(record).map(col => `${col} = @${col}`);
-
+        
         queryParts.push(`UPDATE "${tableName}"`);
         queryParts.push(`SET ${setClauses.join(", ")}`);
-        queryParts.push(this.BuildWhere(where));
-
+        queryParts.push(this.BuildWhere(where).replace(/@(\w+)/g, '@where_$1'))
+        
         return queryParts.join(" ");
     }
 

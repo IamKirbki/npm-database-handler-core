@@ -102,8 +102,9 @@ export interface SoftDeletable {
 }
 
 export type ModelWithTimestamps = {
-    created_at?: string;
-    updated_at?: string;
+    created_at?: string | number | Date;
+    updated_at?: string | number | Date;
+    deleted_at?: string | number | Date;
 }
 
 export type joinedEntity = {

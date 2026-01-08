@@ -43,7 +43,7 @@ export default abstract class Model<ModelType extends columnType> {
     }
 
     public get primaryKey(): QueryValues | undefined {
-        return this.attributes[this.configuration.primaryKey];
+        return this.originalAttributes[this.configuration.primaryKey];
     }
 
     public get values(): Partial<ModelType> | ModelType {
@@ -133,61 +133,83 @@ export default abstract class Model<ModelType extends columnType> {
         return this;
     }
 
-    public static findOrFail<ParamterModelType extends Model<columnType>>(
+    public static async findOrFail<ParamterModelType extends Model<columnType>>(
         this: new () => ParamterModelType,
         primaryKeyValue: QueryValues
-    ): Partial<columnType> {
+    ): Promise<ParamterModelType> {
         const instance = new this();
-        return instance.findOrFail(primaryKeyValue);
+        return await instance.findOrFail(primaryKeyValue) as ParamterModelType;
     }
 
-    public findOrFail(primaryKeyValue?: QueryValues): Partial<ModelType> | ModelType {
+    public async findOrFail(primaryKeyValue?: QueryValues): Promise<this> {
         if (primaryKeyValue) {
             this.queryScopes = { [this.primaryKeyColumn]: primaryKeyValue };
         }
 
         const query = this.queryScopes || {};
 
-        this.repository?.first(query, this).then((record) => {
-            if (!record) {
-                throw new Error(
-                    `Record with primary key ${primaryKeyValue} not found.`
-                );
-            }
+        const record = await this.repository?.first(query, this);
+        if (!record) {
+            throw new Error(
+                `Record with primary key ${primaryKeyValue} not found.`
+            );
+        }
 
-            this.set(record as ModelType);
-        });
-
-        return this.attributes;
+        this.attributes = record as Partial<ModelType>;
+        this.originalAttributes = { ...this.attributes };
+        this.exists = true;
+        return this;
     }
 
     public static async first<ParamterModelType extends Model<columnType>>(
         this: new () => ParamterModelType,
         primaryKeyValue?: string | number
-    ): Promise<Partial<columnType> | ParamterModelType> {
+    ): Promise<ParamterModelType> {
         const instance = new this();
-        return instance.first(primaryKeyValue);
+        return instance.first(primaryKeyValue) as Promise<ParamterModelType>;
     }
 
-    public async first(primaryKeyValue?: string | number): Promise<Partial<ModelType>> {
-        this.attributes = await this.repository?.first(primaryKeyValue ? { [this.configuration.primaryKey]: primaryKeyValue } : {}, this) as Partial<ModelType>;
-        return this.attributes;
+    public async first(primaryKeyValue?: string | number): Promise<this> {
+        const attributes = await this.repository?.first(primaryKeyValue ? { [this.configuration.primaryKey]: primaryKeyValue } : this.queryScopes || {}, this) as Partial<ModelType>;
+        if (attributes) {
+            this.attributes = attributes;
+            this.originalAttributes = { ...attributes };
+            this.exists = true;
+        }
+
+        return this;
     }
 
-    public async get(): Promise<Partial<ModelType>[]> {
-        return this.repository.get(this.queryScopes || {}, this.queryOptions, this) as Promise<Partial<ModelType>[]>;
+    public async get(): Promise<this[]> {
+        const records = await this.repository.get(this.queryScopes || {}, this.queryOptions, this) as Partial<ModelType>[];
+        return records.map(record => {
+            const instance = new (this.constructor as new () => this)();
+            instance.set(record);
+            instance.exists = true;
+            instance.originalAttributes = { ...record };
+            instance.attributes = { ...record };
+            return instance;
+        });
     }
 
     public static all<ParamterModelType extends Model<columnType>>(
         // eslint-disable-next-line no-unused-vars
         this: new () => ParamterModelType
-    ): Promise<Partial<columnType>[]> {
+    ): Promise<ParamterModelType[]> {
         const instance = new this();
-        return instance.all();
+        return instance.all() as Promise<ParamterModelType[]>;
     }
 
-    public all(): Promise<Partial<ModelType>[]> {
-        return this.repository.all(this, this.queryScopes, this.queryOptions) as Promise<Partial<ModelType>[]>;
+    public async all(): Promise<this[]> {
+        const records = await this.repository.all(this, this.queryScopes, this.queryOptions) as Partial<ModelType>[];
+        return records.map(record => {
+            const instance = new (this.constructor as new () => this)();
+            instance.set(record);
+            instance.exists = true;
+            instance.originalAttributes = { ...record };
+            instance.attributes = { ...record };
+            return instance;
+        });
     }
 
     public static set<ParamterModelType extends Model<columnType>>(
@@ -215,12 +237,20 @@ export default abstract class Model<ModelType extends columnType> {
         return this;
     }
 
-    public update(attributes: Partial<ModelType>): this {
+    public async update(attributes: Partial<ModelType>): Promise<this> {
         if (!this.exists) {
             throw new Error("Cannot update a model that does not exist in the database.");
         }
 
-        this.repository?.update(attributes);
+        if (this.primaryKey === undefined) {
+            throw new Error("Primary key value is undefined. Cannot update record without a valid primary key.");
+        }
+
+        const newRecord = await this.repository?.update({ [this.primaryKeyColumn]: this.primaryKey }, attributes);
+        if (newRecord) {
+            this.originalAttributes = newRecord.values;
+            this.exists = true;
+        }
         return this;
     }
 
@@ -304,7 +334,7 @@ export default abstract class Model<ModelType extends columnType> {
 
     private callRelationMethod(relation: string): void {
         const method = Reflect.get(this, relation);
-        
+
         if (typeof method !== 'function') {
             throw new Error(
                 `Relation method '${relation}' does not exist on ${this.constructor.name}`
@@ -322,13 +352,13 @@ export default abstract class Model<ModelType extends columnType> {
             return undefined;
         }
 
-        const isSingleParameter = 
+        const isSingleParameter =
             Object.keys(queryScopes).length === 3 &&
             'column' in queryScopes &&
             'operator' in queryScopes &&
             'value' in queryScopes;
 
-        let scopesArray = isSingleParameter 
+        let scopesArray = isSingleParameter
             ? [queryScopes as QueryParameters]
             : Query.ConvertParamsToArray(queryScopes);
 
@@ -336,5 +366,13 @@ export default abstract class Model<ModelType extends columnType> {
             ...scope,
             column: `${tableName}.${scope.column}`
         }));
+    }
+
+    public toJSON(): Partial<ModelType> | ModelType {
+        return this.attributes;
+    }
+
+    public toObject(): Partial<ModelType> | ModelType {
+        return this.attributes;
     }
 }
