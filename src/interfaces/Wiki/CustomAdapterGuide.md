@@ -799,7 +799,7 @@ Study these official adapters:
 - [IDatabaseAdapter Documentation](IDatabaseAdapter.md)
 - [IStatementAdapter Documentation](IStatementAdapter.md)
 - [ISchemaBuilder Documentation](ISchemaBuilder.md)
-- [Core Package Documentation](../../README.md)
+- [Core Package Documentation](../../../README.md)
 - [Main Repository](https://github.com/iamkirbki/database-handler)
 
 ---
