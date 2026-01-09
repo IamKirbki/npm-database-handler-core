@@ -144,7 +144,7 @@ my-database-adapter/
 │   ├── MyDatabaseAdapter.ts
 │   ├── MyDatabaseStatement.ts
 │   ├── MyDatabaseSchemaBuilder.ts
-│   └── MyDatabaseTableSchemaBuilder.ts (optional)
+│   └── MyDatabaseTableSchemaBuilder.ts
 └── tests/
     ├── adapter.test.ts
     ├── statement.test.ts

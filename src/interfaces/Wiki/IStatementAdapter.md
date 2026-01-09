@@ -2,10 +2,6 @@
 
 Interface for executing prepared SQL statements with parameter binding.
 
-## Overview
-
-`IStatementAdapter` wraps database-specific statement objects to provide a unified interface for query execution. Each adapter must implement this interface to enable parameter binding and result retrieval.
-
 ## Interface Definition
 
 ```typescript
@@ -13,11 +9,9 @@ interface IStatementAdapter {
     run(parameters?: Record<string, any>): Promise<RunResult>;
     all(parameters?: Record<string, any>): Promise<any[]>;
     get(parameters?: Record<string, any>): Promise<any>;
-    runSync?(parameters?: Record<string, any>): RunResult;
+    runSync?(parameters?: Record<string, any>): RunResult; // Optional
 }
 ```
-
-**Note:** `runSync()` is optional and only needed for databases supporting synchronous operations (like SQLite in transactions).
 
 ---
 
@@ -409,7 +403,6 @@ describe('MyDatabaseStatement', () => {
 
 ## See Also
 
+- [Custom Adapter Guide](CustomAdapterGuide.md) - Full implementation guide
 - [IDatabaseAdapter](IDatabaseAdapter.md) - Database adapter interface
 - [Query](../../base/Wiki/Query.md) - Using prepared statements
-- [PostgreSQL Statement](../../../pg/src/PostgresStatement.ts) - Reference implementation
-- [SQLite Statement](../../../bettersqlite3/src/BetterSqlite3Statement.ts) - Reference implementation
