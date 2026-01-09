@@ -14,19 +14,19 @@ Core abstractions and interfaces for the Kirbkis Database Handler library.
 - [Quick Start](#quick-start)
 - [Documentation](#documentation)
 - [API Reference](#api-reference)
-  - [Container](src/runtime/Wiki/Container.md)
-  - [Table](src/base/Wiki/Table.md)
-  - [Record](src/base/Wiki/Record.md)
-  - [Query](src/base/Wiki/Query.md)
-  - [QueryStatementBuilder](src/helpers/Wiki/QueryStatementBuilder.md)
-- [Types](src/types/Wiki/Types.md)
+  - [Container](#container)
+  - [Table](#table)
+  - [Record](#record)
+  - [Query](#query)
+  - [QueryStatementBuilder](#querystatementbuilder)
+- [Types](#types)
 - [Interfaces](#interfaces)
-  - [IDatabaseAdapter](src/interfaces/Wiki/IDatabaseAdapter.md)
-  - [ISchemaBuilder](src/interfaces/Wiki/ISchemaBuilder.md)
-  - [IStatementAdapter](src/interfaces/Wiki/IStatementAdapter.md)
+  - [IDatabaseAdapter](#idatabaseadapter)
+  - [ISchemaBuilder](#ischemabuilder)
+  - [IStatementAdapter](#istatementadapter)
 - [Advanced Usage](#advanced-usage)
-  - [Multiple Adapters](src/runtime/Wiki/MultipleAdapters.md)
-  - [Custom Models](src/abstract/Wiki/Model.md)
+  - [Multiple Adapters](#multiple-adapters)
+  - [Custom Models](#custom-models)
 - [Parameter Binding](#parameter-binding)
 - [License](#license)
 - [Links](#links)
@@ -139,9 +139,9 @@ const results = await query.All<User>();
 - **[QueryStatementBuilder](src/helpers/Wiki/QueryStatementBuilder.md)** - Programmatic SQL building
 - **[SchemaTableBuilder](src/abstract/Wiki/SchemaTableBuilder.md)** - Table schema definitions
 
-### API Reference
+### [API Reference](#api-reference)
 
-#### Container
+#### [Container](src/runtime/Wiki/Container.md)
 
 Singleton for managing database adapters:
 
@@ -159,7 +159,7 @@ const adapter = Container.GetAdapter();
 const namedAdapter = Container.GetAdapter('analytics');
 ```
 
-#### Table
+#### [Table](src/base/Wiki/Table.md)
 
 High-level interface for table operations:
 
@@ -186,7 +186,7 @@ const results = await table.Join<User, Post>({
 });
 ```
 
-#### Record
+#### [Record](src/base/Wiki/Record.md)
 
 Single row with CRUD operations:
 
@@ -204,7 +204,7 @@ await record.Delete();        // Hard delete
 await record.Delete(true);    // Soft delete
 ```
 
-#### Query
+#### [Query](src/base/Wiki/Query.md)
 
 Raw SQL query execution:
 
@@ -228,7 +228,7 @@ await query.Run();
 const count = await query.Count();
 ```
 
-#### QueryStatementBuilder
+#### [QueryStatementBuilder](src/helpers/Wiki/QueryStatementBuilder.md)
 
 Build SQL programmatically:
 
@@ -260,7 +260,7 @@ const deleteSql = QueryStatementBuilder.BuildDelete('users', {
 });
 ```
 
-## Types
+## [Types](src/types/Wiki/Types.md)
 
 The package includes comprehensive TypeScript types:
 
@@ -274,9 +274,9 @@ import type {
 } from '@iamkirbki/database-handler-core/types';
 ```
 
-## Interfaces
+## [Interfaces](#interfaces)
 
-### IDatabaseAdapter
+### [IDatabaseAdapter](src/interfaces/Wiki/IDatabaseAdapter.md)
 
 Core interface that all database adapters must implement:
 
@@ -289,7 +289,7 @@ interface IDatabaseAdapter {
 }
 ```
 
-### ISchemaBuilder
+### [ISchemaBuilder](src/interfaces/Wiki/ISchemaBuilder.md)
 
 Interface for schema operations:
 
@@ -301,7 +301,7 @@ interface ISchemaBuilder {
 }
 ```
 
-### IStatementAdapter
+### [IStatementAdapter](src/interfaces/Wiki/IStatementAdapter.md)
 
 Interface for statement execution:
 
@@ -312,9 +312,9 @@ interface IStatementAdapter {
 }
 ```
 
-## Advanced Usage
+## [Advanced Usage](#advanced-usage)
 
-### Multiple Adapters
+### [Multiple Adapters](src/runtime/Wiki/MultipleAdapters.md)
 
 ```typescript
 // Register multiple database connections
@@ -327,7 +327,7 @@ const table = new Table('events', 'analytics');
 const events = await table.Records<Event>();
 ```
 
-### Custom Models
+### [Custom Models](src/abstract/Wiki/Model.md)
 
 Extend the base Model class:
 
