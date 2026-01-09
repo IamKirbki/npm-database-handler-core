@@ -55,6 +55,7 @@ import { Container } from '@iamkirbki/database-handler-core';
 import { PostgresAdapter } from '@iamkirbki/database-handler-pg';
 
 const db = new PostgresAdapter();
+//Connect with poolconfig for pg and filepath for sqlite
 await db.connect({
     host: 'localhost',
     port: 5432,
