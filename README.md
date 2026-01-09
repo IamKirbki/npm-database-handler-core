@@ -99,29 +99,41 @@ const results = await query.All<User>();
 - **[Query](src/base/Wiki/Query.md)** - Raw SQL queries with parameter binding
 - **[Table](src/base/Wiki/Table.md)** - High-level table operations
 - **[Record](src/base/Wiki/Record.md)** - Single row CRUD operations
+- **[Model](src/abstract/Wiki/Model.md)** - ORM-style models with relationships
 - **[QueryStatementBuilder](src/helpers/Wiki/QueryStatementBuilder.md)** - Programmatic SQL building
 - **[SchemaTableBuilder](src/abstract/Wiki/SchemaTableBuilder.md)** - Table schema definitions
+
+### Runtime & Container
+
+- **[Container](src/runtime/wiki/Container.md)** - Singleton for managing database adapters
+- **[Repository](src/runtime/wiki/Repository.md)** - Internal data access layer for Models
+
+### Custom Adapters
+
+- **[Custom Adapter Guide](src/interfaces/Wiki/CustomAdapterGuide.md)** - Build your own database adapter
 
 ---
 
 ## API Reference
 
-### [Container](src/runtime/Wiki/Container.md)
+### [Container](src/runtime/wiki/Container.md)
 
 Singleton for managing database adapters:
 
 ```typescript
 import { Container } from '@iamkirbki/database-handler-core';
 
+const container = Container.getInstance();
+
 // Register default adapter
-Container.RegisterAdapter(dbAdapter);
+container.registerAdapter('default', dbAdapter, true);
 
 // Register named adapter
-Container.RegisterAdapter(analyticsAdapter, 'analytics');
+container.registerAdapter('analytics', analyticsAdapter);
 
 // Get adapter
-const adapter = Container.GetAdapter();
-const namedAdapter = Container.GetAdapter('analytics');
+const adapter = container.getAdapter();
+const namedAdapter = container.getAdapter('analytics');
 ```
 
 
@@ -278,9 +290,11 @@ interface IStatementAdapter {
 
 ```typescript
 // Register multiple database connections
-Container.RegisterAdapter(mainDb, 'main', true);  // Default
-Container.RegisterAdapter(analyticsDb, 'analytics');
-Container.RegisterAdapter(cacheDb, 'cache');
+const container = Container.getInstance();
+
+container.registerAdapter('main', mainDb, true);  // Default
+container.registerAdapter('analytics', analyticsDb);
+container.registerAdapter('cache', cacheDb);
 
 // Use specific adapter
 const table = new Table('events', 'analytics');
