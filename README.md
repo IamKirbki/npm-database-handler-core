@@ -78,6 +78,9 @@ const users = await usersTable.Records<User>();
 const user = new Record<User>('users', { name: 'Alice' });
 await user.Insert();
 
+// Update record (requires newValues and primaryKey)
+await user.Update({ name: 'Alice Smith' }, { id: user.values.id });
+
 // Raw queries
 const query = new Query({
     tableName: 'users',
@@ -143,8 +146,8 @@ await table.Insert({ name: 'Bob', email: 'bob@example.com' });
 const count = await table.RecordsCount();
 
 // JOIN
-const results = await table.Join<User, Post>({
-    joinTable: 'posts',
+const results = await table.Join<User>({
+    fromTable: 'posts',
     joinType: 'INNER',
     on: 'users.id = posts.user_id'
 });
@@ -161,9 +164,8 @@ Single row with CRUD operations:
 const record = new Record<User>('users', { name: 'Alice' });
 await record.Insert();
 
-// Delete
-await record.Delete();        // Hard delete
-await record.Delete(somePrimaryKey);    // Soft delete
+// Delete (requires primaryKey parameter)
+await record.Delete({ id: 1 });  // Soft delete if deleted_at column exists, otherwise hard delete
 ```
 
 
@@ -199,7 +201,7 @@ const count = await query.Count();
 Build SQL programmatically:
 
 ```typescript
-import QueryStatementBuilder from '@iamkirbki/database-handler-core/helpers/QueryStatementBuilder';
+import { QueryStatementBuilder } from '@iamkirbki/database-handler-core';
 
 // SELECT
 const sql = QueryStatementBuilder.BuildSelect('users', {
