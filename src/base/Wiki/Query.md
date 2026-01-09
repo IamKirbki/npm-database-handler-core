@@ -18,6 +18,10 @@ The `Query` class provides a flexible interface for executing custom SQL queries
 
 The Query class allows you to execute raw SQL queries while maintaining type safety and automatic conversion to Record objects. It handles parameter binding and provides different execution methods depending on your needs (run, get, all).
 
+**Parameter Placeholders:** The PostgreSQL adapter uses `@paramName` syntax for parameter placeholders (e.g., `@age`, `@email`). This differs from some other SQL libraries that use `:paramName` or `?` placeholders.
+
+**Alternative Approach:** For most common database operations, consider using [QueryStatementBuilder](../../helpers/Wiki/QueryStatementBuilder.md) which provides a type-safe way to build SQL queries without writing raw SQL strings.
+
 ## Constructor
 
 ```typescript
@@ -30,7 +34,7 @@ constructor(TableName: string, Query: string)
 
 **Example:**
 ```typescript
-const query = new Query('users', 'SELECT * FROM users WHERE age > :age');
+const query = new Query('users', 'SELECT * FROM users WHERE age > @age');
 ```
 
 ## Properties
@@ -83,7 +87,7 @@ Executes a non-SELECT query (INSERT, UPDATE, DELETE, etc.) and returns the resul
 
 **Example:**
 ```typescript
-const query = new Query('users', 'UPDATE users SET status = :status WHERE id = :id');
+const query = new Query('users', 'UPDATE users SET status = @status WHERE id = @id');
 query.Parameters = { id: 1, status: 'inactive' };
 const result = await query.Run();
 ```
@@ -109,7 +113,7 @@ type User = {
   age: number;
 };
 
-const query = new Query<User>('users', 'SELECT * FROM users WHERE age > :age');
+const query = new Query<User>('users', 'SELECT * FROM users WHERE age > @age');
 query.Parameters = { age: 18 };
 const users = await query.All<User>();
 
@@ -139,7 +143,7 @@ type User = {
   email: string;
 };
 
-const query = new Query('users', 'SELECT * FROM users WHERE email = :email');
+const query = new Query('users', 'SELECT * FROM users WHERE email = @email');
 query.Parameters = { email: 'user@example.com' };
 const user = await query.Get<User>();
 
@@ -159,7 +163,7 @@ Executes a COUNT query and returns the numeric result.
 
 **Example:**
 ```typescript
-const query = new Query('users', 'SELECT COUNT(*) as count FROM users WHERE status = :status');
+const query = new Query('users', 'SELECT COUNT(*) as count FROM users WHERE status = @status');
 query.Parameters = { status: 'active' };
 const activeUserCount = await query.Count();
 console.log(`Active users: ${activeUserCount}`);
@@ -234,17 +238,19 @@ type Product = {
   inStock: boolean;
 };
 
-const query = new Query('products', 'SELECT * FROM products WHERE price < :maxPrice');
+const query = new Query('products', 'SELECT * FROM products WHERE price < @maxPrice');
 query.Parameters = { maxPrice: 100 };
 const affordableProducts = await query.All<Product>();
+// Returns: Array of Record<Product> objects where price < 100
+// Example: [Record<Product>, Record<Product>, ...] with properties: id, name, price, inStock
 ```
 
 ### Complex WHERE Conditions
 ```typescript
 const query = new Query('orders', `
   SELECT * FROM orders 
-  WHERE status = :status 
-  AND created_at > :date
+  WHERE status = @status 
+  AND created_at > @date
   ORDER BY created_at DESC
 `);
 
@@ -254,13 +260,15 @@ query.Parameters = {
 };
 
 const recentOrders = await query.All();
+// Returns: Array of Record objects with all orders that are pending and created after Jan 1, 2026
+// Sorted by created_at in descending order
 ```
 
 ### INSERT with Run
 ```typescript
 const query = new Query('users', `
   INSERT INTO users (name, email, age) 
-  VALUES (:name, :email, :age)
+  VALUES (@name, @email, @age)
 `);
 
 query.Parameters = {
@@ -270,14 +278,15 @@ query.Parameters = {
 };
 
 const result = await query.Run();
+// Returns: Database adapter result (e.g., { lastInsertRowid: 1, changes: 1 })
 ```
 
 ### UPDATE with Run
 ```typescript
 const query = new Query('users', `
   UPDATE users 
-  SET last_login = :lastLogin 
-  WHERE id = :userId
+  SET last_login = @lastLogin 
+  WHERE id = @userId
 `);
 
 query.Parameters = {
@@ -285,29 +294,35 @@ query.Parameters = {
   userId: 42
 };
 
-await query.Run();
+const result = await query.Run();
+// Returns: Database adapter result (e.g., { changes: 1 })
+// Indicates 1 row was updated
 ```
 
 ### DELETE with Run
 ```typescript
 const query = new Query('sessions', `
   DELETE FROM sessions 
-  WHERE expires_at < :now
+  WHERE expires_at < @now
 `);
 
 query.Parameters = { now: new Date() };
-await query.Run();
+const result = await query.Run();
+// Returns: Database adapter result (e.g., { changes: 5 })
+// Indicates 5 expired sessions were deleted
 ```
 
 ### Using LIKE Operator
 ```typescript
 const query = new Query('users', `
   SELECT * FROM users 
-  WHERE name LIKE :pattern
+  WHERE name LIKE @pattern
 `);
 
 query.Parameters = { pattern: '%John%' };
 const users = await query.All();
+// Returns: Array of Record objects for all users with 'John' in their name
+// Example: [Record{ id: 1, name: 'John Doe' }, Record{ id: 5, name: 'Johnny Smith' }]
 ```
 
 ### Aggregate Functions
@@ -316,7 +331,7 @@ const users = await query.All();
 const sumQuery = new Query('orders', `
   SELECT SUM(total) as count 
   FROM orders 
-  WHERE status = :status
+  WHERE status = @status
 `);
 sumQuery.Parameters = { status: 'completed' };
 const totalRevenue = await sumQuery.Count();
@@ -325,10 +340,11 @@ const totalRevenue = await sumQuery.Count();
 const avgQuery = new Query('products', `
   SELECT AVG(price) as count 
   FROM products 
-  WHERE category = :category
+  WHERE category = @category
 `);
 avgQuery.Parameters = { category: 'electronics' };
 const avgPrice = await avgQuery.Count();
+// Returns: Average price as a number (e.g., 549)
 ```
 
 ### JOIN Queries
@@ -337,11 +353,13 @@ const query = new Query('users', `
   SELECT users.*, orders.total 
   FROM users 
   INNER JOIN orders ON users.id = orders.user_id 
-  WHERE orders.status = :status
+  WHERE orders.status = @status
 `);
 
 query.Parameters = { status: 'completed' };
 const usersWithOrders = await query.All();
+// Returns: Array of Record objects with joined data from users and orders tables
+// Example: [Record{ id: 1, name: 'Alice', email: 'alice@...', total: 99.99 }, ...]
 ```
 
 ## Best Practices
@@ -351,7 +369,7 @@ const usersWithOrders = await query.All();
    const users = await query.All<User>(); // Type-safe
    ```
 
-2. **Parameter Binding**: Always use parameter placeholders (`:paramName`) instead of string concatenation to prevent SQL injection
+2. **Parameter Binding**: Always use parameter placeholders (`@paramName`) instead of string concatenation to prevent SQL injection
    ```typescript
    // Good
    query.Parameters = { email: userInput };
