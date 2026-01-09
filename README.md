@@ -52,6 +52,8 @@ This package provides the core abstractions, interfaces, and base classes used b
 - **Runtime** - Container singleton for adapter management
 - **Types** - TypeScript type definitions
 
+---
+
 ## Core Components
 
 ### Base Classes
@@ -62,11 +64,15 @@ This package provides the core abstractions, interfaces, and base classes used b
 | `Table` | High-level table interface | [Table.md](src/base/Wiki/Table.md) |
 | `Record` | Single row with CRUD operations | [Record.md](src/base/Wiki/Record.md) |
 
+<br>
+
 ### Helpers
 
 | Helper | Description | Documentation |
 |--------|-------------|---------------|
 | `QueryStatementBuilder` | Build SQL queries programmatically | [QueryStatementBuilder.md](src/helpers/Wiki/QueryStatementBuilder.md) |
+
+<br>
 
 ### Abstract Classes
 
@@ -75,12 +81,16 @@ This package provides the core abstractions, interfaces, and base classes used b
 | `Model` | Base model class | [Model.ts](src/abstract/Model.ts) |
 | `SchemaTableBuilder` | Table schema builder | [SchemaTableBuilder.md](src/abstract/Wiki/SchemaTableBuilder.md) |
 
+<br>
+
 ### Runtime
 
 | Component | Description |
 |-----------|-------------|
 | `Container` | Singleton for managing database adapters |
 | `Repository` | Base repository pattern implementation |
+
+---
 
 ## Quick Start
 
@@ -129,6 +139,8 @@ const query = new Query({
 const results = await query.All<User>();
 ```
 
+---
+
 ## Documentation
 
 ### Detailed Guides
@@ -138,6 +150,8 @@ const results = await query.All<User>();
 - **[Record](src/base/Wiki/Record.md)** - Single row CRUD operations
 - **[QueryStatementBuilder](src/helpers/Wiki/QueryStatementBuilder.md)** - Programmatic SQL building
 - **[SchemaTableBuilder](src/abstract/Wiki/SchemaTableBuilder.md)** - Table schema definitions
+
+---
 
 ### [API Reference](#api-reference)
 
@@ -274,6 +288,8 @@ import type {
 } from '@iamkirbki/database-handler-core/types';
 ```
 
+---
+
 ## [Interfaces](#interfaces)
 
 ### [IDatabaseAdapter](src/interfaces/Wiki/IDatabaseAdapter.md)
@@ -311,6 +327,8 @@ interface IStatementAdapter {
     query(sql: string, params?: any): Promise<any[]>;
 }
 ```
+
+---
 
 ## [Advanced Usage](#advanced-usage)
 
@@ -373,6 +391,8 @@ const newUser = await User.create({
     email: 'bob@example.com'
 });
 ```
+
+---
 
 ## Parameter Binding
 
