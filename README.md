@@ -343,31 +343,32 @@ class User extends Model<UserData> {
     }
 }
 
-// Use the model
-const user = await User.find(1);
+// Use static methods to find records
+const user = await User.find(1).first();
 if (user) {
     console.log(user.getFullName()); // "John Doe"
     user.values.first_name = 'Jane';
     await user.save();
 }
 
-// Use static methods
 const alice = await User.findByEmail('alice@example.com');
 
 // Create new record with static method
-const newUser = await User.create({
+const newUser = await User.set({
     first_name: 'Bob',
     last_name: 'Smith',
     email: 'bob@example.com'
-});
+}).save();
 
-// Or create instance directly
-const anotherUser = new User({
+// Or create instance first, then use methods and save
+const charlie = new User();
+charlie.set({
     first_name: 'Charlie',
     last_name: 'Brown',
     email: 'charlie@example.com'
 });
-await anotherUser.save();
+console.log(charlie.getFullName()); // "Charlie Brown"
+await charlie.save(); // Insert into database
 ```
 
 ---
