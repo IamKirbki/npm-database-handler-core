@@ -161,13 +161,9 @@ Single row with CRUD operations:
 const record = new Record<User>('users', { name: 'Alice' });
 await record.Insert();
 
-// Update
-record.values.name = 'Alice Smith';
-await record.Update();
-
 // Delete
 await record.Delete();        // Hard delete
-await record.Delete(true);    // Soft delete
+await record.Delete(somePrimaryKey);    // Soft delete
 ```
 
 
