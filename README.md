@@ -2,6 +2,35 @@
 
 Core abstractions and interfaces for the Kirbkis Database Handler library.
 
+## Table of Contents
+
+- [Installation](#installation)
+- [Overview](#overview)
+- [Core Components](#core-components)
+  - [Base Classes](#base-classes)
+  - [Helpers](#helpers)
+  - [Abstract Classes](#abstract-classes)
+  - [Runtime](#runtime)
+- [Quick Start](#quick-start)
+- [Documentation](#documentation)
+- [API Reference](#api-reference)
+  - [Container](src/runtime/Wiki/Container.md)
+  - [Table](src/base/Wiki/Table.md)
+  - [Record](src/base/Wiki/Record.md)
+  - [Query](src/base/Wiki/Query.md)
+  - [QueryStatementBuilder](src/helpers/Wiki/QueryStatementBuilder.md)
+- [Types](src/types/Wiki/Types.md)
+- [Interfaces](#interfaces)
+  - [IDatabaseAdapter](src/interfaces/Wiki/IDatabaseAdapter.md)
+  - [ISchemaBuilder](src/interfaces/Wiki/ISchemaBuilder.md)
+  - [IStatementAdapter](src/interfaces/Wiki/IStatementAdapter.md)
+- [Advanced Usage](#advanced-usage)
+  - [Multiple Adapters](src/runtime/Wiki/MultipleAdapters.md)
+  - [Custom Models](src/abstract/Wiki/Model.md)
+- [Parameter Binding](#parameter-binding)
+- [License](#license)
+- [Links](#links)
+
 ## Installation
 
 ```bash
