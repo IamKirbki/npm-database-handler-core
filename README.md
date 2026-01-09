@@ -70,11 +70,11 @@ Container.RegisterAdapter(db);
 ```typescript
 import { Table, Record, Query } from '@iamkirbki/database-handler-core';
 
-// Table interface
+// Table instance
 const usersTable = new Table('users');
 const users = await usersTable.Records<User>();
 
-// Record interface
+// Record instance
 const user = new Record<User>('users', { name: 'Alice' });
 await user.Insert();
 
