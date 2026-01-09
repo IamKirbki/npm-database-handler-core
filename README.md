@@ -120,7 +120,7 @@ const adapter = Container.GetAdapter();
 const namedAdapter = Container.GetAdapter('analytics');
 ```
 
-<br>
+
 
 #### [Table](src/base/Wiki/Table.md)
 
@@ -149,7 +149,7 @@ const results = await table.Join<User, Post>({
 });
 ```
 
-<br>
+
 
 #### [Record](src/base/Wiki/Record.md)
 
@@ -169,7 +169,7 @@ await record.Delete();        // Hard delete
 await record.Delete(true);    // Soft delete
 ```
 
-<br>
+
 
 #### [Query](src/base/Wiki/Query.md)
 
@@ -195,7 +195,7 @@ await query.Run();
 const count = await query.Count();
 ```
 
-<br>
+
 
 #### [QueryStatementBuilder](src/helpers/Wiki/QueryStatementBuilder.md)
 
