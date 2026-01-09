@@ -314,22 +314,6 @@ class User extends Model<User> {
 }
 ```
 
-### Repository Pattern
-
-```typescript
-import { Repository } from '@iamkirbki/database-handler-core';
-
-class UserRepository extends Repository<User> {
-    constructor() {
-        super('users');
-    }
-    
-    async findActiveUsers(): Promise<User[]> {
-        return this.find({ where: { status: 'active' } });
-    }
-}
-```
-
 ## Parameter Binding
 
 Always use `@paramName` syntax (both PostgreSQL and SQLite):
