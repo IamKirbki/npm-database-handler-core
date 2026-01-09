@@ -354,12 +354,20 @@ if (user) {
 // Use static methods
 const alice = await User.findByEmail('alice@example.com');
 
-// Create new record
+// Create new record with static method
 const newUser = await User.create({
     first_name: 'Bob',
     last_name: 'Smith',
     email: 'bob@example.com'
 });
+
+// Or create instance directly
+const anotherUser = new User({
+    first_name: 'Charlie',
+    last_name: 'Brown',
+    email: 'charlie@example.com'
+});
+await anotherUser.save();
 ```
 
 ---
