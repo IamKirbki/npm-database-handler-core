@@ -228,22 +228,6 @@ const deleteSql = QueryStatementBuilder.BuildDelete('users', {
 
 ---
 
-## Types
-
-The package includes comprehensive TypeScript types:
-
-```typescript
-import type {
-    columnType,
-    QueryCondition,
-    QueryParameters,
-    DefaultQueryOptions,
-    TableColumnInfo
-} from '@iamkirbki/database-handler-core/types';
-```
-
----
-
 ## Interfaces
 
 See [Interfaces Documentation](src/interfaces/README.md) for complete guide.
