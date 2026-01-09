@@ -13,13 +13,12 @@ export default class Query {
     return this._parameters;
   }
 
-  public set Parameters(value: QueryCondition) {
-    this._parameters = Query.ConvertParamsToObject(value);
-  }
+  constructor(tableName: string, query: string, parameters?: QueryCondition) {
+    this.TableName = tableName;
+    this._query = query;
 
-  constructor(TableName: string, Query: string) {
-    this.TableName = TableName;
-    this._query = Query;
+    if (parameters)
+      this._parameters = Query.ConvertParamsToObject(parameters);
   }
 
   /** Execute a non-SELECT query (INSERT, UPDATE, DELETE, etc.) */

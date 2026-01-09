@@ -53,11 +53,11 @@ export default class Table {
             offset: options?.offset,
         });
 
-        const query = new Query(this._name, queryStr);
-
+        let params = {}
         if (options?.where && Object.keys(options.where).length > 0)
-            query.Parameters = options.where;
-
+            params = options.where;
+        
+        const query = new Query(this._name, queryStr, params);
         const results: Record<Type>[] = await query.All();
         return results;
     }
@@ -96,15 +96,17 @@ export default class Table {
         options?: DefaultQueryOptions & QueryOptions,
     ): Promise<Record<Type>[]> {
         const queryString = QueryStatementBuilder.BuildJoin(this._name, Joins, options);
-        const query = new Query(this._name, queryString);
-
+        
         // Set parameters if WHERE clause is present
-        if (options?.where) {
-            query.Parameters = options.where;
-        }
+        let params = {}
+        if (options?.where) 
+            params = options.where
+
+        const query = new Query(this._name, queryString, params);
 
         const joinedTables = Array.isArray(Joins) ? Joins.map(j => j.fromTable) : [Joins.fromTable];
         const records = await query.All();
+        
         return await this.splitJoinValues(records, joinedTables) as Record<Type>[];
     }
 

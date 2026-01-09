@@ -442,11 +442,8 @@ const sql = QueryStatementBuilder.BuildSelect('users', {
   limit: 10
 });
 
-// Create a Query instance with the built SQL
-const query = new Query('users', sql);
-
-// Set the parameters (matches the WHERE conditions)
-query.Parameters = { status: 'active' };
+// Create a Query instance with the built SQL and parameters
+const query = new Query('users', sql, { status: 'active' });
 
 // Execute the query
 const users = await query.All<User>();
@@ -471,8 +468,7 @@ const sql = QueryStatementBuilder.BuildSelect('users', {
   offset: page * pageSize
 });
 
-const query = new Query('users', sql);
-query.Parameters = conditions;
+const query = new Query('users', sql, conditions);
 const results = await query.All();
 ```
 
@@ -488,8 +484,7 @@ const sql = QueryStatementBuilder.BuildSelect('users', {
   ]
 });
 
-const query = new Query('users', sql);
-query.Parameters = { age: 18, status: 'active' }; // Note: operator conditions still use simple params
+const query = new Query('users', sql, { age: 18, status: 'active' });
 const adults = await query.All<User>();
 ```
 
@@ -505,8 +500,7 @@ const newUser = {
 };
 
 const sql = QueryStatementBuilder.BuildInsert('users', newUser);
-const query = new Query('users', sql);
-query.Parameters = newUser;
+const query = new Query('users', sql, newUser);
 
 await query.Run();
 ```
@@ -522,13 +516,12 @@ const updates = {
 const conditions = { id: userId };
 
 const sql = QueryStatementBuilder.BuildUpdate('users', updates, conditions);
-const query = new Query('users', sql);
 
 // Combine both update values and where conditions
-query.Parameters = {
+const query = new Query('users', sql, {
   ...updates,
   where_id: userId  // Note the where_ prefix
-};
+});
 
 await query.Run();
 ```
@@ -541,8 +534,7 @@ const sql = QueryStatementBuilder.BuildDelete('sessions', {
   status: 'expired'
 });
 
-const query = new Query('sessions', sql);
-query.Parameters = { expiresAt: pastDate, status: 'expired' };
+const query = new Query('sessions', sql, { expiresAt: pastDate, status: 'expired' });
 
 await query.Run();
 ```
@@ -555,8 +547,7 @@ const sql = QueryStatementBuilder.BuildCount('orders', {
   createdAt: today
 });
 
-const query = new Query('orders', sql);
-query.Parameters = { status: 'pending', createdAt: today };
+const query = new Query('orders', sql, { status: 'pending', createdAt: today });
 
 const pendingCount = await query.Count();
 console.log(`Pending orders: ${pendingCount}`);
@@ -581,8 +572,7 @@ const sql = QueryStatementBuilder.BuildJoin(
   }
 );
 
-const query = new Query('users', sql);
-query.Parameters = { 'orders.status': 'completed' };
+const query = new Query('users', sql, { 'orders.status': 'completed' });
 
 const usersWithOrders = await query.All();
 ```
@@ -624,8 +614,7 @@ const sql = QueryStatementBuilder.BuildJoin(
   }
 );
 
-const query = new Query('users', sql);
-query.Parameters = { 'orders.status': 'completed' };
+const query = new Query('users', sql, { 'orders.status': 'completed' });
 
 const orderDetails = await query.All();
 ```
@@ -648,13 +637,10 @@ const sql = QueryStatementBuilder.BuildSelect('products', {
   limit: 10
 });
 
-// 2. Create
-const query = new Query('products', sql);
+// 2. Create with parameters
+const query = new Query('products', sql, { category: 'electronics' });
 
-// 3. Parameters
-query.Parameters = { category: 'electronics' };
-
-// 4. Execute
+// 3. Execute
 const products = await query.All<Product>();
 ```
 
@@ -694,8 +680,7 @@ const products = await query.All<Product>();
      const sql = QueryStatementBuilder.BuildSelect('users', {
        where: { status }
      });
-     const query = new Query('users', sql);
-     query.Parameters = { status };
+     const query = new Query('users', sql, { status });
      return query.All<User>();
    }
    ```

@@ -26,8 +26,7 @@ export default class Record<ColumnValuesType extends columnType> {
         }
 
         const queryStr = QueryStatementBuilder.BuildInsert(this._tableName, this._values);
-        const query = new Query(this._tableName, queryStr);
-        query.Parameters = this._values;
+        const query = new Query(this._tableName, queryStr, this._values);
 
         const result = await query.Run<{ lastInsertRowid: number | bigint; changes: number }>();
 
@@ -45,8 +44,7 @@ export default class Record<ColumnValuesType extends columnType> {
         }
 
         const queryStrSelect = QueryStatementBuilder.BuildSelect(this._tableName, { where: { ...this._values } });
-        const querySelect = new Query(this._tableName, queryStrSelect);
-        querySelect.Parameters = { ...this._values };
+        const querySelect = new Query(this._tableName, queryStrSelect, this._values);
 
         const insertedRecord = await querySelect.All<ColumnValuesType>();
         if (insertedRecord.length > 0) {
@@ -65,15 +63,14 @@ export default class Record<ColumnValuesType extends columnType> {
         }
 
         const queryStr = QueryStatementBuilder.BuildUpdate(this._tableName, newValues as QueryWhereParameters, primaryKey);
-        const _query = new Query(this._tableName, queryStr);
-
+        
         // Merge newValues and originalValues for parameters (with 'where_' prefix for where clause)
         const params: Partial<ColumnValuesType> = { ...newValues };
         Object.entries(originalValues).forEach(([key, value]) => {
             params[`where_${key}` as keyof ColumnValuesType] = value;
         });
-
-        _query.Parameters = params as QueryWhereParameters;
+        
+        const _query = new Query(this._tableName, queryStr, params as QueryWhereParameters);
         await _query.Run();
 
         this._values = { ...this._values, ...newValues };
@@ -90,8 +87,7 @@ export default class Record<ColumnValuesType extends columnType> {
         }
 
         const queryStr = QueryStatementBuilder.BuildDelete(this._tableName, this._values);
-        const _query = new Query(this._tableName, queryStr);
-        _query.Parameters = { ...this._values as object };
+        const _query = new Query(this._tableName, queryStr, this.values);
         await _query.Run();
     }
 

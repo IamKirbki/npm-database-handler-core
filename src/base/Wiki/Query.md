@@ -25,16 +25,21 @@ The Query class allows you to execute raw SQL queries while maintaining type saf
 ## Constructor
 
 ```typescript
-constructor(TableName: string, Query: string)
+constructor(TableName: string, Query: string, parameters?: QueryCondition)
 ```
 
 **Parameters:**
 - `TableName` (string): The name of the table being queried
 - `Query` (string): The SQL query string with parameter placeholders
+- `parameters` (optional, QueryCondition): Parameter values to bind to the query placeholders
 
 **Example:**
 ```typescript
-const query = new Query('users', 'SELECT * FROM users WHERE age > @age');
+// With parameters
+const query = new Query('users', 'SELECT * FROM users WHERE age > @age', { age: 25 });
+
+// Without parameters (for queries with no placeholders)
+const query = new Query('users', 'SELECT * FROM users');
 ```
 
 ## Properties
@@ -48,22 +53,25 @@ The name of the table associated with this query (read-only).
 ### Parameters
 ```typescript
 public get Parameters(): QueryCondition
-public set Parameters(value: QueryCondition)
 ```
 
-Get or set the query parameters. Parameters can be provided in two formats:
+Get the query parameters (read-only). Parameters must be set via the constructor.
+
+Parameters can be provided in two formats:
 
 1. **Object format** (simple key-value pairs):
 ```typescript
-query.Parameters = { age: 25, status: 'active' };
+const query = new Query('users', 'SELECT * FROM users WHERE status = @status', 
+  { age: 25, status: 'active' }
+);
 ```
 
 2. **Array format** (with operators):
 ```typescript
-query.Parameters = [
+const query = new Query('users', 'SELECT * FROM users WHERE age > @age', [
   { column: 'age', operator: '>', value: 25 },
   { column: 'status', operator: '=', value: 'active' }
-];
+]);
 ```
 
 **Supported operators:** `=`, `!=`, `<`, `<=`, `>`, `>=`, `LIKE`, `IN`, `NOT IN`
@@ -87,8 +95,9 @@ Executes a non-SELECT query (INSERT, UPDATE, DELETE, etc.) and returns the resul
 
 **Example:**
 ```typescript
-const query = new Query('users', 'UPDATE users SET status = @status WHERE id = @id');
-query.Parameters = { id: 1, status: 'inactive' };
+const query = new Query('users', 'UPDATE users SET status = @status WHERE id = @id', 
+  { id: 1, status: 'inactive' }
+);
 const result = await query.Run();
 ```
 
@@ -113,8 +122,7 @@ type User = {
   age: number;
 };
 
-const query = new Query<User>('users', 'SELECT * FROM users WHERE age > @age');
-query.Parameters = { age: 18 };
+const query = new Query('users', 'SELECT * FROM users WHERE age > @age', { age: 18 });
 const users = await query.All<User>();
 
 // Access records
@@ -143,8 +151,9 @@ type User = {
   email: string;
 };
 
-const query = new Query('users', 'SELECT * FROM users WHERE email = @email');
-query.Parameters = { email: 'user@example.com' };
+const query = new Query('users', 'SELECT * FROM users WHERE email = @email', 
+  { email: 'user@example.com' }
+);
 const user = await query.Get<User>();
 
 if (user) {
@@ -163,8 +172,9 @@ Executes a COUNT query and returns the numeric result.
 
 **Example:**
 ```typescript
-const query = new Query('users', 'SELECT COUNT(*) as count FROM users WHERE status = @status');
-query.Parameters = { status: 'active' };
+const query = new Query('users', 'SELECT COUNT(*) as count FROM users WHERE status = @status', 
+  { status: 'active' }
+);
 const activeUserCount = await query.Count();
 console.log(`Active users: ${activeUserCount}`);
 ```
