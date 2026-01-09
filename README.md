@@ -6,27 +6,12 @@ Core abstractions and interfaces for the Kirbkis Database Handler library.
 
 - [Installation](#installation)
 - [Overview](#overview)
-- [Core Components](#core-components)
-  - [Base Classes](#base-classes)
-  - [Helpers](#helpers)
-  - [Abstract Classes](#abstract-classes)
-  - [Runtime](#runtime)
 - [Quick Start](#quick-start)
 - [Documentation](#documentation)
 - [API Reference](#api-reference)
-  - [Container](#container)
-  - [Table](#table)
-  - [Record](#record)
-  - [Query](#query)
-  - [QueryStatementBuilder](#querystatementbuilder)
 - [Types](#types)
 - [Interfaces](#interfaces)
-  - [IDatabaseAdapter](#idatabaseadapter)
-  - [ISchemaBuilder](#ischemabuilder)
-  - [IStatementAdapter](#istatementadapter)
 - [Advanced Usage](#advanced-usage)
-  - [Multiple Adapters](#multiple-adapters)
-  - [Custom Models](#custom-models)
 - [Parameter Binding](#parameter-binding)
 - [License](#license)
 - [Links](#links)
@@ -115,9 +100,9 @@ const results = await query.All<User>();
 
 ---
 
-### [API Reference](#api-reference)
+## API Reference
 
-#### [Container](src/runtime/Wiki/Container.md)
+### [Container](src/runtime/Wiki/Container.md)
 
 Singleton for managing database adapters:
 
@@ -244,7 +229,9 @@ const deleteSql = QueryStatementBuilder.BuildDelete('users', {
 });
 ```
 
-## [Types](src/types/Wiki/Types.md)
+---
+
+## Types
 
 The package includes comprehensive TypeScript types:
 
@@ -260,7 +247,9 @@ import type {
 
 ---
 
-## [Interfaces](#interfaces)
+## Interfaces
+
+See [Interfaces Documentation](src/interfaces/README.md) for complete guide.
 
 ### [IDatabaseAdapter](src/interfaces/Wiki/IDatabaseAdapter.md)
 
@@ -300,9 +289,9 @@ interface IStatementAdapter {
 
 ---
 
-## [Advanced Usage](#advanced-usage)
+## Advanced Usage
 
-### [Multiple Adapters](src/runtime/Wiki/MultipleAdapters.md)
+### Multiple Adapters
 
 ```typescript
 // Register multiple database connections
@@ -315,9 +304,9 @@ const table = new Table('events', 'analytics');
 const events = await table.Records<Event>();
 ```
 
-### [Custom Models](src/abstract/Wiki/Model.md)
+### Custom Models
 
-Extend the base Model class:
+Extend the Model class (see [Model](src/abstract/Model.ts)):
 
 ```typescript
 import { Model } from '@iamkirbki/database-handler-core';
