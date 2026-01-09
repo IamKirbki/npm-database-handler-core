@@ -271,7 +271,7 @@ interface IDatabaseAdapter {
     connect(config: any): Promise<void>;
     disconnect(): Promise<void>;
     execute(query: string, params?: any): Promise<any>;
-    // ... more methods
+    // ... more methods if needed
 }
 ```
 
@@ -389,4 +389,3 @@ ISC License
 
 - [Main Repository](https://github.com/iamkirbki/database-handler)
 - [npm Package](https://www.npmjs.com/package/@iamkirbki/database-handler-core)
-- [Documentation](https://github.com/iamkirbki/database-handler/tree/main/packages/core)
