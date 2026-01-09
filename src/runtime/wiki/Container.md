@@ -15,7 +15,7 @@ Get the singleton instance of the Container.
 **Returns:** `Container`
 
 ```typescript
-import Container from '@iamkirbki/database-handler-core';
+import { Container } from '@iamkirbki/database-handler-core';
 
 const container = Container.getInstance();
 ```
@@ -34,7 +34,7 @@ Register a database adapter with a name.
 **Returns:** `void`
 
 ```typescript
-import Container from '@iamkirbki/database-handler-core';
+import { Container } from '@iamkirbki/database-handler-core';
 import { PostgresAdapter } from '@iamkirbki/database-handler-pg';
 import { BetterSqlite3Adapter } from '@iamkirbki/database-handler-bettersqlite3';
 
@@ -71,6 +71,8 @@ Retrieve a registered adapter by name, or get the default adapter.
 - Error if no default adapter is set and no name is provided
 
 ```typescript
+const container = Container.getInstance();
+
 // Get default adapter
 const defaultDb = container.getAdapter();
 
@@ -85,7 +87,7 @@ const analyticsDb = container.getAdapter('analytics');
 ### Single Database Setup
 
 ```typescript
-import Container from '@iamkirbki/database-handler-core';
+import { Container } from '@iamkirbki/database-handler-core';
 import { PostgresAdapter } from '@iamkirbki/database-handler-pg';
 
 const container = Container.getInstance();
@@ -111,7 +113,7 @@ const usersTable = new Table('users');
 ### Multiple Database Setup
 
 ```typescript
-import Container from '@iamkirbki/database-handler-core';
+import { Container } from '@iamkirbki/database-handler-core';
 import { PostgresAdapter } from '@iamkirbki/database-handler-pg';
 import { BetterSqlite3Adapter } from '@iamkirbki/database-handler-bettersqlite3';
 
@@ -144,7 +146,7 @@ const sessionsTable = new Table('sessions', 'cache'); // Uses 'cache'
 ### Environment-Based Configuration
 
 ```typescript
-import Container from '@iamkirbki/database-handler-core';
+import { Container } from '@iamkirbki/database-handler-core';
 
 const container = Container.getInstance();
 
@@ -173,8 +175,7 @@ if (process.env.NODE_ENV === 'production') {
 ### Accessing Adapters in Application Code
 
 ```typescript
-import Container from '@iamkirbki/database-handler-core';
-import { Table, Query } from '@iamkirbki/database-handler-core';
+import { Container, Table, Query } from '@iamkirbki/database-handler-core';
 
 // Get adapter directly if needed
 const container = Container.getInstance();

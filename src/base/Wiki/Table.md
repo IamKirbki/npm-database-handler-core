@@ -114,18 +114,18 @@ await usersTable.Insert([
 Perform JOIN queries with automatic result splitting.
 
 ```typescript
-const results = await usersTable.Join<User, Post>({
-  joinTable: 'posts',
+const results = await usersTable.Join<User>({
+  fromTable: 'posts',
   joinType: 'INNER',
   on: 'users.id = posts.user_id',
   where: { 'posts.status': 'published' },
   select: 'users.*, posts.title, posts.created_at as post_date'
 });
 
-// Access joined data
-results.forEach(([user, post]) => {
-  console.log(user.values.name);
-  console.log(post.values.title);
+// Access joined data - joined table columns are nested in record values
+results.forEach(record => {
+  console.log(record.values.name);  // User name
+  console.log(record.values.posts);  // Nested posts data
 });
 ```
 
@@ -133,16 +133,16 @@ results.forEach(([user, post]) => {
 
 ```typescript
 // INNER JOIN
-await usersTable.Join({ joinTable: 'posts', joinType: 'INNER', on: 'users.id = posts.user_id' });
+await usersTable.Join({ fromTable: 'posts', joinType: 'INNER', on: 'users.id = posts.user_id' });
 
 // LEFT JOIN
-await usersTable.Join({ joinTable: 'profiles', joinType: 'LEFT', on: 'users.id = profiles.user_id' });
+await usersTable.Join({ fromTable: 'profiles', joinType: 'LEFT', on: 'users.id = profiles.user_id' });
 
 // RIGHT JOIN
-await usersTable.Join({ joinTable: 'orders', joinType: 'RIGHT', on: 'users.id = orders.user_id' });
+await usersTable.Join({ fromTable: 'orders', joinType: 'RIGHT', on: 'users.id = orders.user_id' });
 
 // FULL JOIN
-await usersTable.Join({ joinTable: 'sessions', joinType: 'FULL', on: 'users.id = sessions.user_id' });
+await usersTable.Join({ fromTable: 'sessions', joinType: 'FULL', on: 'users.id = sessions.user_id' });
 ```
 
 ## Table Information

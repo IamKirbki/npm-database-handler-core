@@ -5,7 +5,7 @@
 Build SQL queries programmatically with type-safe, structured methods.
 
 ```typescript
-import QueryStatementBuilder from '@kirbkis/database-handler-core/helpers/QueryStatementBuilder';
+import { QueryStatementBuilder } from '@iamkirbki/database-handler-core';
 
 const sql = QueryStatementBuilder.BuildSelect('users', {
   where: { status: 'active', role: 'admin' },

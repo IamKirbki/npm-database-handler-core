@@ -65,28 +65,30 @@ await user.Insert();
 
 ### Update()
 
-Update the record in the database (requires primary key).
+Update the record in the database with new values and primary key.
+
+**Signature:** `async Update(newValues: Partial<T>, primaryKey: object): Promise<this>`
 
 ```typescript
 const user = await usersTable.Record<User>({ where: { id: 1 } });
-user.values.name = 'Alice Smith';
-user.values.email = 'alice.smith@example.com';
 
-await user.Update();
+await user.Update(
+  { name: 'Alice Smith', email: 'alice.smith@example.com' },
+  { id: user.values.id }
+);
 ```
 
 ### Delete()
 
 Delete the record from the database.
 
+**Signature:** `async Delete(primaryKey: object): Promise<void>`
+
 ```typescript
 const user = await usersTable.Record<User>({ where: { id: 1 } });
 
-// Hard delete
-await user.Delete();
-
-// Soft delete (if deleted_at column exists)
-await user.Delete(true);
+// Soft delete if deleted_at column exists, otherwise hard delete
+await user.Delete({ id: user.values.id });
 ```
 
 ### toJSON()
@@ -164,8 +166,10 @@ console.log(product.values.id);  // Auto-generated ID
 const user = await usersTable.Record<User>({ where: { email: 'alice@example.com' } });
 
 if (user) {
-  user.values.last_login = new Date();
-  await user.Update();
+  await user.Update(
+    { last_login: new Date() },
+    { id: user.values.id }
+  );
 }
 ```
 
@@ -175,7 +179,7 @@ if (user) {
 const post = await postsTable.Record<Post>({ where: { id: postId } });
 
 if (post && post.values.status === 'draft') {
-  await post.Delete();
+  await post.Delete({ id: post.values.id });
 }
 ```
 
@@ -204,9 +208,10 @@ const users = await usersTable.Records<User>({
 });
 
 for (const user of users) {
-  user.values.status = 'active';
-  user.values.activated_at = new Date();
-  await user.Update();
+  await user.Update(
+    { status: 'active', activated_at: new Date() },
+    { id: user.values.id }
+  );
 }
 ```
 
