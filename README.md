@@ -305,13 +305,44 @@ Extend the base Model class:
 ```typescript
 import { Model } from '@iamkirbki/database-handler-core';
 
-class User extends Model<User> {
-    tableName = 'users';
+type UserData = {
+    id: number;
+    first_name: string;
+    last_name: string;
+    email: string;
+};
+
+class User extends Model<UserData> {
+    protected tableName = 'users';
     
-    async getFullName(): Promise<string> {
+    // Custom instance method
+    getFullName(): string {
         return `${this.values.first_name} ${this.values.last_name}`;
     }
+    
+    // Custom static method
+    static async findByEmail(email: string): Promise<User | undefined> {
+        return await this.findOne({ where: { email } });
+    }
 }
+
+// Use the model
+const user = await User.find(1);
+if (user) {
+    console.log(user.getFullName()); // "John Doe"
+    user.values.first_name = 'Jane';
+    await user.save();
+}
+
+// Use static methods
+const alice = await User.findByEmail('alice@example.com');
+
+// Create new record
+const newUser = await User.create({
+    first_name: 'Bob',
+    last_name: 'Smith',
+    email: 'bob@example.com'
+});
 ```
 
 ## Parameter Binding
