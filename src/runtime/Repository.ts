@@ -9,19 +9,20 @@ export default class Repository<Type extends columnType, ModelType extends Model
     private models: Map<string, ModelType> = new Map();
     private Table: Table
 
-    constructor(tableName: string, ModelClass: ModelType) {
+    constructor(tableName: string, ModelClass: ModelType, customAdapter?: string) {
         const modelPk = ModelClass.primaryKey?.toString() || ModelClass.constructor.name;
         this.models.set(modelPk, ModelClass);
-        this.Table = new Table(tableName);
+        this.Table = new Table(tableName, customAdapter);
     }
 
     public static getInstance<ModelType extends columnType>(
         ModelClass: new () => Model<ModelType>,
-        tableName: string
+        tableName: string,
+        customAdapter?: string
     ): Repository<ModelType, Model<ModelType>> {
         const className = ModelClass.name;
         if (!this._instances.has(className)) {
-            const instance = new Repository<ModelType, Model<ModelType>>(tableName, new ModelClass());
+            const instance = new Repository<ModelType, Model<ModelType>>(tableName, new ModelClass(), customAdapter);
             this._instances.set(className, instance);
             return instance;
         }
@@ -39,25 +40,27 @@ export default class Repository<Type extends columnType, ModelType extends Model
     }
 
     public async save(attributes: Type): Promise<void> {
-        await this.Table.Insert(attributes);
+        await this.Table.Insert<Type>(attributes);
     }
 
     public async first(conditions: QueryCondition, Model: Model<Type>): Promise<Type | null> {
         let record;
         if (Model.JoinedEntities.length > 0) {
-            record = await this.join(Model, conditions, { limit: 1 }).then(results => results[0]);
+            const results = await this.join(Model, conditions, { limit: 1 });
+            record = results[0] ? { values: results[0] } : undefined;
         } else {
-            record = await this.Table.Record({ where: conditions });
+            record = await this.Table.Record<Type>({ where: conditions });
         }
 
-        return record ? record.values as Type : null;
+        return record ? record.values : null;
     }
 
     public async get(conditions: QueryCondition, queryOptions: QueryOptions, Model: Model<Type>): Promise<Type[]> {
         if (Model.JoinedEntities.length > 0) {
             return await this.join(Model, conditions, queryOptions);
         } else {
-            return await this.Table.Records({ where: conditions, ...queryOptions }).then(records => records.map(record => record.values as Type));
+            const records = await this.Table.Records<Type>({ where: conditions, ...queryOptions });
+            return records.map(record => record.values);
         }
     }
 
@@ -65,7 +68,8 @@ export default class Repository<Type extends columnType, ModelType extends Model
         if (Model.JoinedEntities.length > 0) {
             return await this.join(Model);
         } else {
-            return await this.Table.Records({ where: queryscopes, ...queryOptions }).then(records => records.map(record => record.values as Type));
+            const records = await this.Table.Records<Type>({ where: queryscopes, ...queryOptions });
+            return records.map(record => record.values);
         }
     }
 
@@ -77,7 +81,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
     }
 
     private async join(Model: Model<Type>, conditions?: QueryCondition, queryOptions?: QueryOptions): Promise<Type[]> {
-        const Join: Join[] = Model.JoinedEntities.map(join => {
+        const Join: Join[] = Model.JoinedEntities.flatMap(join => {
             const relation: relation | undefined = Model.Relations.find(rel => rel.model.Configuration.table.toLowerCase() === join.relation.toLowerCase());
             if (join.queryScopes) {
                 conditions = this.mergeQueryConditions(conditions || {}, join.queryScopes);
@@ -87,18 +91,42 @@ export default class Repository<Type extends columnType, ModelType extends Model
                 throw new Error(`Relation for joined entity ${join} not found.`);
             }
 
+            if (relation.type === 'manyToMany') {
+                return [
+                    {
+                        fromTable: Model.Configuration.table,
+                        joinType: 'INNER',
+                        on: [
+                            {
+                                [relation.pivotForeignKey!]: relation.foreignKey,
+                            }
+                        ]
+                    },
+                    {
+                        fromTable: relation.model.Configuration.table,
+                        joinType: 'INNER',
+                        on: [
+                            {
+                                [relation.pivotLocalKey!]: relation.localKey
+                            }
+                        ]
+                    }
+                ] as Join[];
+            }
+
             const JoinType = relation.type === 'hasOne' || relation.type === 'belongsTo' ? 'INNER' : 'LEFT';
 
-            return {
+            return [{
                 fromTable: relation.model.Configuration.table,
                 joinType: JoinType,
                 on: [
-                    { [relation.foreignKey]: relation.localKey as string }
+                    { [relation.foreignKey!]: relation.localKey! }
                 ]
-            }
-        })
+            }] as Join[];
+        });
 
-        return (await this.Table.Join(Join, { where: conditions, ...queryOptions })).map(record => record.values as Type);
+        const records = await this.Table.Join<Type>(Join, { where: conditions, ...queryOptions });
+        return records.map(record => record.values);
     }
 
     private mergeQueryConditions(base: QueryCondition, additional: QueryCondition): QueryParameters[] {

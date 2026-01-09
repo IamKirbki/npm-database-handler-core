@@ -10,7 +10,8 @@ export default abstract class Model<ModelType extends columnType> {
         if (!this._repository) {
             this._repository = Repository.getInstance<ModelType>(
                 this.constructor as new () => Model<ModelType>,
-                this.Configuration.table
+                this.Configuration.table,
+                this.Configuration.customAdapter
             );
         }
         return this._repository;
@@ -181,7 +182,7 @@ export default abstract class Model<ModelType extends columnType> {
     }
 
     public async get(): Promise<this[]> {
-        const records = await this.repository.get(this.queryScopes || {}, this.queryOptions, this) as Partial<ModelType>[];
+        const records = await this.repository.get(this.queryScopes || {}, this.queryOptions, this);
         return records.map(record => {
             const instance = new (this.constructor as new () => this)();
             instance.set(record);
@@ -201,7 +202,7 @@ export default abstract class Model<ModelType extends columnType> {
     }
 
     public async all(): Promise<this[]> {
-        const records = await this.repository.all(this, this.queryScopes, this.queryOptions) as Partial<ModelType>[];
+        const records = await this.repository.all(this, this.queryScopes, this.queryOptions);
         return records.map(record => {
             const instance = new (this.constructor as new () => this)();
             instance.set(record);
@@ -265,7 +266,27 @@ export default abstract class Model<ModelType extends columnType> {
         return this.relations;
     }
 
-    public hasMany<modelType extends Model<columnType>>(
+    protected ManyToMany<modelType extends Model<columnType>>(
+        model: modelType,
+        pivotTable: string = `${this.Configuration.table}_${model.Configuration.table}`,
+        localKey: string = this.Configuration.primaryKey,
+        foreignKey: string = model.Configuration.primaryKey,
+        pivotForeignKey: string = `${this.Configuration.table}_${localKey}`,
+        pivotLocalKey: string = `${model.Configuration.table}_${foreignKey}`,
+    ): this {
+        this.relations.push({
+            type: 'manyToMany',
+            model: model,
+            pivotTable: pivotTable,
+            foreignKey: foreignKey,
+            pivotForeignKey: pivotForeignKey,
+            localKey: localKey,
+            pivotLocalKey: pivotLocalKey,
+        });
+        return this;
+    }
+
+    protected hasMany<modelType extends Model<columnType>>(
         model: modelType,
         foreignKey: string = `${this.Configuration.table}_${this.Configuration.primaryKey}`,
         localKey: string = this.Configuration.primaryKey
@@ -279,7 +300,7 @@ export default abstract class Model<ModelType extends columnType> {
         return this;
     }
 
-    public hasOne<modelType extends Model<columnType>>(
+    protected hasOne<modelType extends Model<columnType>>(
         model: modelType,
         foreignKey: string = `${model.Configuration.primaryKey}`,
         localKey: string = `${model.Configuration.table}_${model.Configuration.primaryKey}`
@@ -293,7 +314,7 @@ export default abstract class Model<ModelType extends columnType> {
         return this;
     }
 
-    public belongsTo<modelType extends Model<columnType>>(
+    protected belongsTo<modelType extends Model<columnType>>(
         model: modelType,
         foreignKey: string = `${model.Configuration.table}_${model.Configuration.primaryKey}`,
         localKey: string = model.Configuration.primaryKey
