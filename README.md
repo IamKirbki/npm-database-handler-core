@@ -9,7 +9,7 @@ npm install @iamkirbki/database-handler-core
 ```
 
 > **Note:** You'll also need to install a database adapter:
-> - `@iamkirbki/database-handler-bettersqlite3` for SQLite
+> - `@iamkirbki/database-handler-better-sqlite3` for SQLite
 > - `@iamkirbki/database-handler-pg` for PostgreSQL
 
 ## Overview
@@ -59,7 +59,7 @@ This package provides the core abstractions, interfaces, and base classes used b
 
 ```bash
 npm install @iamkirbki/database-handler-core
-npm install @iamkirbki/database-handler-pg  # or bettersqlite3
+npm install @iamkirbki/database-handler-pg  # or better-sqlite3
 ```
 
 ### 2. Setup Adapter
