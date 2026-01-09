@@ -54,44 +54,6 @@ This package provides the core abstractions, interfaces, and base classes used b
 
 ---
 
-## Core Components
-
-### Base Classes
-
-| Class | Description | Documentation |
-|-------|-------------|---------------|
-| `Query` | Execute raw SQL with parameter binding | [Query.md](src/base/Wiki/Query.md) |
-| `Table` | High-level table interface | [Table.md](src/base/Wiki/Table.md) |
-| `Record` | Single row with CRUD operations | [Record.md](src/base/Wiki/Record.md) |
-
-<br>
-
-### Helpers
-
-| Helper | Description | Documentation |
-|--------|-------------|---------------|
-| `QueryStatementBuilder` | Build SQL queries programmatically | [QueryStatementBuilder.md](src/helpers/Wiki/QueryStatementBuilder.md) |
-
-<br>
-
-### Abstract Classes
-
-| Class | Description | Documentation |
-|-------|-------------|---------------|
-| `Model` | Base model class | [Model.ts](src/abstract/Model.ts) |
-| `SchemaTableBuilder` | Table schema builder | [SchemaTableBuilder.md](src/abstract/Wiki/SchemaTableBuilder.md) |
-
-<br>
-
-### Runtime
-
-| Component | Description |
-|-----------|-------------|
-| `Container` | Singleton for managing database adapters |
-| `Repository` | Base repository pattern implementation |
-
----
-
 ## Quick Start
 
 ### 1. Install Dependencies
@@ -173,6 +135,8 @@ const adapter = Container.GetAdapter();
 const namedAdapter = Container.GetAdapter('analytics');
 ```
 
+<br>
+
 #### [Table](src/base/Wiki/Table.md)
 
 High-level interface for table operations:
@@ -200,6 +164,8 @@ const results = await table.Join<User, Post>({
 });
 ```
 
+<br>
+
 #### [Record](src/base/Wiki/Record.md)
 
 Single row with CRUD operations:
@@ -217,6 +183,8 @@ await record.Update();
 await record.Delete();        // Hard delete
 await record.Delete(true);    // Soft delete
 ```
+
+<br>
 
 #### [Query](src/base/Wiki/Query.md)
 
@@ -241,6 +209,8 @@ await query.Run();
 // Get count
 const count = await query.Count();
 ```
+
+<br>
 
 #### [QueryStatementBuilder](src/helpers/Wiki/QueryStatementBuilder.md)
 
