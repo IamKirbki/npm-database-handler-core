@@ -306,7 +306,7 @@ const events = await table.Records<Event>();
 
 ### Custom Models
 
-Extend the Model class (see [Model](src/abstract/Model.ts)):
+Extend the Model class (see [Model](src/abstract/Wiki/Model.md)):
 
 ```typescript
 import { Model } from '@iamkirbki/database-handler-core';
