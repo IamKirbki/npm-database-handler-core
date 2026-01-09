@@ -18,7 +18,7 @@ The `Query` class provides a flexible interface for executing custom SQL queries
 
 The Query class allows you to execute raw SQL queries while maintaining type safety and automatic conversion to Record objects. It handles parameter binding and provides different execution methods depending on your needs (run, get, all).
 
-**Parameter Placeholders:** The PostgreSQL adapter uses `@paramName` syntax for parameter placeholders (e.g., `@age`, `@email`). This differs from some other SQL libraries that use `:paramName` or `?` placeholders.
+**Parameter Placeholders:** Both the BetterSQLite3 and PostgreSQL adapters use `@paramName` syntax for parameter placeholders (e.g., `@age`, `@email`). This differs from some other SQL libraries that use `:paramName` or `?` placeholders. Using `:paramName` will cause errors.
 
 **Alternative Approach:** For most common database operations, consider using [QueryStatementBuilder](../../helpers/Wiki/QueryStatementBuilder.md) which provides a type-safe way to build SQL queries without writing raw SQL strings.
 
