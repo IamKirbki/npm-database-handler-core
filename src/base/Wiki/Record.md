@@ -29,12 +29,13 @@ Records are typically returned by Table methods (`Records()`, `Record()`, `Join(
 ## Constructor
 
 ```typescript
-constructor(values: ColumnValuesType, table: string)
+constructor(table: string, values: ColumnValuesType, adapter?: string)
 ```
 
 **Parameters:**
-- `values` (object): The column values for this record
 - `table` (string): The name of the table this record belongs to
+- `values` (object): The column values for this record
+- `adapter` (optional, string): Name of a specific adapter to use for operations on this record (defaults to the default adapter registered in Container)
 
 **Example:**
 ```typescript
@@ -45,14 +46,22 @@ type User = {
   age: number;
 };
 
-// Create a new record for insertion
-const newUser = new Record<User>({
+// Create a new record for insertion (uses default adapter)
+const newUser = new Record<User>('users', {
   name: 'Alice Smith',
   email: 'alice@example.com',
   age: 28
-}, 'users');
+});
 
 await newUser.Insert();
+
+// Create a record with custom adapter
+const analyticsRecord = new Record('events', {
+  event_name: 'user_login',
+  timestamp: new Date()
+}, 'analytics');
+
+await analyticsRecord.Insert();
 ```
 
 ## Properties
@@ -101,11 +110,11 @@ type Product = {
 };
 
 // Create new record
-const product = new Record<Product>({
+const product = new Record<Product>('products', {
   name: 'Laptop',
   price: 999.99,
   category: 'electronics'
-}, 'products');
+});
 
 // Insert into database
 const insertedProduct = await product.Insert();
@@ -310,6 +319,61 @@ if (user) {
 
 ## Usage Examples
 
+### Using Custom Adapters
+
+If you have multiple database connections registered in the Container, you can specify which adapter to use when creating a Record. All operations on that record will use the specified adapter:
+
+```typescript
+import { Container, Record } from '@kirbkis/database-handler-core';
+import { PostgresAdapter } from '@kirbkis/database-handler-pg';
+import { BetterSqlite3Adapter } from '@kirbkis/database-handler-better-sqlite3';
+
+type User = {
+  id?: number;
+  name: string;
+  email: string;
+};
+
+type Event = {
+  id?: number;
+  event_name: string;
+  user_id: number;
+  timestamp: Date;
+};
+
+// Register multiple adapters
+const container = Container.getInstance();
+const mainDb = new PostgresAdapter();
+const analyticsDb = new BetterSqlite3Adapter();
+
+mainDb.connect(pgConfig);
+analyticsDb.connect('./analytics.db');
+
+container.registerAdapter('postgres', mainDb, true); // Default adapter
+container.registerAdapter('analytics', analyticsDb);
+
+// Record using default adapter (postgres)
+const user = new Record<User>('users', {
+  name: 'Alice',
+  email: 'alice@example.com'
+});
+await user.Insert(); // Inserts into postgres database
+
+// Record using analytics adapter
+const event = new Record<Event>('events', {
+  event_name: 'user_signup',
+  user_id: user.values.id!,
+  timestamp: new Date()
+}, 'analytics'); // Specify adapter name
+await event.Insert(); // Inserts into analytics database
+
+// All operations on this record use the analytics adapter
+await event.Update(
+  { event_name: 'user_signup_completed' },
+  { id: event.values.id }
+);
+```
+
 ### Creating and Inserting a New Record
 
 ```typescript
@@ -324,11 +388,11 @@ type User = {
 };
 
 // Create new user record
-const newUser = new Record<User>({
+const newUser = new Record<User>('users', {
   name: 'Bob Johnson',
   email: 'bob@example.com',
   age: 35
-}, 'users');
+});
 
 // Insert into database
 const insertedUser = await newUser.Insert();
@@ -423,7 +487,7 @@ const products = [
 const insertedProducts: Record<Product>[] = [];
 
 for (const productData of products) {
-  const product = new Record<Product>(productData, 'products');
+  const product = new Record<Product>('products', productData);
   const inserted = await product.Insert();
   if (inserted) {
     insertedProducts.push(inserted);
@@ -467,7 +531,7 @@ app.get('/api/users', async (req, res) => {
 
 // POST endpoint creating a new record
 app.post('/api/users', async (req, res) => {
-  const newUser = new Record<User>(req.body, 'users');
+  const newUser = new Record<User>('users', req.body);
   const inserted = await newUser.Insert();
   
   if (inserted) {
@@ -602,7 +666,7 @@ The following column names are automatically detected:
    const users = await usersTable.Records<User>({ where: { status: 'active' } });
    
    // Only create Record manually for insertions
-   const newUser = new Record<User>({ name: 'Alice', email: 'alice@...' }, 'users');
+   const newUser = new Record<User>('users', { name: 'Alice', email: 'alice@...' });
    await newUser.Insert();
    ```
 
@@ -634,3 +698,4 @@ The following column names are automatically detected:
 - Compatible with both BetterSQLite3 and PostgreSQL adapters
 - Records support custom `console.log()` formatting for better debugging
 - Timestamp handling is automatic but requires matching column names (`updated_at`, `deleted_at`)
+- **Custom Adapters**: Pass an adapter name to the constructor to use a specific database connection for all operations on that record

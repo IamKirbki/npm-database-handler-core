@@ -1,11 +1,18 @@
 import { columnType, QueryCondition, QueryWhereParameters, TableColumnInfo, QueryParameters } from "@core/types/index.js";
 import { Container, Record, IDatabaseAdapter } from "@core/index.js";
 
+export type QueryConstructorType = {
+  tableName: string;
+  query: string;
+  parameters?: QueryCondition;
+  adapterName?: string;
+};
+
 /** Query class for executing custom SQL queries */
 export default class Query {
   public readonly TableName: string;
 
-  private readonly _adapter: IDatabaseAdapter = Container.getInstance().getAdapter();
+  private readonly _adapter: IDatabaseAdapter;
   private _query: string = "";
   private _parameters: QueryCondition = {};
 
@@ -13,12 +20,19 @@ export default class Query {
     return this._parameters;
   }
 
-  constructor(tableName: string, query: string, parameters?: QueryCondition) {
+  constructor({
+    tableName,
+    query,
+    parameters,
+    adapterName
+  }: QueryConstructorType) {
     this.TableName = tableName;
     this._query = query;
 
     if (parameters)
       this._parameters = Query.ConvertParamsToObject(parameters);
+
+    this._adapter = Container.getInstance().getAdapter(adapterName)
   }
 
   /** Execute a non-SELECT query (INSERT, UPDATE, DELETE, etc.) */
@@ -31,18 +45,18 @@ export default class Query {
   public async All<Type extends columnType>(): Promise<Record<Type>[]> {
     const stmt = await this._adapter.prepare(this._query);
     const results = await stmt.all(this.Parameters) as Type[];
-    return results.map(res => new Record<Type>(res, this.TableName));
+    return results.map(res => new Record<Type>(this.TableName, res));
   }
 
   /** Execute a SELECT query and return the first matching row */
   public async Get<Type extends columnType>(): Promise<Record<Type> | undefined> {
     const stmt = await this._adapter.prepare(this._query);
     const results = await stmt.get(this.Parameters) as Type | undefined;
-    return results ? new Record<Type>(results, this.TableName) : undefined;
+    return results ? new Record<Type>(this.TableName, results) : undefined;
   }
 
-  public static async tableColumnInformation(tableName: string): Promise<TableColumnInfo[]> {
-    return Container.getInstance().getAdapter().tableColumnInformation(tableName);
+  public static async tableColumnInformation(tableName: string, customAdapter?: string): Promise<TableColumnInfo[]> {
+    return Container.getInstance().getAdapter(customAdapter).tableColumnInformation(tableName);
   }
 
   public async Count(): Promise<number> {

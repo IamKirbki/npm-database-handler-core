@@ -25,21 +25,42 @@ The Query class allows you to execute raw SQL queries while maintaining type saf
 ## Constructor
 
 ```typescript
-constructor(TableName: string, Query: string, parameters?: QueryCondition)
+constructor({ tableName, query, parameters, adapterName }: {
+  tableName: string;
+  query: string;
+  parameters?: QueryCondition;
+  adapterName?: string;
+})
 ```
 
-**Parameters:**
-- `TableName` (string): The name of the table being queried
-- `Query` (string): The SQL query string with parameter placeholders
+**Parameters (object):**
+- `tableName` (string): The name of the table being queried
+- `query` (string): The SQL query string with parameter placeholders
 - `parameters` (optional, QueryCondition): Parameter values to bind to the query placeholders
+- `adapterName` (optional, string): Name of a specific adapter to use (defaults to the default adapter registered in Container)
 
 **Example:**
 ```typescript
 // With parameters
-const query = new Query('users', 'SELECT * FROM users WHERE age > @age', { age: 25 });
+const query = new Query({ 
+  tableName: 'users', 
+  query: 'SELECT * FROM users WHERE age > @age', 
+  parameters: { age: 25 } 
+});
 
 // Without parameters (for queries with no placeholders)
-const query = new Query('users', 'SELECT * FROM users');
+const query = new Query({ 
+  tableName: 'users', 
+  query: 'SELECT * FROM users' 
+});
+
+// With custom adapter
+const query = new Query({ 
+  tableName: 'users', 
+  query: 'SELECT * FROM users WHERE status = @status',
+  parameters: { status: 'active' },
+  adapterName: 'analytics' // Use a named adapter
+});
 ```
 
 ## Properties
@@ -61,17 +82,23 @@ Parameters can be provided in two formats:
 
 1. **Object format** (simple key-value pairs):
 ```typescript
-const query = new Query('users', 'SELECT * FROM users WHERE status = @status', 
-  { age: 25, status: 'active' }
-);
+const query = new Query({ 
+  tableName: 'users', 
+  query: 'SELECT * FROM users WHERE status = @status', 
+  parameters: { age: 25, status: 'active' }
+});
 ```
 
 2. **Array format** (with operators):
 ```typescript
-const query = new Query('users', 'SELECT * FROM users WHERE age > @age', [
-  { column: 'age', operator: '>', value: 25 },
-  { column: 'status', operator: '=', value: 'active' }
-]);
+const query = new Query({ 
+  tableName: 'users', 
+  query: 'SELECT * FROM users WHERE age > @age',
+  parameters: [
+    { column: 'age', operator: '>', value: 25 },
+    { column: 'status', operator: '=', value: 'active' }
+  ]
+});
 ```
 
 **Supported operators:** `=`, `!=`, `<`, `<=`, `>`, `>=`, `LIKE`, `IN`, `NOT IN`
@@ -95,9 +122,11 @@ Executes a non-SELECT query (INSERT, UPDATE, DELETE, etc.) and returns the resul
 
 **Example:**
 ```typescript
-const query = new Query('users', 'UPDATE users SET status = @status WHERE id = @id', 
-  { id: 1, status: 'inactive' }
-);
+const query = new Query({ 
+  tableName: 'users', 
+  query: 'UPDATE users SET status = @status WHERE id = @id', 
+  parameters: { id: 1, status: 'inactive' }
+});
 const result = await query.Run();
 ```
 
@@ -122,7 +151,11 @@ type User = {
   age: number;
 };
 
-const query = new Query('users', 'SELECT * FROM users WHERE age > @age', { age: 18 });
+const query = new Query({ 
+  tableName: 'users', 
+  query: 'SELECT * FROM users WHERE age > @age', 
+  parameters: { age: 18 } 
+});
 const users = await query.All<User>();
 
 // Access records
@@ -151,9 +184,11 @@ type User = {
   email: string;
 };
 
-const query = new Query('users', 'SELECT * FROM users WHERE email = @email', 
-  { email: 'user@example.com' }
-);
+const query = new Query({ 
+  tableName: 'users', 
+  query: 'SELECT * FROM users WHERE email = @email', 
+  parameters: { email: 'user@example.com' } 
+});
 const user = await query.Get<User>();
 
 if (user) {
@@ -172,9 +207,11 @@ Executes a COUNT query and returns the numeric result.
 
 **Example:**
 ```typescript
-const query = new Query('users', 'SELECT COUNT(*) as count FROM users WHERE status = @status', 
-  { status: 'active' }
-);
+const query = new Query({ 
+  tableName: 'users', 
+  query: 'SELECT COUNT(*) as count FROM users WHERE status = @status', 
+  parameters: { status: 'active' } 
+});
 const activeUserCount = await query.Count();
 console.log(`Active users: ${activeUserCount}`);
 ```
@@ -237,6 +274,44 @@ const objParams = Query.ConvertParamsToObject(arrayParams);
 
 ## Usage Examples
 
+### Using Custom Adapters
+
+If you have multiple database connections registered in the Container, you can specify which adapter to use for a specific query:
+
+```typescript
+import { Container } from '@kirbkis/database-handler-core';
+import { PostgresAdapter } from '@kirbkis/database-handler-pg';
+import { BetterSqlite3Adapter } from '@kirbkis/database-handler-better-sqlite3';
+
+// Register multiple adapters
+const container = Container.getInstance();
+const mainDb = new PostgresAdapter();
+const analyticsDb = new BetterSqlite3Adapter();
+
+mainDb.connect(pgConfig);
+analyticsDb.connect('./analytics.db');
+
+container.registerAdapter('postgres', mainDb, true); // Default adapter
+container.registerAdapter('analytics', analyticsDb);
+
+// Query using default adapter (postgres)
+const mainQuery = new Query({ 
+  tableName: 'users', 
+  query: 'SELECT * FROM users WHERE status = @status',
+  parameters: { status: 'active' }
+});
+const users = await mainQuery.All<User>();
+
+// Query using analytics adapter
+const analyticsQuery = new Query({ 
+  tableName: 'events', 
+  query: 'SELECT * FROM events WHERE date > @date',
+  parameters: { date: '2026-01-01' },
+  adapterName: 'analytics' // Specify adapter name
+});
+const events = await analyticsQuery.All();
+```
+
 ### Basic SELECT Query
 ```typescript
 import { Query } from '@kirbkis/database-handler-core';
@@ -257,17 +332,19 @@ const affordableProducts = await query.All<Product>();
 
 ### Complex WHERE Conditions
 ```typescript
-const query = new Query('orders', `
-  SELECT * FROM orders 
-  WHERE status = @status 
-  AND created_at > @date
-  ORDER BY created_at DESC
-`);
-
-query.Parameters = {
-  status: 'pending',
-  date: new Date('2026-01-01')
-};
+const query = new Query({ 
+  tableName: 'orders',
+  query: `
+    SELECT * FROM orders 
+    WHERE status = @status 
+    AND created_at > @date
+    ORDER BY created_at DESC
+  `,
+  parameters: {
+    status: 'pending',
+    date: new Date('2026-01-01')
+  }
+});
 
 const recentOrders = await query.All();
 // Returns: Array of Record objects with all orders that are pending and created after Jan 1, 2026
@@ -276,16 +353,18 @@ const recentOrders = await query.All();
 
 ### INSERT with Run
 ```typescript
-const query = new Query('users', `
-  INSERT INTO users (name, email, age) 
-  VALUES (@name, @email, @age)
-`);
-
-query.Parameters = {
-  name: 'John Doe',
-  email: 'john@example.com',
-  age: 30
-};
+const query = new Query({ 
+  tableName: 'users',
+  query: `
+    INSERT INTO users (name, email, age) 
+    VALUES (@name, @email, @age)
+  `,
+  parameters: {
+    name: 'John Doe',
+    email: 'john@example.com',
+    age: 30
+  }
+});
 
 const result = await query.Run();
 // Returns: Database adapter result (e.g., { lastInsertRowid: 1, changes: 1 })
@@ -293,16 +372,18 @@ const result = await query.Run();
 
 ### UPDATE with Run
 ```typescript
-const query = new Query('users', `
-  UPDATE users 
-  SET last_login = @lastLogin 
-  WHERE id = @userId
-`);
-
-query.Parameters = {
-  lastLogin: new Date(),
-  userId: 42
-};
+const query = new Query({ 
+  tableName: 'users',
+  query: `
+    UPDATE users 
+    SET last_login = @lastLogin 
+    WHERE id = @userId
+  `,
+  parameters: {
+    lastLogin: new Date(),
+    userId: 42
+  }
+});
 
 const result = await query.Run();
 // Returns: Database adapter result (e.g., { changes: 1 })
@@ -311,12 +392,14 @@ const result = await query.Run();
 
 ### DELETE with Run
 ```typescript
-const query = new Query('sessions', `
-  DELETE FROM sessions 
-  WHERE expires_at < @now
-`);
-
-query.Parameters = { now: new Date() };
+const query = new Query({ 
+  tableName: 'sessions',
+  query: `
+    DELETE FROM sessions 
+    WHERE expires_at < @now
+  `,
+  parameters: { now: new Date() }
+});
 const result = await query.Run();
 // Returns: Database adapter result (e.g., { changes: 5 })
 // Indicates 5 expired sessions were deleted
@@ -324,12 +407,14 @@ const result = await query.Run();
 
 ### Using LIKE Operator
 ```typescript
-const query = new Query('users', `
-  SELECT * FROM users 
-  WHERE name LIKE @pattern
-`);
-
-query.Parameters = { pattern: '%John%' };
+const query = new Query({ 
+  tableName: 'users',
+  query: `
+    SELECT * FROM users 
+    WHERE name LIKE @pattern
+  `,
+  parameters: { pattern: '%John%' }
+});
 const users = await query.All();
 // Returns: Array of Record objects for all users with 'John' in their name
 // Example: [Record{ id: 1, name: 'John Doe' }, Record{ id: 5, name: 'Johnny Smith' }]
@@ -338,35 +423,43 @@ const users = await query.All();
 ### Aggregate Functions
 ```typescript
 // Sum
-const sumQuery = new Query('orders', `
-  SELECT SUM(total) as count 
-  FROM orders 
-  WHERE status = @status
-`);
-sumQuery.Parameters = { status: 'completed' };
+const sumQuery = new Query({ 
+  tableName: 'orders',
+  query: `
+    SELECT SUM(total) as count 
+    FROM orders 
+    WHERE status = @status
+  `,
+  parameters: { status: 'completed' }
+});
 const totalRevenue = await sumQuery.Count();
 
 // Average
-const avgQuery = new Query('products', `
-  SELECT AVG(price) as count 
-  FROM products 
-  WHERE category = @category
-`);
-avgQuery.Parameters = { category: 'electronics' };
+const avgQuery = new Query({ 
+  tableName: 'products',
+  query: `
+    SELECT AVG(price) as count 
+    FROM products 
+    WHERE category = @category
+  `,
+  parameters: { category: 'electronics' }
+});
 const avgPrice = await avgQuery.Count();
 // Returns: Average price as a number (e.g., 549)
 ```
 
 ### JOIN Queries
 ```typescript
-const query = new Query('users', `
-  SELECT users.*, orders.total 
-  FROM users 
-  INNER JOIN orders ON users.id = orders.user_id 
-  WHERE orders.status = @status
-`);
-
-query.Parameters = { status: 'completed' };
+const query = new Query({ 
+  tableName: 'users',
+  query: `
+    SELECT users.*, orders.total 
+    FROM users 
+    INNER JOIN orders ON users.id = orders.user_id 
+    WHERE orders.status = @status
+  `,
+  parameters: { status: 'completed' }
+});
 const usersWithOrders = await query.All();
 // Returns: Array of Record objects with joined data from users and orders tables
 // Example: [Record{ id: 1, name: 'Alice', email: 'alice@...', total: 99.99 }, ...]
@@ -411,3 +504,4 @@ const usersWithOrders = await query.All();
 - All values are automatically converted to strings for database compatibility (except `null`, `undefined`, and `Date` objects)
 - The Query class uses the database adapter configured in the Container singleton
 - Results are automatically wrapped in Record objects, providing additional utility methods
+- **Custom Adapters**: Use the `adapterName` parameter to query different databases when you have multiple adapters registered. If omitted, the default adapter is used.

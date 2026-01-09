@@ -7,10 +7,12 @@ import QueryStatementBuilder from "@core/helpers/QueryStatementBuilder.js";
 export default class Record<ColumnValuesType extends columnType> {
     private _values: ColumnValuesType = {} as ColumnValuesType;
     private readonly _tableName: string;
+    private readonly _customAdapter?: string;
 
-    constructor(values: ColumnValuesType, table: string) {
-        this._values = values;
+    constructor(table: string, values: ColumnValuesType, adapter?: string) {
         this._tableName = table;
+        this._values = values;
+        this._customAdapter = adapter;
     }
 
     /** Get the raw values object for this record */
@@ -26,7 +28,12 @@ export default class Record<ColumnValuesType extends columnType> {
         }
 
         const queryStr = QueryStatementBuilder.BuildInsert(this._tableName, this._values);
-        const query = new Query(this._tableName, queryStr, this._values);
+        const query = new Query({
+            tableName: this._tableName,
+            query: queryStr,
+            parameters: this._values,
+            adapterName: this._customAdapter
+        });
 
         const result = await query.Run<{ lastInsertRowid: number | bigint; changes: number }>();
 
@@ -44,7 +51,12 @@ export default class Record<ColumnValuesType extends columnType> {
         }
 
         const queryStrSelect = QueryStatementBuilder.BuildSelect(this._tableName, { where: { ...this._values } });
-        const querySelect = new Query(this._tableName, queryStrSelect, this._values);
+        const querySelect = new Query({
+            tableName: this._tableName,
+            query: queryStrSelect,
+            parameters: this._values,
+            adapterName: this._customAdapter
+        });
 
         const insertedRecord = await querySelect.All<ColumnValuesType>();
         if (insertedRecord.length > 0) {
@@ -63,14 +75,19 @@ export default class Record<ColumnValuesType extends columnType> {
         }
 
         const queryStr = QueryStatementBuilder.BuildUpdate(this._tableName, newValues as QueryWhereParameters, primaryKey);
-        
+
         // Merge newValues and originalValues for parameters (with 'where_' prefix for where clause)
         const params: Partial<ColumnValuesType> = { ...newValues };
         Object.entries(originalValues).forEach(([key, value]) => {
             params[`where_${key}` as keyof ColumnValuesType] = value;
         });
-        
-        const _query = new Query(this._tableName, queryStr, params as QueryWhereParameters);
+
+        const _query = new Query({ 
+            tableName: this._tableName, 
+            query: queryStr, 
+            parameters: params as QueryWhereParameters, 
+            adapterName: this._customAdapter 
+        });
         await _query.Run();
 
         this._values = { ...this._values, ...newValues };
@@ -87,7 +104,12 @@ export default class Record<ColumnValuesType extends columnType> {
         }
 
         const queryStr = QueryStatementBuilder.BuildDelete(this._tableName, this._values);
-        const _query = new Query(this._tableName, queryStr, this.values);
+        const _query = new Query({ 
+            tableName: this._tableName, 
+            query: queryStr, parameters: 
+            this.values, adapterName: 
+            this._customAdapter 
+        });
         await _query.Run();
     }
 

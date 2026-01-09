@@ -30,11 +30,12 @@ Tables are typically created as instances to represent your database tables, tho
 ## Constructor
 
 ```typescript
-constructor(name: string)
+constructor(name: string, customAdapter?: string)
 ```
 
 **Parameters:**
 - `name` (string): The name of the database table
+- `customAdapter` (optional, string): Name of a specific adapter to use for all operations on this table (defaults to the default adapter registered in Container)
 
 **Example:**
 ```typescript
@@ -43,6 +44,9 @@ import { Table } from '@kirbkis/database-handler-core';
 const usersTable = new Table('users');
 const postsTable = new Table('posts');
 const productsTable = new Table('products');
+
+// With custom adapter
+const analyticsTable = new Table('events', 'analytics');
 ```
 
 ## Methods
@@ -593,6 +597,56 @@ console.log('Table dropped');
 
 ## Usage Examples
 
+### Using Custom Adapters
+
+If you have multiple database connections registered in the Container, you can specify which adapter to use when creating a Table instance. All operations on that table will use the specified adapter:
+
+```typescript
+import { Container, Table } from '@kirbkis/database-handler-core';
+import { PostgresAdapter } from '@kirbkis/database-handler-pg';
+import { BetterSqlite3Adapter } from '@kirbkis/database-handler-better-sqlite3';
+
+type User = {
+  id: number;
+  name: string;
+  email: string;
+};
+
+type Event = {
+  id: number;
+  event_name: string;
+  timestamp: Date;
+};
+
+// Register multiple adapters
+const container = Container.getInstance();
+const mainDb = new PostgresAdapter();
+const analyticsDb = new BetterSqlite3Adapter();
+
+mainDb.connect(pgConfig);
+analyticsDb.connect('./analytics.db');
+
+container.registerAdapter('postgres', mainDb, true); // Default adapter
+container.registerAdapter('analytics', analyticsDb);
+
+// Table using default adapter (postgres)
+const usersTable = new Table('users');
+const users = await usersTable.Records<User>();
+
+// Table using analytics adapter
+const eventsTable = new Table('events', 'analytics');
+const events = await eventsTable.Records<Event>({ 
+  where: { event_name: 'page_view' } 
+});
+
+// All operations on eventsTable use the analytics adapter
+const eventCount = await eventsTable.RecordsCount();
+const newEvent = await eventsTable.Insert<Event>({
+  event_name: 'user_signup',
+  timestamp: new Date()
+});
+```
+
 ### Basic CRUD Operations
 
 ```typescript
@@ -881,7 +935,7 @@ console.log(`Deleted ${oldRecords.length} old records`);
    const user = await usersTable.Insert<User>({ name: 'Alice', ... });
    
    // Less preferred
-   const record = new Record<User>({ name: 'Alice', ... }, 'users');
+   const record = new Record<User>('users', { name: 'Alice', ... });
    await record.Insert();
    ```
 
@@ -912,3 +966,4 @@ console.log(`Deleted ${oldRecords.length} old records`);
 - Compatible with both BetterSQLite3 and PostgreSQL adapters
 - Table operations are asynchronous and return Promises
 - Records returned are independent instances - modifying one doesn't affect others
+- **Custom Adapters**: Pass an adapter name to the constructor to use a specific database connection for all operations on that table
