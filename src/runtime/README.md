@@ -28,7 +28,7 @@ container.registerAdapter('default', dbAdapter, true);
 const adapter = container.getAdapter();
 ```
 
-**See:** [Container Documentation](wiki/Container.md) for detailed usage and examples.
+**See:** [Container Documentation](../../../../wiki/api/Container.md) for detailed usage and examples.
 
 ---
 
@@ -55,7 +55,7 @@ const users = await User.with('posts').all();
 
 **Note:** Repository is primarily used internally by the Model class. Most developers should use the Model API directly.
 
-**See:** [Repository Documentation](wiki/Repository.md) for internal implementation details.
+**See:** [Repository Documentation](../../../../wiki/api/Repository.md) for internal implementation details.
 
 ---
 
@@ -92,5 +92,5 @@ const events = await Event.all();      // Uses analytics adapter
 ## Documentation
 
 For comprehensive API documentation and examples:
-- [Container.md](wiki/Container.md) - Adapter management
-- [Repository.md](wiki/Repository.md) - Repository pattern internals
+- [Container.md](../../../../wiki/api/Container.md) - Adapter management
+- [Repository.md](../../../../wiki/api/Repository.md) - Repository pattern internals
