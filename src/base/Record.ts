@@ -68,13 +68,13 @@ export default class Record<ColumnValuesType extends columnType> {
     }
 
     /** Update this record in the database */
-    public async Update(newValues: Partial<ColumnValuesType>, primaryKey: QueryWhereParameters): Promise<this> {
+    public async Update(newValues: Partial<ColumnValuesType>, whereParameters: QueryWhereParameters): Promise<this> {
         const originalValues = this._values as Partial<ColumnValuesType>;
         if ((originalValues as object & ModelWithTimestamps).updated_at !== undefined) {
             (newValues as object & ModelWithTimestamps).updated_at = new Date().toISOString();
         }
 
-        const queryStr = QueryStatementBuilder.BuildUpdate(this._tableName, newValues as QueryWhereParameters, primaryKey);
+        const queryStr = QueryStatementBuilder.BuildUpdate(this._tableName, newValues as QueryWhereParameters, whereParameters);
 
         // Merge newValues and originalValues for parameters (with 'where_' prefix for where clause)
         const params: Partial<ColumnValuesType> = { ...newValues };
