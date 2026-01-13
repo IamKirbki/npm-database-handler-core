@@ -266,15 +266,27 @@ export default abstract class Model<ModelType extends columnType> {
         return this.relations;
     }
 
-    protected ManyToMany<modelType extends Model<columnType>>(
+    protected async linkManyToMany(
+        otherTable: string,
+        foreignKey: string
+    ): Promise<void> {
+        this.callRelationMethod(otherTable);
+
+        const relation = this.relations[this.relations.length - 1];
+        delete this.relations[this.relations.length - 1];
+
+        await this.repository.linkManyToMany(foreignKey, this, relation);
+    }
+
+    protected async ManyToMany<modelType extends Model<columnType>>(
         model: modelType,
         pivotTable: string = `${this.Configuration.table}_${model.Configuration.table}`,
         localKey: string = this.Configuration.primaryKey,
         foreignKey: string = model.Configuration.primaryKey,
         pivotForeignKey: string = `${this.Configuration.table}_${localKey}`,
         pivotLocalKey: string = `${model.Configuration.table}_${foreignKey}`,
-    ): this {
-        this.relations.push({
+    ): Promise<this> {
+        const relation = await this.repository.getManyToManyRelation({
             type: 'manyToMany',
             model: model,
             pivotTable: pivotTable,
@@ -282,7 +294,10 @@ export default abstract class Model<ModelType extends columnType> {
             pivotForeignKey: pivotForeignKey,
             localKey: localKey,
             pivotLocalKey: pivotLocalKey,
-        });
+        }, this);
+
+        this.relations.push(relation!);
+
         return this;
     }
 
@@ -353,7 +368,7 @@ export default abstract class Model<ModelType extends columnType> {
         return this;
     }
 
-    private callRelationMethod(relation: string): void {
+    public callRelationMethod(relation: string): void {
         const method = Reflect.get(this, relation);
 
         if (typeof method !== 'function') {

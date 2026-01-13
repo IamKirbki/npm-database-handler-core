@@ -39,10 +39,10 @@ export default class Table {
 
     public async Drop(): Promise<void> {
         const queryStr = `DROP TABLE IF EXISTS "${this._name}";`;
-        const query = new Query({ 
-            tableName: this._name, 
-            query: queryStr, 
-            adapterName: this._customAdapter 
+        const query = new Query({
+            tableName: this._name,
+            query: queryStr,
+            adapterName: this._customAdapter
         });
         await query.Run();
     }
@@ -62,11 +62,11 @@ export default class Table {
         let params = {}
         if (options?.where && Object.keys(options.where).length > 0)
             params = options.where;
-        
-        const query = new Query({ 
-            tableName: this._name, 
-            query: queryStr, 
-            parameters: params 
+
+        const query = new Query({
+            tableName: this._name,
+            query: queryStr,
+            parameters: params
         });
         const results = await query.All<Type>();
         return results;
@@ -88,12 +88,30 @@ export default class Table {
 
     /** Get the total count of records */
     public async RecordsCount(): Promise<number> {
-        const query = new Query({ 
-            tableName: this._name, 
-            query: `SELECT COUNT(*) as count FROM "${this._name}"` 
+        const query = new Query({
+            tableName: this._name,
+            query: `SELECT COUNT(*) as count FROM "${this._name}"`
         });
         const count = await query.Count();
         return count || 0;
+    }
+
+    public async exists(): Promise<boolean> {
+        const query = new Query({
+            tableName: this._name,
+            query: `SELECT 1 FROM "${this._name}" LIMIT 1`
+        });
+
+        try {
+            await query.All();
+            return true;
+        } catch (error: unknown) {
+            if (error instanceof Error && error.message.toLowerCase().includes("no such table")) {
+                return false;
+            } else {
+                throw error;
+            }
+        }
     }
 
     /** Insert a record into the table */
@@ -109,21 +127,21 @@ export default class Table {
         options?: DefaultQueryOptions & QueryOptions
     ): Promise<Record<Type>[]> {
         const queryString = QueryStatementBuilder.BuildJoin(this._name, Joins, options);
-        
+
         // Set parameters if WHERE clause is present
         let params = {}
-        if (options?.where) 
+        if (options?.where)
             params = options.where
 
-        const query = new Query({ 
-            tableName: this._name, 
-            query: queryString, 
-            parameters: params 
+        const query = new Query({
+            tableName: this._name,
+            query: queryString,
+            parameters: params
         });
 
         const joinedTables = Array.isArray(Joins) ? Joins.map(j => j.fromTable) : [Joins.fromTable];
         const records = await query.All<Type>();
-        
+
         const splitTables = await this.splitJoinValues<Type>(records, joinedTables);
         return splitTables;
     }
@@ -131,7 +149,7 @@ export default class Table {
     private async splitJoinValues<Type extends columnType>(records: Record<Type>[], joinedTables: string[]): Promise<Record<Type>[]> {
         const thisRecordColumns = (await this.TableColumnInformation()).map(col => col.name);
         const tableColumnsMap = new Map<string, string[]>();
-        
+
         for (const tableName of joinedTables) {
             const columns = (await Query.tableColumnInformation(tableName)).map(col => col.name);
             tableColumnsMap.set(tableName, columns);
