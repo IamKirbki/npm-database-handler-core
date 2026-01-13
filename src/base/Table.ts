@@ -106,7 +106,7 @@ export default class Table {
     /** Perform JOIN operations with other tables */
     public async Join<Type extends columnType>(
         Joins: Join | Join[],
-        options?: DefaultQueryOptions & QueryOptions,
+        options?: DefaultQueryOptions & QueryOptions
     ): Promise<Record<Type>[]> {
         const queryString = QueryStatementBuilder.BuildJoin(this._name, Joins, options);
         
@@ -124,7 +124,8 @@ export default class Table {
         const joinedTables = Array.isArray(Joins) ? Joins.map(j => j.fromTable) : [Joins.fromTable];
         const records = await query.All<Type>();
         
-        return await this.splitJoinValues<Type>(records, joinedTables);
+        const splitTables = await this.splitJoinValues<Type>(records, joinedTables);
+        return splitTables;
     }
 
     private async splitJoinValues<Type extends columnType>(records: Record<Type>[], joinedTables: string[]): Promise<Record<Type>[]> {

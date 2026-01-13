@@ -28,6 +28,7 @@ export type ColumnDefinition = {
 
 export type Join = {
     fromTable: string;
+    baseTable: string;
     joinType: 'INNER' | 'LEFT' | 'RIGHT' | 'FULL';
     on: QueryWhereParameters | QueryWhereParameters[];
     where?: QueryWhereParameters | QueryWhereParameters[];

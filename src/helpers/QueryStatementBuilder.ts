@@ -320,21 +320,20 @@ export default class QueryStatementBuilder {
      * ```
      */
     public static BuildJoinPart(
-        fromTableName: string,
-        joins: Join | Join[],
+        fromTableName: string, 
+        joins: Join | Join[]
     ): string {
-        const queryParts: string[] = [];
-        const joinsArray = Array.isArray(joins) ? joins : [joins];
+    const queryParts: string[] = [];
+    const joinsArray = Array.isArray(joins) ? joins : [joins];
 
-        let currentTableName = fromTableName;
-        for (const join of joinsArray) {
-            queryParts.push(`${join.joinType} JOIN "${join.fromTable}"`);
-            queryParts.push(this.BuildJoinOnPart(currentTableName, join.fromTable, join.on));
-            currentTableName = join.fromTable;
-        }
-
-        return queryParts.join(" ");
+    for (const join of joinsArray) {
+        const baseTable = join.baseTable || fromTableName;  // Use explicit base or default
+        queryParts.push(`${join.joinType} JOIN "${join.fromTable}"`);
+        queryParts.push(this.BuildJoinOnPart(baseTable, join.fromTable, join.on));
     }
+
+    return queryParts.join(" ");
+}
 
     /**
      * Build ON clause for JOIN operations (helper method)

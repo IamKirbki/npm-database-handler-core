@@ -94,21 +94,19 @@ export default class Repository<Type extends columnType, ModelType extends Model
             if (relation.type === 'manyToMany') {
                 return [
                     {
-                        fromTable: Model.Configuration.table,
+                        fromTable: relation.pivotTable,
+                        baseTable: Model.Configuration.table,
                         joinType: 'INNER',
                         on: [
-                            {
-                                [relation.pivotForeignKey!]: relation.foreignKey,
-                            }
+                            { [relation.pivotForeignKey!]: relation.localKey }
                         ]
                     },
                     {
                         fromTable: relation.model.Configuration.table,
+                        baseTable: relation.pivotTable,
                         joinType: 'INNER',
                         on: [
-                            {
-                                [relation.pivotLocalKey!]: relation.localKey
-                            }
+                            { [relation.foreignKey!]: relation.pivotLocalKey! }
                         ]
                     }
                 ] as Join[];
@@ -118,6 +116,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
 
             return [{
                 fromTable: relation.model.Configuration.table,
+                baseTable: Model.Configuration.table,
                 joinType: JoinType,
                 on: [
                     { [relation.foreignKey!]: relation.localKey! }
