@@ -32,8 +32,6 @@ export default class Query {
     if (parameters)
       this._parameters = Query.ConvertParamsToObject(parameters);
 
-    console.log(query)
-    console.log(parameters)
     this._adapter = Container.getInstance().getAdapter(adapterName)
   }
 

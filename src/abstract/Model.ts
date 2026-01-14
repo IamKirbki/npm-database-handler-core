@@ -266,11 +266,11 @@ export default abstract class Model<ModelType extends columnType> {
         return this.relations;
     }
 
-    protected async linkManyToMany(
+    public async linkManyToMany(
         otherTable: string,
         foreignKey: string
     ): Promise<void> {
-        this.callRelationMethod(otherTable);
+        await this.callRelationMethod(otherTable);
 
         const relation = this.relations[this.relations.length - 1];
         delete this.relations[this.relations.length - 1];
@@ -347,13 +347,13 @@ export default abstract class Model<ModelType extends columnType> {
         this: new () => ParamterModelType,
         relation: string,
         queryScopes?: QueryCondition
-    ): ParamterModelType {
+    ): Promise<ParamterModelType> {
         const instance = new this();
         return instance.with(relation, queryScopes);
     }
 
-    public with(relation: string, queryScopes?: QueryCondition): this {
-        this.callRelationMethod(relation);
+    public async with(relation: string, queryScopes?: QueryCondition): Promise<this> {
+        await this.callRelationMethod(relation);
 
         const lastRelation = this.relations[this.relations.length - 1];
         const tableName = lastRelation.model.Configuration.table;
@@ -368,8 +368,8 @@ export default abstract class Model<ModelType extends columnType> {
         return this;
     }
 
-    public callRelationMethod(relation: string): void {
-        const method = Reflect.get(this, relation);
+    public async callRelationMethod(relation: string): Promise<void> {
+        const method = Reflect.get(this, relation)
 
         if (typeof method !== 'function') {
             throw new Error(
@@ -377,7 +377,7 @@ export default abstract class Model<ModelType extends columnType> {
             );
         }
 
-        method.call(this);
+        await method.call(this);
     }
 
     private normalizeQueryScopes(

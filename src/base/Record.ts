@@ -95,11 +95,11 @@ export default class Record<ColumnValuesType extends columnType> {
     }
 
     /** Delete this record from the database */
-    public async Delete(primaryKey: QueryWhereParameters): Promise<void> {
+    public async Delete(primaryKey?: QueryWhereParameters): Promise<void> {
         const originalValues = this._values as Partial<ColumnValuesType>;
         if ((originalValues as object & ModelWithTimestamps).deleted_at !== undefined) {
             (this._values as object & ModelWithTimestamps).deleted_at = new Date().toISOString();
-            this.Update(this._values, primaryKey);
+            await this.Update(this._values, this._values.id ? { id: this._values.id } : primaryKey || {});
             return;
         }
 

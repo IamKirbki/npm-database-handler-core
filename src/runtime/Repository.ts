@@ -31,19 +31,36 @@ export default class Repository<Type extends columnType, ModelType extends Model
         return this._instances.get(className) as Repository<ModelType, Model<ModelType>>;
     }
 
+    private generateManyToManyKeys(
+        foreignKey: string,
+        modelOfOrigin: ModelType,
+        relation: relation
+    ) {
+        const reversed = relation.pivotTable === `${relation.model.Configuration.table}_${modelOfOrigin.Configuration.table}`;
+
+        return {
+            [relation.pivotLocalKey!]: !reversed ? foreignKey : modelOfOrigin.values[relation.foreignKey]!,
+            [relation.pivotForeignKey!]: !reversed ? modelOfOrigin.values[relation.foreignKey]! : foreignKey
+        }
+    }
+
     public async linkManyToMany(
         foreignKey: string,
         modelOfOrigin: ModelType,
         relation: relation
     ): Promise<void> {
         const table = new Table(relation.pivotTable!);
-        const reversed = relation.pivotTable === `${relation.model.Configuration.table}_${modelOfOrigin.Configuration.table}`;
+        await table.Insert(this.generateManyToManyKeys(foreignKey, modelOfOrigin, relation));
+    }
 
-        //@TODO: custom adapter usage
-        await table.Insert({
-            [relation.pivotLocalKey!]: reversed ? foreignKey : modelOfOrigin.values[relation.foreignKey]!,
-            [relation.pivotForeignKey!]: reversed ? modelOfOrigin.values[relation.foreignKey]! : foreignKey
-        });
+    public async unlinkManyToMany(
+        foreignKey: string,
+        modelOfOrigin: ModelType,
+        relation: relation
+    ): Promise<void> {
+        const table = new Table(relation.pivotTable!);
+        const record = await table.Record(this.generateManyToManyKeys(foreignKey, modelOfOrigin, relation));
+        await record?.Delete();
     }
 
     public async getManyToManyRelation(relation: relation, modelOfOrigin: ModelType): Promise<relation | undefined> {
