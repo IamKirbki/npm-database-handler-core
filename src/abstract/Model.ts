@@ -266,7 +266,7 @@ export default abstract class Model<ModelType extends columnType> {
         return this.relations;
     }
 
-    public async linkManyToMany(
+    public async insertRecordIntoPivotTable(
         otherTable: string,
         foreignKey: string
     ): Promise<void> {

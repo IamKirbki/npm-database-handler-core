@@ -36,7 +36,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
         modelOfOrigin: ModelType,
         relation: relation
     ) {
-        const isLocal = relation.pivotLocalKey?.includes(modelOfOrigin.Configuration.table);
+        const isLocal = !relation.pivotLocalKey?.includes(modelOfOrigin.Configuration.table);
 
         return {
             [relation.pivotLocalKey!]: isLocal ? foreignKey : modelOfOrigin.values[relation.foreignKey]!,
