@@ -101,7 +101,7 @@ export default class Table {
             tableName: this._name,
             adapterName: this._customAdapter
         })
-        
+
         return await query.DoesTableExist();
     }
 
@@ -117,9 +117,8 @@ export default class Table {
         Joins: Join | Join[],
         options?: DefaultQueryParameters & ExtraQueryParameters
     ): Promise<Record<Type>[]> {
-        const queryString = QueryStatementBuilder.BuildJoin(this._name, Joins, options);
+        const queryString = await QueryStatementBuilder.BuildJoin(this._name, Joins, options);
 
-        // Set parameters if WHERE clause is present
         let params = {}
         if (options?.where)
             params = options.where
@@ -131,36 +130,44 @@ export default class Table {
         });
 
         const joinedTables = Array.isArray(Joins) ? Joins.map(j => j.fromTable) : [Joins.fromTable];
+        if (options) {
+            options.select = joinedTables.map(table => `${table}.*`).join(', ');
+        }
         const records = await query.All<Type>();
-
         const splitTables = await this.splitJoinValues<Type>(records, joinedTables);
         return splitTables;
     }
 
     private async splitJoinValues<Type extends columnType>(records: Record<Type>[], joinedTables: string[]): Promise<Record<Type>[]> {
-        const thisRecordColumns = (await this.TableColumnInformation()).map(col => col.name);
-        const tableColumnsMap = new Map<string, string[]>();
-
-        for (const tableName of joinedTables) {
-            const columns = (await Query.TableColumnInformation(tableName)).map(col => col.name);
-            tableColumnsMap.set(tableName, columns);
-        }
-
         return records.map(record => {
             if (!record.values) return record;
 
-            const thisRecordEntries = thisRecordColumns
-                .map(colName => [colName, record.values[colName]])
-                .filter(([, value]) => value !== undefined);
+            const mainTableData: columnType = {};
+            const joinedTableData: { [tableName: string]: columnType } = {};
 
-            const joinedRecords: { [tableName: string]: columnType } = {};
-            for (const [tableName, tableColumns] of tableColumnsMap) {
-                const joinedRecordEntries = Object.entries(record.values)
-                    .filter(([key]) => tableColumns.includes(key));
-                joinedRecords[tableName] = Object.fromEntries(joinedRecordEntries);
+            for (const tableName of joinedTables) {
+                joinedTableData[tableName] = {};
             }
 
-            return new Record<Type>(this._name, { ...Object.fromEntries(thisRecordEntries), ...joinedRecords });
+            for (const [aliasedKey, value] of Object.entries(record.values)) {
+                if (aliasedKey.includes('__')) {
+                    const [tableName, columnName] = aliasedKey.split('__');
+
+                    if (tableName === this._name) {
+                        mainTableData[columnName] = value;
+                    }
+                    else if (joinedTables.includes(tableName)) {
+                        joinedTableData[tableName][columnName] = value;
+                    }
+                } else {
+                    mainTableData[aliasedKey] = value;
+                }
+            }
+
+            // Combine main table data with nested joined table data
+            const combinedData: Type = { ...mainTableData, ...joinedTableData } as Type;
+
+            return new Record<Type>(this._name, combinedData);
         });
     }
 }

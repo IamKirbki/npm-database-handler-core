@@ -49,6 +49,7 @@ export default class Query {
     if(!this._query) {
       throw new Error("No query defined to run.");
     }
+
     const stmt = await this._adapter.prepare(this._query);
     const results = await stmt.all(this.Parameters) as Type[];
     return results.map(res => new Record<Type>(this.TableName, res));

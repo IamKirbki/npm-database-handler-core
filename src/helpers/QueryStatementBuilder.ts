@@ -1,3 +1,4 @@
+import { Query } from "@core/index.js";
 import { DefaultQueryParameters, ExtraQueryParameters, QueryWhereCondition, Join, QueryComparisonParameters, QueryIsEqualParameter } from "@core/types/index.js";
 
 /** Utility class for building SQL query strings */
@@ -60,7 +61,7 @@ export default class QueryStatementBuilder {
         const queryParts: string[] = [];
         const columns = Object.keys(record);
         const placeholders = columns.map(col => `@${col}`);
-        
+
         queryParts.push(`INSERT INTO "${tableName}"`);
         queryParts.push(`(${columns.map(c => `"${c}"`).join(", ")})`);
         queryParts.push(`VALUES (${placeholders.join(", ")})`);
@@ -97,11 +98,11 @@ export default class QueryStatementBuilder {
     public static BuildUpdate(tableName: string, record: QueryWhereCondition, where: QueryWhereCondition): string {
         const queryParts: string[] = [];
         const setClauses = Object.keys(record).map(col => `${col} = @${col}`);
-        
+
         queryParts.push(`UPDATE "${tableName}"`);
         queryParts.push(`SET ${setClauses.join(", ")}`);
         queryParts.push(this.BuildWhere(where).replace(/@(\w+)/g, '@where_$1'))
-        
+
         return queryParts.join(" ");
     }
 
@@ -265,19 +266,43 @@ export default class QueryStatementBuilder {
      * );
      * ```
      */
-    public static BuildJoin(
+    public static async BuildJoin(
         fromTableName: string,
         joins: Join | Join[],
         options?: DefaultQueryParameters & ExtraQueryParameters
-    ): string {
+    ): Promise<string> {
         const queryParts: string[] = [];
-        queryParts.push(`SELECT ${options?.select ?? "*"}`);
+        const selectClause = await QueryStatementBuilder.BuildJoinSelect(fromTableName, joins);
+
+        queryParts.push(`SELECT ${selectClause}`);
         queryParts.push(`FROM "${fromTableName}"`);
         queryParts.push(this.BuildJoinPart(fromTableName, joins));
         queryParts.push(this.BuildWhere(options?.where));
         queryParts.push(this.BuildQueryOptions(options ?? {}));
 
         return queryParts.join(" ");
+    }
+
+    public static async BuildJoinSelect(
+        fromTableName: string,
+        joins: Join | Join[]
+    ): Promise<string> {
+        const mainTableCols = await Query.TableColumnInformation(fromTableName);
+        const mainTableSelect = mainTableCols.map(col =>
+            `"${fromTableName}"."${col.name}" AS "${fromTableName}__${col.name}"`
+        ).join(', ');
+
+        const joinArray = Array.isArray(joins) ? joins : [joins];
+        const joinedSelects = await Promise.all(
+            joinArray.map(async (join) => {
+                const cols = await Query.TableColumnInformation(join.fromTable);
+                return cols.map(col =>
+                    `"${join.fromTable}"."${col.name}" AS "${join.fromTable}__${col.name}"`
+                ).join(', ');
+            })
+        );
+
+        return [mainTableSelect, ...joinedSelects].join(', ');
     }
 
     /**
@@ -320,20 +345,20 @@ export default class QueryStatementBuilder {
      * ```
      */
     public static BuildJoinPart(
-        fromTableName: string, 
+        fromTableName: string,
         joins: Join | Join[]
     ): string {
-    const queryParts: string[] = [];
-    joins = Array.isArray(joins) ? joins : [joins];
+        const queryParts: string[] = [];
+        joins = Array.isArray(joins) ? joins : [joins];
 
-    for (const join of joins) {
-        const baseTable = join.baseTable || fromTableName;  // Use explicit base or default
-        queryParts.push(`${join.joinType} JOIN "${join.fromTable}"`);
-        queryParts.push(this.BuildJoinOnPart(baseTable, join.fromTable, join.on));
+        for (const join of joins) {
+            const baseTable = join.baseTable || fromTableName;  // Use explicit base or default
+            queryParts.push(`${join.joinType} JOIN "${join.fromTable}"`);
+            queryParts.push(this.BuildJoinOnPart(baseTable, join.fromTable, join.on));
+        }
+
+        return queryParts.join(" ");
     }
-
-    return queryParts.join(" ");
-}
 
     /**
      * Build ON clause for JOIN operations (helper method)

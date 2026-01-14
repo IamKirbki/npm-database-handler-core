@@ -133,7 +133,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
 
     private async join(Model: Model<Type>, conditions?: QueryWhereCondition, queryOptions?: ExtraQueryParameters): Promise<Type[]> {
         const Join: Join[] = Model.JoinedEntities.flatMap(join => {
-            const relation: relation | undefined = Model.Relations.find(rel => rel.model.Configuration.table.toLowerCase() === join.relation.toLowerCase());
+            const relation: relation | undefined = Model.Relations.find(rel => rel.model.Configuration.table.replace("_", "").toLowerCase() === join.relation.toLowerCase());
             if (join.queryScopes) {
                 conditions = this.mergeQueryWhereConditions(conditions || {}, join.queryScopes);
             }
