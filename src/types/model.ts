@@ -1,7 +1,7 @@
 /** Model configuration and types */
 
 import Model from "@core/abstract/Model";
-import { columnType, QueryCondition } from "./index";
+import { columnType, QueryWhereCondition } from "./index";
 
 export type ModelEventType =
     | 'retrieved'
@@ -43,6 +43,9 @@ export interface ModelScope {
 export interface ModelConfig {
     /** Table name - defaults to lowercase class name */
     table: string;
+
+    /** Custom adapter name - defaults to default name */
+    customAdapter?: string;
 
     /** Primary key column - defaults to 'id' */
     primaryKey: string;
@@ -91,10 +94,13 @@ export interface ModelConfig {
 }
 
 export type relation = {
-    type: 'hasOne' | 'hasMany' | 'belongsTo';
+    type: 'hasOne' | 'hasMany' | 'belongsTo' | 'manyToMany';
     model: unknown & Model<columnType>;
     foreignKey: string;
-    localKey?: string;
+    localKey: string;
+    pivotTable?: string;
+    pivotForeignKey?: string;
+    pivotLocalKey?: string;
 }
 
 export interface SoftDeletable {
@@ -109,5 +115,5 @@ export type ModelWithTimestamps = {
 
 export type joinedEntity = {
     relation: string;
-    queryScopes?: QueryCondition;
+    queryScopes?: QueryWhereCondition;
 }

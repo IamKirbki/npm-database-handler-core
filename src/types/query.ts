@@ -1,23 +1,23 @@
-export type QueryWhereParameters = {
+export type QueryIsEqualParameter = {
     [key: string]: QueryValues;
-}
+};
 
-export type QueryParameters = {
+export type QueryComparisonParameters = {
     column: string;
     operator: '=' | '!=' | '<' | '<=' | '>' | '>=' | 'LIKE' | 'IN' | 'NOT IN';
     value: QueryValues;
 };
 
-export type QueryCondition = QueryWhereParameters | QueryParameters[];
+export type QueryWhereCondition = QueryIsEqualParameter | QueryComparisonParameters[];
 
 export type QueryValues = string | number | boolean | null | bigint | Date;
 
-export type DefaultQueryOptions = {
+export type DefaultQueryParameters = {
     select?: string;
-    where?: QueryCondition;
-}
+    where?: QueryWhereCondition;
+};
 
-export type QueryOptions = {
+export type ExtraQueryParameters = {
     orderBy?: string;
     limit?: number;
     offset?: number;

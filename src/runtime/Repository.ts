@@ -2,31 +2,83 @@ import type Model from "@core/abstract/Model.js";
 import Record from "@core/base/Record.js";
 import Query from "@core/base/Query.js";
 import Table from "@core/base/Table.js";
-import { columnType, Join, QueryCondition, QueryOptions, relation, QueryParameters, QueryWhereParameters } from "@core/types/index.js";
+import { columnType, Join, QueryWhereCondition, ExtraQueryParameters, relation, QueryComparisonParameters, QueryIsEqualParameter } from "@core/types/index.js";
 
 export default class Repository<Type extends columnType, ModelType extends Model<Type>> {
     private static _instances: Map<string, Repository<columnType, Model<columnType>>> = new Map();
     private models: Map<string, ModelType> = new Map();
+    private manyToManyRelations: Map<string, relation> = new Map();
     private Table: Table
 
-    constructor(tableName: string, ModelClass: ModelType) {
+    constructor(tableName: string, ModelClass: ModelType, customDatabaseAdapter?: string) {
         const modelPk = ModelClass.primaryKey?.toString() || ModelClass.constructor.name;
         this.models.set(modelPk, ModelClass);
-        this.Table = new Table(tableName);
+        this.Table = new Table(tableName, customDatabaseAdapter);
     }
 
     public static getInstance<ModelType extends columnType>(
         ModelClass: new () => Model<ModelType>,
-        tableName: string
+        tableName: string,
+        customDatabaseAdapter?: string
     ): Repository<ModelType, Model<ModelType>> {
         const className = ModelClass.name;
         if (!this._instances.has(className)) {
-            const instance = new Repository<ModelType, Model<ModelType>>(tableName, new ModelClass());
+            const instance = new Repository<ModelType, Model<ModelType>>(tableName, new ModelClass(), customDatabaseAdapter);
             this._instances.set(className, instance);
             return instance;
         }
 
         return this._instances.get(className) as Repository<ModelType, Model<ModelType>>;
+    }
+
+    private generatePivotTableKeys(
+        foreignKey: string,
+        modelOfOrigin: ModelType,
+        relation: relation
+    ) {
+        const isLocal = !relation.pivotLocalKey?.includes(modelOfOrigin.Configuration.table);
+
+        return {
+            [relation.pivotLocalKey!]: isLocal ? foreignKey : modelOfOrigin.values[relation.foreignKey]!,
+            [relation.pivotForeignKey!]: isLocal ? modelOfOrigin.values[relation.foreignKey]! : foreignKey
+        }
+    }
+
+    public async insertRecordIntoPivotTable(
+        foreignKey: string,
+        modelOfOrigin: ModelType,
+        relation: relation
+    ): Promise<void> {
+        const table = new Table(relation.pivotTable!);
+        await table.Insert(this.generatePivotTableKeys(foreignKey, modelOfOrigin, relation));
+    }
+
+    public async deleteRecordFromPivotTable(
+        foreignKey: string,
+        modelOfOrigin: ModelType,
+        relation: relation
+    ): Promise<void> {
+        const table = new Table(relation.pivotTable!);
+        const record = await table.Record(this.generatePivotTableKeys(foreignKey, modelOfOrigin, relation));
+        await record?.Delete();
+    }
+
+    public async getManyToManyRelation(relation: relation): Promise<relation | undefined> {
+        if (relation.pivotTable && this.manyToManyRelations.has(relation.pivotTable)) {
+            return this.manyToManyRelations.get(relation.pivotTable);
+        }
+
+        if (await this.doesTableExist(relation.pivotTable!)) {
+            this.manyToManyRelations.set(relation.pivotTable!, relation);
+            return relation;
+        } else {
+            throw new Error(`Pivot table ${relation.pivotTable} does not exist. Create it in alphabetical order before using many-to-many relationships.`);
+        }
+    }
+
+    public async doesTableExist(name: string): Promise<boolean> {
+        const table = new Table(name);
+        return await table.exists();
     }
 
     public syncModel(model: ModelType): void {
@@ -39,69 +91,95 @@ export default class Repository<Type extends columnType, ModelType extends Model
     }
 
     public async save(attributes: Type): Promise<void> {
-        await this.Table.Insert(attributes);
+        await this.Table.Insert<Type>(attributes);
     }
 
-    public async first(conditions: QueryCondition, Model: Model<Type>): Promise<Type | null> {
+    public async first(conditions: QueryWhereCondition, Model: Model<Type>): Promise<Type | null> {
         let record;
         if (Model.JoinedEntities.length > 0) {
-            record = await this.join(Model, conditions, { limit: 1 }).then(results => results[0]);
+            const results = await this.join(Model, conditions, { limit: 1 });
+            record = results[0] ? { values: results[0] } : undefined;
         } else {
-            record = await this.Table.Record({ where: conditions });
+            record = await this.Table.Record<Type>({ where: conditions });
         }
 
-        return record ? record.values as Type : null;
+        return record ? record.values : null;
     }
 
-    public async get(conditions: QueryCondition, queryOptions: QueryOptions, Model: Model<Type>): Promise<Type[]> {
+    public async get(conditions: QueryWhereCondition, queryOptions: ExtraQueryParameters, Model: Model<Type>): Promise<Type[]> {
         if (Model.JoinedEntities.length > 0) {
             return await this.join(Model, conditions, queryOptions);
         } else {
-            return await this.Table.Records({ where: conditions, ...queryOptions }).then(records => records.map(record => record.values as Type));
+            const records = await this.Table.Records<Type>({ where: conditions, ...queryOptions });
+            return records.map(record => record.values);
         }
     }
 
-    public async all(Model: Model<Type>, queryscopes?: QueryCondition, queryOptions?: QueryOptions): Promise<Type[]> {
+    public async all(Model: Model<Type>, queryscopes?: QueryWhereCondition, queryOptions?: ExtraQueryParameters): Promise<Type[]> {
         if (Model.JoinedEntities.length > 0) {
             return await this.join(Model);
         } else {
-            return await this.Table.Records({ where: queryscopes, ...queryOptions }).then(records => records.map(record => record.values as Type));
+            const records = await this.Table.Records<Type>({ where: queryscopes, ...queryOptions });
+            return records.map(record => record.values);
         }
     }
 
-    public async update(primaryKey: QueryWhereParameters, newAttributes: Partial<Type>): Promise<Record<Type> | undefined> {
-        const record = await this.Table.Record<Type>({ where: primaryKey as QueryCondition });
+    public async update(primaryKey: QueryIsEqualParameter, newAttributes: Partial<Type>): Promise<Record<Type> | undefined> {
+        const record = await this.Table.Record<Type>({ where: primaryKey as QueryWhereCondition });
         if (record) {
             return await record.Update(newAttributes, primaryKey);
         }
     }
 
-    private async join(Model: Model<Type>, conditions?: QueryCondition, queryOptions?: QueryOptions): Promise<Type[]> {
-        const Join: Join[] = Model.JoinedEntities.map(join => {
-            const relation: relation | undefined = Model.Relations.find(rel => rel.model.Configuration.table.toLowerCase() === join.relation.toLowerCase());
+    private async join(Model: Model<Type>, conditions?: QueryWhereCondition, queryOptions?: ExtraQueryParameters): Promise<Type[]> {
+        const Join: Join[] = Model.JoinedEntities.flatMap(join => {
+            const relation: relation | undefined = Model.Relations.find(rel => rel.model.Configuration.table.replace("_", "").toLowerCase() === join.relation.toLowerCase());
             if (join.queryScopes) {
-                conditions = this.mergeQueryConditions(conditions || {}, join.queryScopes);
+                conditions = this.mergeQueryWhereConditions(conditions || {}, join.queryScopes);
             }
 
             if (!relation) {
                 throw new Error(`Relation for joined entity ${join} not found.`);
             }
 
+            if (relation.type === 'manyToMany') {
+                return [
+                    {
+                        fromTable: relation.pivotTable,
+                        baseTable: Model.Configuration.table,
+                        joinType: 'INNER',
+                        on: [
+                            { [relation.pivotForeignKey!]: relation.localKey }
+                        ]
+                    },
+                    {
+                        fromTable: relation.model.Configuration.table,
+                        baseTable: relation.pivotTable,
+                        joinType: 'INNER',
+                        on: [
+                            { [relation.foreignKey!]: relation.pivotLocalKey! }
+                        ]
+                    }
+                ] as Join[];
+            }
+
             const JoinType = relation.type === 'hasOne' || relation.type === 'belongsTo' ? 'INNER' : 'LEFT';
 
-            return {
+            return [{
                 fromTable: relation.model.Configuration.table,
+                baseTable: Model.Configuration.table,
                 joinType: JoinType,
                 on: [
-                    { [relation.foreignKey]: relation.localKey as string }
+                    { [relation.foreignKey!]: relation.localKey! }
                 ]
-            }
-        })
+            }] as Join[];
+        });
 
-        return (await this.Table.Join(Join, { where: conditions, ...queryOptions })).map(record => record.values as Type);
+        const records = await this.Table.Join<Type>(Join, { where: conditions, ...queryOptions });
+        return records.map(record => record.values);
     }
 
-    private mergeQueryConditions(base: QueryCondition, additional: QueryCondition): QueryParameters[] {
+    private mergeQueryWhereConditions(base: QueryWhereCondition, additional: QueryWhereCondition): QueryComparisonParameters[] {
         return [...Query.ConvertParamsToArray(base), ...Query.ConvertParamsToArray(additional)];
     }
 }

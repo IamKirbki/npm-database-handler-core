@@ -1,6 +1,6 @@
 {
   "name": "@iamkirbki/database-handler-core",
-  "version": "4.2.0",
+  "version": "4.3.0",
   "author": "iamkirbki",
   "description": "Core database abstractions and interfaces",
   "license": "ISC",

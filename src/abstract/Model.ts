@@ -1,6 +1,6 @@
 import Query from "@core/base/Query.js";
 import Repository from "@core/runtime/Repository.js";
-import { columnType, QueryCondition, QueryValues, ModelConfig, relation, QueryOptions, joinedEntity, QueryParameters } from "@core/types/index.js";
+import { columnType, QueryWhereCondition, QueryValues, ModelConfig, relation, ExtraQueryParameters, joinedEntity, QueryComparisonParameters } from "@core/types/index.js";
 
 /** Abstract Model class for ORM-style database interactions */
 export default abstract class Model<ModelType extends columnType> {
@@ -10,7 +10,8 @@ export default abstract class Model<ModelType extends columnType> {
         if (!this._repository) {
             this._repository = Repository.getInstance<ModelType>(
                 this.constructor as new () => Model<ModelType>,
-                this.Configuration.table
+                this.Configuration.table,
+                this.Configuration.customAdapter
             );
         }
         return this._repository;
@@ -35,8 +36,8 @@ export default abstract class Model<ModelType extends columnType> {
     protected attributes: Partial<ModelType> = {};
     protected exists: boolean = false;
     protected dirty: boolean = false;
-    protected queryScopes?: QueryCondition;
-    protected queryOptions: QueryOptions = {};
+    protected queryScopes?: QueryWhereCondition;
+    protected queryOptions: ExtraQueryParameters = {};
 
     public get primaryKeyColumn(): string {
         return this.configuration.primaryKey;
@@ -96,13 +97,13 @@ export default abstract class Model<ModelType extends columnType> {
 
     public static where<ParamterModelType extends Model<columnType>>(
         this: new () => ParamterModelType,
-        conditions: QueryCondition
+        conditions: QueryWhereCondition
     ): ParamterModelType {
         const instance = new this();
         return instance.where(conditions);
     }
 
-    public where(conditions: QueryCondition): this {
+    public where(conditions: QueryWhereCondition): this {
         this.queryScopes = conditions;
         return this;
     }
@@ -181,7 +182,7 @@ export default abstract class Model<ModelType extends columnType> {
     }
 
     public async get(): Promise<this[]> {
-        const records = await this.repository.get(this.queryScopes || {}, this.queryOptions, this) as Partial<ModelType>[];
+        const records = await this.repository.get(this.queryScopes || {}, this.queryOptions, this);
         return records.map(record => {
             const instance = new (this.constructor as new () => this)();
             instance.set(record);
@@ -201,7 +202,7 @@ export default abstract class Model<ModelType extends columnType> {
     }
 
     public async all(): Promise<this[]> {
-        const records = await this.repository.all(this, this.queryScopes, this.queryOptions) as Partial<ModelType>[];
+        const records = await this.repository.all(this, this.queryScopes, this.queryOptions);
         return records.map(record => {
             const instance = new (this.constructor as new () => this)();
             instance.set(record);
@@ -265,7 +266,42 @@ export default abstract class Model<ModelType extends columnType> {
         return this.relations;
     }
 
-    public hasMany<modelType extends Model<columnType>>(
+    public async insertRecordIntoPivotTable(
+        otherTable: string,
+        foreignKey: string
+    ): Promise<void> {
+        await this.callRelationMethod(otherTable);
+
+        const relation = this.relations[this.relations.length - 1];
+        this.relations.pop();
+
+        await this.repository.insertRecordIntoPivotTable(foreignKey, this, relation);
+    }
+
+    protected async ManyToMany<modelType extends Model<columnType>>(
+        model: modelType,
+        pivotTable: string = [this.Configuration.table, model.Configuration.table].sort().join('_'),
+        localKey: string = this.Configuration.primaryKey,
+        foreignKey: string = model.Configuration.primaryKey,
+        pivotForeignKey: string = `${this.Configuration.table}_${localKey}`,
+        pivotLocalKey: string = `${model.Configuration.table}_${foreignKey}`,
+    ): Promise<this> {
+        const relation = await this.repository.getManyToManyRelation({
+            type: 'manyToMany',
+            model: model,
+            pivotTable: pivotTable,
+            foreignKey: foreignKey,
+            pivotForeignKey: pivotForeignKey,
+            localKey: localKey,
+            pivotLocalKey: pivotLocalKey,
+        });
+
+        this.relations.push(relation!);
+
+        return this;
+    }
+
+    protected hasMany<modelType extends Model<columnType>>(
         model: modelType,
         foreignKey: string = `${this.Configuration.table}_${this.Configuration.primaryKey}`,
         localKey: string = this.Configuration.primaryKey
@@ -279,7 +315,7 @@ export default abstract class Model<ModelType extends columnType> {
         return this;
     }
 
-    public hasOne<modelType extends Model<columnType>>(
+    protected hasOne<modelType extends Model<columnType>>(
         model: modelType,
         foreignKey: string = `${model.Configuration.primaryKey}`,
         localKey: string = `${model.Configuration.table}_${model.Configuration.primaryKey}`
@@ -293,7 +329,7 @@ export default abstract class Model<ModelType extends columnType> {
         return this;
     }
 
-    public belongsTo<modelType extends Model<columnType>>(
+    protected belongsTo<modelType extends Model<columnType>>(
         model: modelType,
         foreignKey: string = `${model.Configuration.table}_${model.Configuration.primaryKey}`,
         localKey: string = model.Configuration.primaryKey
@@ -310,14 +346,20 @@ export default abstract class Model<ModelType extends columnType> {
     public static with<ParamterModelType extends Model<columnType>>(
         this: new () => ParamterModelType,
         relation: string,
-        queryScopes?: QueryCondition
+        queryScopes?: QueryWhereCondition
     ): ParamterModelType {
         const instance = new this();
         return instance.with(relation, queryScopes);
     }
 
-    public with(relation: string, queryScopes?: QueryCondition): this {
-        this.callRelationMethod(relation);
+    public with(relation: string, queryScopes?: QueryWhereCondition): this {
+        const result = this.callRelationMethod(relation);
+        
+        if (result instanceof Promise) {
+            throw new Error(
+                `Relation method '${relation}' is asynchronous. Use asyncWith() instead of with().`
+            );
+        }
 
         const lastRelation = this.relations[this.relations.length - 1];
         const tableName = lastRelation.model.Configuration.table;
@@ -332,22 +374,38 @@ export default abstract class Model<ModelType extends columnType> {
         return this;
     }
 
-    private callRelationMethod(relation: string): void {
+    public async asyncWith(relation: string, queryScopes?: QueryWhereCondition): Promise<this> {
+        await this.callRelationMethod(relation);
+
+        const lastRelation = this.relations[this.relations.length - 1];
+        const tableName = lastRelation.model.Configuration.table;
+
+        const normalizedScopes = this.normalizeQueryScopes(queryScopes, tableName);
+
+        this.joinedEntities.push({
+            relation: relation,
+            queryScopes: normalizedScopes
+        });
+
+        return this;
+    }
+
+    public callRelationMethod(relation: string): void | Promise<void> {
         const method = Reflect.get(this, relation);
-
         if (typeof method !== 'function') {
-            throw new Error(
-                `Relation method '${relation}' does not exist on ${this.constructor.name}`
-            );
+            throw new Error(`Relation method '${relation}' does not exist`);
         }
-
-        method.call(this);
+        const result = method.call(this);
+        
+        //@TODO: check if method is not static 
+        // Only return promise if the method is actually async
+        return result instanceof Promise ? result : undefined;
     }
 
     private normalizeQueryScopes(
-        queryScopes: QueryCondition | undefined,
+        queryScopes: QueryWhereCondition | undefined,
         tableName: string
-    ): QueryParameters[] | undefined {
+    ): QueryComparisonParameters[] | undefined {
         if (!queryScopes) {
             return undefined;
         }
@@ -359,7 +417,7 @@ export default abstract class Model<ModelType extends columnType> {
             'value' in queryScopes;
 
         let scopesArray = isSingleParameter
-            ? [queryScopes as QueryParameters]
+            ? [queryScopes as QueryComparisonParameters]
             : Query.ConvertParamsToArray(queryScopes);
 
         return scopesArray.map(scope => ({
