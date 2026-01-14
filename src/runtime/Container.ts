@@ -35,6 +35,15 @@ class Container {
         if (!this._defaultAdapter) throw new Error("No default adapter set");
         return this._defaultAdapter;
     }
+
+    public clear(): void {
+        this._adapters.clear();
+        this._defaultAdapter = undefined;
+    }
+
+    public static resetInstance(): void {
+        Container._instance = new Container();
+    }
 }
 
 export default Container;

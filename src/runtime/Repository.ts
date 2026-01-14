@@ -1,34 +1,52 @@
 import type Model from "@core/abstract/Model.js";
 import Record from "@core/base/Record.js";
-import Query from "@core/base/Query.js";
 import Table from "@core/base/Table.js";
-import { columnType, Join, QueryWhereCondition, ExtraQueryParameters, relation, QueryComparisonParameters, QueryIsEqualParameter } from "@core/types/index.js";
+import { columnType, Join, QueryWhereCondition, ExtraQueryParameters, relation, QueryComparisonParameters, QueryIsEqualParameter, TableFactory } from "@core/types/index.js";
 
 export default class Repository<Type extends columnType, ModelType extends Model<Type>> {
     private static _instances: Map<string, Repository<columnType, Model<columnType>>> = new Map();
     private models: Map<string, ModelType> = new Map();
     private manyToManyRelations: Map<string, relation> = new Map();
     private Table: Table
+    private customDatabaseAdapter?: string;
+    private tableFactory: TableFactory;
 
-    constructor(tableName: string, ModelClass: ModelType, customDatabaseAdapter?: string) {
+    constructor(
+        tableName: string, 
+        ModelClass: ModelType, 
+        customDatabaseAdapter?: string,
+        tableFactory: TableFactory = (name, adapter) => new Table(name, adapter)
+    ) {
         const modelPk = ModelClass.primaryKey?.toString() || ModelClass.constructor.name;
         this.models.set(modelPk, ModelClass);
-        this.Table = new Table(tableName, customDatabaseAdapter);
+        this.tableFactory = tableFactory;
+        this.Table = this.tableFactory(tableName, customDatabaseAdapter);
+        this.customDatabaseAdapter = customDatabaseAdapter;
     }
 
     public static getInstance<ModelType extends columnType>(
         ModelClass: new () => Model<ModelType>,
         tableName: string,
-        customDatabaseAdapter?: string
+        customDatabaseAdapter?: string,
+        tableFactory?: TableFactory
     ): Repository<ModelType, Model<ModelType>> {
         const className = ModelClass.name;
         if (!this._instances.has(className)) {
-            const instance = new Repository<ModelType, Model<ModelType>>(tableName, new ModelClass(), customDatabaseAdapter);
+            const instance = new Repository<ModelType, Model<ModelType>>(
+                tableName, 
+                new ModelClass(), 
+                customDatabaseAdapter, 
+                tableFactory
+            );
             this._instances.set(className, instance);
             return instance;
         }
 
         return this._instances.get(className) as Repository<ModelType, Model<ModelType>>;
+    }
+
+    public static clearInstances(): void {
+        this._instances.clear();
     }
 
     private generatePivotTableKeys(
@@ -49,7 +67,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
         modelOfOrigin: ModelType,
         relation: relation
     ): Promise<void> {
-        const table = new Table(relation.pivotTable!);
+        const table = this.tableFactory(relation.pivotTable!, this.customDatabaseAdapter);
         await table.Insert(this.generatePivotTableKeys(foreignKey, modelOfOrigin, relation));
     }
 
@@ -58,7 +76,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
         modelOfOrigin: ModelType,
         relation: relation
     ): Promise<void> {
-        const table = new Table(relation.pivotTable!);
+        const table = this.tableFactory(relation.pivotTable!, this.customDatabaseAdapter);
         const record = await table.Record(this.generatePivotTableKeys(foreignKey, modelOfOrigin, relation));
         await record?.Delete();
     }
@@ -77,7 +95,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
     }
 
     public async doesTableExist(name: string): Promise<boolean> {
-        const table = new Table(name);
+        const table = this.tableFactory(name, this.customDatabaseAdapter);
         return await table.exists();
     }
 
@@ -179,7 +197,13 @@ export default class Repository<Type extends columnType, ModelType extends Model
         return records.map(record => record.values);
     }
 
-    private mergeQueryWhereConditions(base: QueryWhereCondition, additional: QueryWhereCondition): QueryComparisonParameters[] {
-        return [...Query.ConvertParamsToArray(base), ...Query.ConvertParamsToArray(additional)];
+    public mergeQueryWhereConditions(base: QueryWhereCondition, additional: QueryWhereCondition): QueryComparisonParameters[] {
+        const query = this.Table.QueryHelperObject;
+        return [...query.ConvertParamsToArray(base), ...query.ConvertParamsToArray(additional)];
+    }
+
+    public ConvertParamsToArray(params: QueryWhereCondition): QueryComparisonParameters[] {
+        const query = this.Table.QueryHelperObject;
+        return query.ConvertParamsToArray(params);
     }
 }

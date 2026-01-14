@@ -1,3 +1,5 @@
+import { RecordFactory } from "@core/index.js";
+
 export type QueryIsEqualParameter = {
     [key: string]: QueryValues;
 };
@@ -21,4 +23,12 @@ export type ExtraQueryParameters = {
     orderBy?: string;
     limit?: number;
     offset?: number;
+};
+
+export type QueryConstructorType = {
+  tableName: string;
+  query?: string;
+  parameters?: QueryWhereCondition;
+  adapterName?: string;
+  recordFactory?: RecordFactory;
 };

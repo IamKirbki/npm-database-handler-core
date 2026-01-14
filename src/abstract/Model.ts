@@ -418,7 +418,7 @@ export default abstract class Model<ModelType extends columnType> {
 
         let scopesArray = isSingleParameter
             ? [queryScopes as QueryComparisonParameters]
-            : Query.ConvertParamsToArray(queryScopes);
+            : this.repository.ConvertParamsToArray(queryScopes);
 
         return scopesArray.map(scope => ({
             ...scope,
