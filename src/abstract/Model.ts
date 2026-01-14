@@ -347,12 +347,34 @@ export default abstract class Model<ModelType extends columnType> {
         this: new () => ParamterModelType,
         relation: string,
         queryScopes?: QueryCondition
-    ): Promise<ParamterModelType> {
+    ): ParamterModelType {
         const instance = new this();
         return instance.with(relation, queryScopes);
     }
 
-    public async with(relation: string, queryScopes?: QueryCondition): Promise<this> {
+    public with(relation: string, queryScopes?: QueryCondition): this {
+        const result = this.callRelationMethod(relation);
+        
+        if (result instanceof Promise) {
+            throw new Error(
+                `Relation method '${relation}' is asynchronous. Use asyncWith() instead of with().`
+            );
+        }
+
+        const lastRelation = this.relations[this.relations.length - 1];
+        const tableName = lastRelation.model.Configuration.table;
+
+        const normalizedScopes = this.normalizeQueryScopes(queryScopes, tableName);
+
+        this.joinedEntities.push({
+            relation: relation,
+            queryScopes: normalizedScopes
+        });
+
+        return this;
+    }
+
+    public async asyncWith(relation: string, queryScopes?: QueryCondition): Promise<this> {
         await this.callRelationMethod(relation);
 
         const lastRelation = this.relations[this.relations.length - 1];
@@ -368,16 +390,14 @@ export default abstract class Model<ModelType extends columnType> {
         return this;
     }
 
-    public async callRelationMethod(relation: string): Promise<void> {
-        const method = Reflect.get(this, relation)
-
+    public callRelationMethod(relation: string): void | Promise<void> {
+        const method = Reflect.get(this, relation);
         if (typeof method !== 'function') {
-            throw new Error(
-                `Relation method '${relation}' does not exist on ${this.constructor.name}`
-            );
+            throw new Error(`Relation method '${relation}' does not exist`);
         }
-
-        await method.call(this);
+        const result = method.call(this);
+        // Only return promise if the method is actually async
+        return result instanceof Promise ? result : undefined;
     }
 
     private normalizeQueryScopes(
