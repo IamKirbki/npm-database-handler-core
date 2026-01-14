@@ -324,7 +324,7 @@ export default class QueryStatementBuilder {
         joins: Join | Join[]
     ): string {
     const queryParts: string[] = [];
-    const joinsArray = Array.isArray(joins) ? joins : [joins];
+    joins = Array.isArray(joins) ? joins : [joins];
 
     for (const join of joinsArray) {
         const baseTable = join.baseTable || fromTableName;  // Use explicit base or default
