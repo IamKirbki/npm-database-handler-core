@@ -1,7 +1,7 @@
 import {
-    DefaultQueryOptions,
+    DefaultQueryParameters,
     Join,
-    QueryOptions,
+    ExtraQueryParameters,
     ReadableTableColumnInfo,
     TableColumnInfo,
     columnType,
@@ -49,7 +49,7 @@ export default class Table {
 
     /** Fetch records with optional filtering, ordering, and pagination */
     public async Records<Type extends columnType>(
-        options?: DefaultQueryOptions & QueryOptions
+        options?: DefaultQueryParameters & ExtraQueryParameters
     ): Promise<Record<Type>[]> {
         const queryStr = QueryStatementBuilder.BuildSelect(this._name, {
             select: options?.select,
@@ -74,7 +74,7 @@ export default class Table {
 
     /** Fetch a single record from the table */
     public async Record<Type extends columnType>(
-        options?: DefaultQueryOptions & QueryOptions
+        options?: DefaultQueryParameters & ExtraQueryParameters
     ): Promise<Record<Type> | undefined> {
         const results = await this.Records<Type>({
             select: options?.select,
@@ -124,7 +124,7 @@ export default class Table {
     /** Perform JOIN operations with other tables */
     public async Join<Type extends columnType>(
         Joins: Join | Join[],
-        options?: DefaultQueryOptions & QueryOptions
+        options?: DefaultQueryParameters & ExtraQueryParameters
     ): Promise<Record<Type>[]> {
         const queryString = QueryStatementBuilder.BuildJoin(this._name, Joins, options);
 

@@ -1,4 +1,4 @@
-import { QueryValues, QueryWhereParameters } from "index";
+import { QueryValues, QueryIsEqualParameter } from "index";
 
 export type TableColumnInfo = {
     cid: number;
@@ -30,8 +30,8 @@ export type Join = {
     fromTable: string;
     baseTable: string;
     joinType: 'INNER' | 'LEFT' | 'RIGHT' | 'FULL';
-    on: QueryWhereParameters | QueryWhereParameters[];
-    where?: QueryWhereParameters | QueryWhereParameters[];
+    on: QueryIsEqualParameter | QueryIsEqualParameter[];
+    where?: QueryIsEqualParameter | QueryIsEqualParameter[];
 }
 
 // export type Join = RequireAtLeastOne<SingleJoin, 'table' | 'join'>;

@@ -1,7 +1,7 @@
 /** Model configuration and types */
 
 import Model from "@core/abstract/Model";
-import { columnType, QueryCondition } from "./index";
+import { columnType, QueryWhereCondition } from "./index";
 
 export type ModelEventType =
     | 'retrieved'
@@ -115,5 +115,5 @@ export type ModelWithTimestamps = {
 
 export type joinedEntity = {
     relation: string;
-    queryScopes?: QueryCondition;
+    queryScopes?: QueryWhereCondition;
 }

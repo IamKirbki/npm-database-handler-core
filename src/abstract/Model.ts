@@ -1,6 +1,6 @@
 import Query from "@core/base/Query.js";
 import Repository from "@core/runtime/Repository.js";
-import { columnType, QueryCondition, QueryValues, ModelConfig, relation, QueryOptions, joinedEntity, QueryParameters } from "@core/types/index.js";
+import { columnType, QueryWhereCondition, QueryValues, ModelConfig, relation, ExtraQueryParameters, joinedEntity, QueryComparisonParameters } from "@core/types/index.js";
 
 /** Abstract Model class for ORM-style database interactions */
 export default abstract class Model<ModelType extends columnType> {
@@ -36,8 +36,8 @@ export default abstract class Model<ModelType extends columnType> {
     protected attributes: Partial<ModelType> = {};
     protected exists: boolean = false;
     protected dirty: boolean = false;
-    protected queryScopes?: QueryCondition;
-    protected queryOptions: QueryOptions = {};
+    protected queryScopes?: QueryWhereCondition;
+    protected queryOptions: ExtraQueryParameters = {};
 
     public get primaryKeyColumn(): string {
         return this.configuration.primaryKey;
@@ -97,13 +97,13 @@ export default abstract class Model<ModelType extends columnType> {
 
     public static where<ParamterModelType extends Model<columnType>>(
         this: new () => ParamterModelType,
-        conditions: QueryCondition
+        conditions: QueryWhereCondition
     ): ParamterModelType {
         const instance = new this();
         return instance.where(conditions);
     }
 
-    public where(conditions: QueryCondition): this {
+    public where(conditions: QueryWhereCondition): this {
         this.queryScopes = conditions;
         return this;
     }
@@ -275,7 +275,7 @@ export default abstract class Model<ModelType extends columnType> {
         const relation = this.relations[this.relations.length - 1];
         delete this.relations[this.relations.length - 1];
 
-        await this.repository.linkManyToMany(foreignKey, this, relation);
+        await this.repository.insertRecordIntoPivotTable(foreignKey, this, relation);
     }
 
     protected async ManyToMany<modelType extends Model<columnType>>(
@@ -346,13 +346,13 @@ export default abstract class Model<ModelType extends columnType> {
     public static with<ParamterModelType extends Model<columnType>>(
         this: new () => ParamterModelType,
         relation: string,
-        queryScopes?: QueryCondition
+        queryScopes?: QueryWhereCondition
     ): ParamterModelType {
         const instance = new this();
         return instance.with(relation, queryScopes);
     }
 
-    public with(relation: string, queryScopes?: QueryCondition): this {
+    public with(relation: string, queryScopes?: QueryWhereCondition): this {
         const result = this.callRelationMethod(relation);
         
         if (result instanceof Promise) {
@@ -374,7 +374,7 @@ export default abstract class Model<ModelType extends columnType> {
         return this;
     }
 
-    public async asyncWith(relation: string, queryScopes?: QueryCondition): Promise<this> {
+    public async asyncWith(relation: string, queryScopes?: QueryWhereCondition): Promise<this> {
         await this.callRelationMethod(relation);
 
         const lastRelation = this.relations[this.relations.length - 1];
@@ -396,14 +396,16 @@ export default abstract class Model<ModelType extends columnType> {
             throw new Error(`Relation method '${relation}' does not exist`);
         }
         const result = method.call(this);
+        
+        //@TODO: check if method is not static 
         // Only return promise if the method is actually async
         return result instanceof Promise ? result : undefined;
     }
 
     private normalizeQueryScopes(
-        queryScopes: QueryCondition | undefined,
+        queryScopes: QueryWhereCondition | undefined,
         tableName: string
-    ): QueryParameters[] | undefined {
+    ): QueryComparisonParameters[] | undefined {
         if (!queryScopes) {
             return undefined;
         }
@@ -415,7 +417,7 @@ export default abstract class Model<ModelType extends columnType> {
             'value' in queryScopes;
 
         let scopesArray = isSingleParameter
-            ? [queryScopes as QueryParameters]
+            ? [queryScopes as QueryComparisonParameters]
             : Query.ConvertParamsToArray(queryScopes);
 
         return scopesArray.map(scope => ({

@@ -1,10 +1,10 @@
-import { columnType, QueryCondition, QueryWhereParameters, TableColumnInfo, QueryParameters } from "@core/types/index.js";
+import { columnType, QueryWhereCondition, QueryIsEqualParameter, TableColumnInfo, QueryComparisonParameters } from "@core/types/index.js";
 import { Container, Record, IDatabaseAdapter } from "@core/index.js";
 
 export type QueryConstructorType = {
   tableName: string;
   query: string;
-  parameters?: QueryCondition;
+  parameters?: QueryWhereCondition;
   adapterName?: string;
 };
 
@@ -14,9 +14,9 @@ export default class Query {
 
   private readonly _adapter: IDatabaseAdapter;
   private _query: string = "";
-  private _parameters: QueryCondition = {};
+  private _parameters: QueryWhereCondition = {};
 
-  public get Parameters(): QueryCondition {
+  public get Parameters(): QueryWhereCondition {
     return this._parameters;
   }
 
@@ -65,8 +65,8 @@ export default class Query {
     return parseInt(result.count) || 0;
   }
 
-  public static ConvertParamsToArray(params: QueryCondition): QueryParameters[] {
-    const paramArray: QueryParameters[] = [];
+  public static ConvertParamsToArray(params: QueryWhereCondition): QueryComparisonParameters[] {
+    const paramArray: QueryComparisonParameters[] = [];
 
     if (Array.isArray(params)) {
       return params;
@@ -84,8 +84,8 @@ export default class Query {
   }
 
   /** Convert various parameter formats to a consistent object format */
-  public static ConvertParamsToObject(params: QueryCondition): QueryWhereParameters {
-    const paramObject: QueryWhereParameters = {};
+  public static ConvertParamsToObject(params: QueryWhereCondition): QueryIsEqualParameter {
+    const paramObject: QueryIsEqualParameter = {};
     if (Array.isArray(params)) {
       params.forEach(param => {
         paramObject[param.column] = param.value;
@@ -98,7 +98,7 @@ export default class Query {
   }
 
   /** Databases don't like numeric values when inserting with a query */
-  public static ConvertValueToString(params: QueryWhereParameters): QueryWhereParameters {
+  public static ConvertValueToString(params: QueryIsEqualParameter): QueryIsEqualParameter {
     return Object.entries(params).map(([key, value]) => {
       return { [key]: value !== null && !(value instanceof Date) && value !== undefined ? value.toString() : value };
     }).reduce((acc, curr) => ({ ...acc, ...curr }), {});

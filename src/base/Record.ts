@@ -1,6 +1,6 @@
 import { inspect } from "util";
 import Query from "./Query.js";
-import { columnType, ModelWithTimestamps, QueryValues, QueryWhereParameters } from "@core/types/index.js";
+import { columnType, ModelWithTimestamps, QueryValues, QueryIsEqualParameter } from "@core/types/index.js";
 import QueryStatementBuilder from "@core/helpers/QueryStatementBuilder.js";
 
 /** Record class represents a single database row */
@@ -68,13 +68,13 @@ export default class Record<ColumnValuesType extends columnType> {
     }
 
     /** Update this record in the database */
-    public async Update(newValues: Partial<ColumnValuesType>, whereParameters: QueryWhereParameters): Promise<this> {
+    public async Update(newValues: Partial<ColumnValuesType>, whereParameters: QueryIsEqualParameter): Promise<this> {
         const originalValues = this._values as Partial<ColumnValuesType>;
         if ((originalValues as object & ModelWithTimestamps).updated_at !== undefined) {
             (newValues as object & ModelWithTimestamps).updated_at = new Date().toISOString();
         }
 
-        const queryStr = QueryStatementBuilder.BuildUpdate(this._tableName, newValues as QueryWhereParameters, whereParameters);
+        const queryStr = QueryStatementBuilder.BuildUpdate(this._tableName, newValues as QueryIsEqualParameter, whereParameters);
 
         // Merge newValues and originalValues for parameters (with 'where_' prefix for where clause)
         const params: Partial<ColumnValuesType> = { ...newValues };
@@ -85,7 +85,7 @@ export default class Record<ColumnValuesType extends columnType> {
         const _query = new Query({ 
             tableName: this._tableName, 
             query: queryStr, 
-            parameters: params as QueryWhereParameters, 
+            parameters: params as QueryIsEqualParameter, 
             adapterName: this._customAdapter 
         });
         await _query.Run();
@@ -95,7 +95,7 @@ export default class Record<ColumnValuesType extends columnType> {
     }
 
     /** Delete this record from the database */
-    public async Delete(primaryKey?: QueryWhereParameters): Promise<void> {
+    public async Delete(primaryKey?: QueryIsEqualParameter): Promise<void> {
         const originalValues = this._values as Partial<ColumnValuesType>;
         if ((originalValues as object & ModelWithTimestamps).deleted_at !== undefined) {
             (this._values as object & ModelWithTimestamps).deleted_at = new Date().toISOString();

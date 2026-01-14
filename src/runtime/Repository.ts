@@ -2,7 +2,7 @@ import type Model from "@core/abstract/Model.js";
 import Record from "@core/base/Record.js";
 import Query from "@core/base/Query.js";
 import Table from "@core/base/Table.js";
-import { columnType, Join, QueryCondition, QueryOptions, relation, QueryParameters, QueryWhereParameters } from "@core/types/index.js";
+import { columnType, Join, QueryWhereCondition, ExtraQueryParameters, relation, QueryComparisonParameters, QueryIsEqualParameter } from "@core/types/index.js";
 
 export default class Repository<Type extends columnType, ModelType extends Model<Type>> {
     private static _instances: Map<string, Repository<columnType, Model<columnType>>> = new Map();
@@ -10,20 +10,20 @@ export default class Repository<Type extends columnType, ModelType extends Model
     private manyToManyRelations: Map<string, relation> = new Map();
     private Table: Table
 
-    constructor(tableName: string, ModelClass: ModelType, customAdapter?: string) {
+    constructor(tableName: string, ModelClass: ModelType, customDatabaseAdapter?: string) {
         const modelPk = ModelClass.primaryKey?.toString() || ModelClass.constructor.name;
         this.models.set(modelPk, ModelClass);
-        this.Table = new Table(tableName, customAdapter);
+        this.Table = new Table(tableName, customDatabaseAdapter);
     }
 
     public static getInstance<ModelType extends columnType>(
         ModelClass: new () => Model<ModelType>,
         tableName: string,
-        customAdapter?: string
+        customDatabaseAdapter?: string
     ): Repository<ModelType, Model<ModelType>> {
         const className = ModelClass.name;
         if (!this._instances.has(className)) {
-            const instance = new Repository<ModelType, Model<ModelType>>(tableName, new ModelClass(), customAdapter);
+            const instance = new Repository<ModelType, Model<ModelType>>(tableName, new ModelClass(), customDatabaseAdapter);
             this._instances.set(className, instance);
             return instance;
         }
@@ -31,7 +31,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
         return this._instances.get(className) as Repository<ModelType, Model<ModelType>>;
     }
 
-    private generateManyToManyKeys(
+    private generatePivotTableKeys(
         foreignKey: string,
         modelOfOrigin: ModelType,
         relation: relation
@@ -44,22 +44,22 @@ export default class Repository<Type extends columnType, ModelType extends Model
         }
     }
 
-    public async linkManyToMany(
+    public async insertRecordIntoPivotTable(
         foreignKey: string,
         modelOfOrigin: ModelType,
         relation: relation
     ): Promise<void> {
         const table = new Table(relation.pivotTable!);
-        await table.Insert(this.generateManyToManyKeys(foreignKey, modelOfOrigin, relation));
+        await table.Insert(this.generatePivotTableKeys(foreignKey, modelOfOrigin, relation));
     }
 
-    public async unlinkManyToMany(
+    public async deleteRecordFromPivotTable(
         foreignKey: string,
         modelOfOrigin: ModelType,
         relation: relation
     ): Promise<void> {
         const table = new Table(relation.pivotTable!);
-        const record = await table.Record(this.generateManyToManyKeys(foreignKey, modelOfOrigin, relation));
+        const record = await table.Record(this.generatePivotTableKeys(foreignKey, modelOfOrigin, relation));
         await record?.Delete();
     }
 
@@ -104,7 +104,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
         await this.Table.Insert<Type>(attributes);
     }
 
-    public async first(conditions: QueryCondition, Model: Model<Type>): Promise<Type | null> {
+    public async first(conditions: QueryWhereCondition, Model: Model<Type>): Promise<Type | null> {
         let record;
         if (Model.JoinedEntities.length > 0) {
             const results = await this.join(Model, conditions, { limit: 1 });
@@ -116,7 +116,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
         return record ? record.values : null;
     }
 
-    public async get(conditions: QueryCondition, queryOptions: QueryOptions, Model: Model<Type>): Promise<Type[]> {
+    public async get(conditions: QueryWhereCondition, queryOptions: ExtraQueryParameters, Model: Model<Type>): Promise<Type[]> {
         if (Model.JoinedEntities.length > 0) {
             return await this.join(Model, conditions, queryOptions);
         } else {
@@ -125,7 +125,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
         }
     }
 
-    public async all(Model: Model<Type>, queryscopes?: QueryCondition, queryOptions?: QueryOptions): Promise<Type[]> {
+    public async all(Model: Model<Type>, queryscopes?: QueryWhereCondition, queryOptions?: ExtraQueryParameters): Promise<Type[]> {
         if (Model.JoinedEntities.length > 0) {
             return await this.join(Model);
         } else {
@@ -134,18 +134,18 @@ export default class Repository<Type extends columnType, ModelType extends Model
         }
     }
 
-    public async update(primaryKey: QueryWhereParameters, newAttributes: Partial<Type>): Promise<Record<Type> | undefined> {
-        const record = await this.Table.Record<Type>({ where: primaryKey as QueryCondition });
+    public async update(primaryKey: QueryIsEqualParameter, newAttributes: Partial<Type>): Promise<Record<Type> | undefined> {
+        const record = await this.Table.Record<Type>({ where: primaryKey as QueryWhereCondition });
         if (record) {
             return await record.Update(newAttributes, primaryKey);
         }
     }
 
-    private async join(Model: Model<Type>, conditions?: QueryCondition, queryOptions?: QueryOptions): Promise<Type[]> {
+    private async join(Model: Model<Type>, conditions?: QueryWhereCondition, queryOptions?: ExtraQueryParameters): Promise<Type[]> {
         const Join: Join[] = Model.JoinedEntities.flatMap(join => {
             const relation: relation | undefined = Model.Relations.find(rel => rel.model.Configuration.table.toLowerCase() === join.relation.toLowerCase());
             if (join.queryScopes) {
-                conditions = this.mergeQueryConditions(conditions || {}, join.queryScopes);
+                conditions = this.mergeQueryWhereConditions(conditions || {}, join.queryScopes);
             }
 
             if (!relation) {
@@ -189,7 +189,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
         return records.map(record => record.values);
     }
 
-    private mergeQueryConditions(base: QueryCondition, additional: QueryCondition): QueryParameters[] {
+    private mergeQueryWhereConditions(base: QueryWhereCondition, additional: QueryWhereCondition): QueryComparisonParameters[] {
         return [...Query.ConvertParamsToArray(base), ...Query.ConvertParamsToArray(additional)];
     }
 }

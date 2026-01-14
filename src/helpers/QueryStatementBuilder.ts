@@ -1,4 +1,4 @@
-import { DefaultQueryOptions, QueryOptions, QueryCondition, Join, QueryParameters, QueryWhereParameters } from "@core/types/index.js";
+import { DefaultQueryParameters, ExtraQueryParameters, QueryWhereCondition, Join, QueryComparisonParameters, QueryIsEqualParameter } from "@core/types/index.js";
 
 /** Utility class for building SQL query strings */
 export default class QueryStatementBuilder {
@@ -26,7 +26,7 @@ export default class QueryStatementBuilder {
      * // "SELECT id, name, email FROM users WHERE status = @status AND age = @age ORDER BY created_at DESC LIMIT 10 OFFSET 20"
      * ```
      */
-    public static BuildSelect(tableName: string, options?: DefaultQueryOptions & QueryOptions): string {
+    public static BuildSelect(tableName: string, options?: DefaultQueryParameters & ExtraQueryParameters): string {
         const queryParts: string[] = [];
 
         queryParts.push(`SELECT ${options?.select ?? "*"}`);
@@ -56,7 +56,7 @@ export default class QueryStatementBuilder {
      * // Note: The actual values will be bound separately using the Parameters object
      * ```
      */
-    public static BuildInsert(tableName: string, record: QueryWhereParameters): string {
+    public static BuildInsert(tableName: string, record: QueryIsEqualParameter): string {
         const queryParts: string[] = [];
         const columns = Object.keys(record);
         const placeholders = columns.map(col => `@${col}`);
@@ -94,7 +94,7 @@ export default class QueryStatementBuilder {
      * // "UPDATE users SET status = @status WHERE status = @status AND last_login = @last_login"
      * ```
      */
-    public static BuildUpdate(tableName: string, record: QueryCondition, where: QueryCondition): string {
+    public static BuildUpdate(tableName: string, record: QueryWhereCondition, where: QueryWhereCondition): string {
         const queryParts: string[] = [];
         const setClauses = Object.keys(record).map(col => `${col} = @${col}`);
         
@@ -125,7 +125,7 @@ export default class QueryStatementBuilder {
      * // "DELETE FROM users WHERE status = @status AND last_login = @last_login"
      * ```
      */
-    public static BuildDelete(tableName: string, where: QueryCondition): string {
+    public static BuildDelete(tableName: string, where: QueryWhereCondition): string {
         const queryParts: string[] = [];
 
         queryParts.push(`DELETE FROM "${tableName}"`);
@@ -155,7 +155,7 @@ export default class QueryStatementBuilder {
      * // "SELECT COUNT(*) as count FROM users WHERE status = @status AND age = @age"
      * ```
      */
-    public static BuildCount(tableName: string, where?: QueryCondition): string {
+    public static BuildCount(tableName: string, where?: QueryWhereCondition): string {
         const queryParts: string[] = [];
         queryParts.push(`SELECT COUNT(*) as count FROM "${tableName}"`);
         queryParts.push(this.BuildWhere(where));
@@ -191,7 +191,7 @@ export default class QueryStatementBuilder {
      * // ""
      * ```
      */
-    public static BuildWhere(where?: QueryCondition): string {
+    public static BuildWhere(where?: QueryWhereCondition): string {
         if (!where || (Array.isArray(where) && where.length === 0) || Object.keys(where).length === 0) return "";
         const isSimpleObject = !Array.isArray(where) && typeof where === 'object' && where !== null;
 
@@ -199,15 +199,15 @@ export default class QueryStatementBuilder {
         queryParts.push("WHERE");
 
         if (isSimpleObject) {
-            queryParts.push(this.buildWhereSimple(where as QueryWhereParameters));
+            queryParts.push(this.buildWhereSimple(where as QueryIsEqualParameter));
         } else {
-            queryParts.push(this.buildWhereWithOperators(where as QueryParameters[]));
+            queryParts.push(this.buildWhereWithOperators(where as QueryComparisonParameters[]));
         }
 
         return queryParts.join(" ");
     }
 
-    private static buildWhereWithOperators(where: QueryParameters[]): string {
+    private static buildWhereWithOperators(where: QueryComparisonParameters[]): string {
         const queryParts: string[] = where.map(condition => {
             const operator = condition.operator || "=";
             return `${condition.column} ${operator} @${condition.column.trim()}`;
@@ -216,7 +216,7 @@ export default class QueryStatementBuilder {
         return queryParts.join(" AND ");
     }
 
-    private static buildWhereSimple(where: QueryWhereParameters): string {
+    private static buildWhereSimple(where: QueryIsEqualParameter): string {
         const queryParts: string[] = Object.keys(where).map(col => `${col} = @${col}`);
         return queryParts.join(" AND ");
     }
@@ -268,7 +268,7 @@ export default class QueryStatementBuilder {
     public static BuildJoin(
         fromTableName: string,
         joins: Join | Join[],
-        options?: DefaultQueryOptions & QueryOptions
+        options?: DefaultQueryParameters & ExtraQueryParameters
     ): string {
         const queryParts: string[] = [];
         queryParts.push(`SELECT ${options?.select ?? "*"}`);
@@ -370,7 +370,7 @@ export default class QueryStatementBuilder {
     public static BuildJoinOnPart(
         tableName: string,
         joinTableName: string,
-        on: QueryWhereParameters | QueryWhereParameters[],
+        on: QueryIsEqualParameter | QueryIsEqualParameter[],
     ): string {
         const queryParts: string[] = [];
         const onArray = Array.isArray(on) ? on : [on];
@@ -415,7 +415,7 @@ export default class QueryStatementBuilder {
      * // "LIMIT 25 OFFSET 50"
      * ```
      */
-    public static BuildQueryOptions(options: QueryOptions): string {
+    public static BuildQueryOptions(options: ExtraQueryParameters): string {
         const queryParts: string[] = [];
         if (options?.orderBy) {
             queryParts.push(`ORDER BY ${options.orderBy}`);
