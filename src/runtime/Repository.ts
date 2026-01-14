@@ -36,11 +36,11 @@ export default class Repository<Type extends columnType, ModelType extends Model
         modelOfOrigin: ModelType,
         relation: relation
     ) {
-        const reversed = relation.pivotTable === `${relation.model.Configuration.table}_${modelOfOrigin.Configuration.table}`;
+        const isLocal = relation.pivotLocalKey?.includes(modelOfOrigin.Configuration.table);
 
         return {
-            [relation.pivotLocalKey!]: !reversed ? foreignKey : modelOfOrigin.values[relation.foreignKey]!,
-            [relation.pivotForeignKey!]: !reversed ? modelOfOrigin.values[relation.foreignKey]! : foreignKey
+            [relation.pivotLocalKey!]: isLocal ? foreignKey : modelOfOrigin.values[relation.foreignKey]!,
+            [relation.pivotForeignKey!]: isLocal ? modelOfOrigin.values[relation.foreignKey]! : foreignKey
         }
     }
 
@@ -63,32 +63,22 @@ export default class Repository<Type extends columnType, ModelType extends Model
         await record?.Delete();
     }
 
-    public async getManyToManyRelation(relation: relation, modelOfOrigin: ModelType): Promise<relation | undefined> {
-        const oneWayTable = relation.pivotTable
-            ?.replace(`${relation.model.Configuration.table}_`, '')
-            .replace(`_${relation.model.Configuration.table}`, '');
-
-        const otherWayTable = relation.pivotTable
-            ?.replace(`${modelOfOrigin.Configuration.table}_`, '')
-            .replace(`_${modelOfOrigin.Configuration.table}`, '');
-
-        if (oneWayTable && this.manyToManyRelations.has(oneWayTable)) {
-            return this.manyToManyRelations.get(oneWayTable);
-        } else if (otherWayTable && this.manyToManyRelations.has(otherWayTable)) {
-            return this.manyToManyRelations.get(otherWayTable);
+    public async getManyToManyRelation(relation: relation): Promise<relation | undefined> {
+        if (relation.pivotTable && this.manyToManyRelations.has(relation.pivotTable)) {
+            return this.manyToManyRelations.get(relation.pivotTable);
         }
 
-        if (await this.doesTableExist(oneWayTable!)) {
-            this.manyToManyRelations.set(oneWayTable!, relation);
+        if (await this.doesTableExist(relation.pivotTable!)) {
+            this.manyToManyRelations.set(relation.pivotTable!, relation);
             return relation;
         } else {
-            throw new Error(`Pivot table ${oneWayTable} does not exist in the database. (Can also be named ${otherWayTable})`);
+            throw new Error(`Pivot table ${relation.pivotTable} does not exist. Create it in alphabetical order before using many-to-many relationships.`);
         }
     }
 
-    public doesTableExist(name: string): Promise<boolean> {
+    public async doesTableExist(name: string): Promise<boolean> {
         const table = new Table(name);
-        return table.exists();
+        return await table.exists();
     }
 
     public syncModel(model: ModelType): void {

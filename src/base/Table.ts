@@ -22,7 +22,7 @@ export default class Table {
 
     /** Get raw column information */
     public async TableColumnInformation(): Promise<TableColumnInfo[]> {
-        return Query.tableColumnInformation(this._name, this._customAdapter);
+        return Query.TableColumnInformation(this._name, this._customAdapter);
     }
 
     /** Get readable, formatted column information */
@@ -99,19 +99,10 @@ export default class Table {
     public async exists(): Promise<boolean> {
         const query = new Query({
             tableName: this._name,
-            query: `SELECT 1 FROM "${this._name}" LIMIT 1`
-        });
-
-        try {
-            await query.All();
-            return true;
-        } catch (error: unknown) {
-            if (error instanceof Error && error.message.toLowerCase().includes("no such table")) {
-                return false;
-            } else {
-                throw error;
-            }
-        }
+            adapterName: this._customAdapter
+        })
+        
+        return await query.DoesTableExist();
     }
 
     /** Insert a record into the table */
@@ -151,7 +142,7 @@ export default class Table {
         const tableColumnsMap = new Map<string, string[]>();
 
         for (const tableName of joinedTables) {
-            const columns = (await Query.tableColumnInformation(tableName)).map(col => col.name);
+            const columns = (await Query.TableColumnInformation(tableName)).map(col => col.name);
             tableColumnsMap.set(tableName, columns);
         }
 

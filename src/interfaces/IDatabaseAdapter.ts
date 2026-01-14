@@ -7,5 +7,6 @@ export default interface IDatabaseAdapter {
     exec(query: string): Promise<void>;
     transaction(fn: (items: any[]) => void): Promise<Function>;
     tableColumnInformation(tableName: string): Promise<TableColumnInfo[]>;
+    tableExists(tableName: string): Promise<boolean>;
     close(): Promise<void>;
 }

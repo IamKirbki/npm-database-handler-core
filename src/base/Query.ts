@@ -3,7 +3,7 @@ import { Container, Record, IDatabaseAdapter } from "@core/index.js";
 
 export type QueryConstructorType = {
   tableName: string;
-  query: string;
+  query?: string;
   parameters?: QueryWhereCondition;
   adapterName?: string;
 };
@@ -13,7 +13,7 @@ export default class Query {
   public readonly TableName: string;
 
   private readonly _adapter: IDatabaseAdapter;
-  private _query: string = "";
+  private _query?: string = "";
   private _parameters: QueryWhereCondition = {};
 
   public get Parameters(): QueryWhereCondition {
@@ -37,12 +37,18 @@ export default class Query {
 
   /** Execute a non-SELECT query (INSERT, UPDATE, DELETE, etc.) */
   public async Run<Type>(): Promise<Type> {
+    if(!this._query) {
+      throw new Error("No query defined to run.");
+    }
     const stmt = await this._adapter.prepare(this._query);
     return await stmt.run(this.Parameters) as Type;
   }
 
   /** Execute a SELECT query and return all matching rows */
   public async All<Type extends columnType>(): Promise<Record<Type>[]> {
+    if(!this._query) {
+      throw new Error("No query defined to run.");
+    }
     const stmt = await this._adapter.prepare(this._query);
     const results = await stmt.all(this.Parameters) as Type[];
     return results.map(res => new Record<Type>(this.TableName, res));
@@ -50,16 +56,26 @@ export default class Query {
 
   /** Execute a SELECT query and return the first matching row */
   public async Get<Type extends columnType>(): Promise<Record<Type> | undefined> {
+    if(!this._query) {
+      throw new Error("No query defined to run.");
+    }
     const stmt = await this._adapter.prepare(this._query);
     const results = await stmt.get(this.Parameters) as Type | undefined;
     return results ? new Record<Type>(this.TableName, results) : undefined;
   }
 
-  public static async tableColumnInformation(tableName: string, customAdapter?: string): Promise<TableColumnInfo[]> {
+  public static async TableColumnInformation(tableName: string, customAdapter?: string): Promise<TableColumnInfo[]> {
     return Container.getInstance().getAdapter(customAdapter).tableColumnInformation(tableName);
   }
 
+  public async DoesTableExist(): Promise<boolean> {
+    return await this._adapter.tableExists(this.TableName);
+  }
+
   public async Count(): Promise<number> {
+    if(!this._query) {
+      throw new Error("No query defined to run.");
+    }
     const stmt = await this._adapter.prepare(this._query);
     const result = await stmt.get(this.Parameters) as { count: string };
     return parseInt(result.count) || 0;

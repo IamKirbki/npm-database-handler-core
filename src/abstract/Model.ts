@@ -280,11 +280,11 @@ export default abstract class Model<ModelType extends columnType> {
 
     protected async ManyToMany<modelType extends Model<columnType>>(
         model: modelType,
-        pivotTable: string = `${this.Configuration.table}_${model.Configuration.table}`,
-        localKey: string = this.Configuration.primaryKey,
-        foreignKey: string = model.Configuration.primaryKey,
-        pivotForeignKey: string = `${this.Configuration.table}_${localKey}`,
-        pivotLocalKey: string = `${model.Configuration.table}_${foreignKey}`,
+        pivotTable: string = [this.Configuration.table, model.Configuration.table].sort().join('_'),
+        localKey: string = model.Configuration.primaryKey,
+        foreignKey: string = this.Configuration.primaryKey,
+        pivotForeignKey: string = `${model.Configuration.table}_${localKey}`,
+        pivotLocalKey: string = `${this.Configuration.table}_${foreignKey}`,
     ): Promise<this> {
         const relation = await this.repository.getManyToManyRelation({
             type: 'manyToMany',
@@ -294,7 +294,7 @@ export default abstract class Model<ModelType extends columnType> {
             pivotForeignKey: pivotForeignKey,
             localKey: localKey,
             pivotLocalKey: pivotLocalKey,
-        }, this);
+        });
 
         this.relations.push(relation!);
 
