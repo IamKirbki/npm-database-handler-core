@@ -326,7 +326,7 @@ export default class QueryStatementBuilder {
     const queryParts: string[] = [];
     joins = Array.isArray(joins) ? joins : [joins];
 
-    for (const join of joinsArray) {
+    for (const join of joins) {
         const baseTable = join.baseTable || fromTableName;  // Use explicit base or default
         queryParts.push(`${join.joinType} JOIN "${join.fromTable}"`);
         queryParts.push(this.BuildJoinOnPart(baseTable, join.fromTable, join.on));
