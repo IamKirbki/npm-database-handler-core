@@ -273,7 +273,7 @@ export default abstract class Model<ModelType extends columnType> {
         await this.callRelationMethod(otherTable);
 
         const relation = this.relations[this.relations.length - 1];
-        delete this.relations[this.relations.length - 1];
+        this.relations.pop();
 
         await this.repository.insertRecordIntoPivotTable(foreignKey, this, relation);
     }
