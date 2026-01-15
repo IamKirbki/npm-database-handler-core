@@ -7,7 +7,8 @@ export default interface AbstractSchemaBuilder {
     ): Promise<void>;
 
     dropTable(
-        name: string
+        name: string, 
+        cascade?: boolean
     ): Promise<void>;
 
     alterTable(
