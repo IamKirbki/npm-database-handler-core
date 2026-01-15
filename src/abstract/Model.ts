@@ -1,4 +1,3 @@
-import Query from "@core/base/Query.js";
 import Repository from "@core/runtime/Repository.js";
 import { columnType, QueryWhereCondition, QueryValues, ModelConfig, relation, ExtraQueryParameters, joinedEntity, QueryComparisonParameters } from "@core/types/index.js";
 
@@ -416,7 +415,7 @@ export default abstract class Model<ModelType extends columnType> {
             'operator' in queryScopes &&
             'value' in queryScopes;
 
-        let scopesArray = isSingleParameter
+        const scopesArray = isSingleParameter
             ? [queryScopes as QueryComparisonParameters]
             : this.repository.ConvertParamsToArray(queryScopes);
 
