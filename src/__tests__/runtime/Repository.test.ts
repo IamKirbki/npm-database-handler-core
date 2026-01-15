@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import Repository from '../../runtime/Repository';
-import Model from '../../abstract/Model';
 import { MockDatabaseAdapter } from '../mocks/MockDatabaseAdapter';
 import { 
     setupTestEnvironment, 
@@ -8,7 +7,6 @@ import {
     createTestModel,
     createMockRow 
 } from '../utils/testHelpers';
-import type { columnType } from '../../types';
 
 describe('Repository', () => {
     let mockAdapter: MockDatabaseAdapter;
@@ -268,13 +266,18 @@ describe('Repository', () => {
                 get: () => ({ id: 1, name: 'Test' })
             });
 
+            // Mock the record that will be fetched from the pivot table
+            // The mock needs to return it in a format that will be wrapped in a Record object
+            const mockPivotData = { user_id: 1, role_id: 2 };
+            mockAdapter.setMockResults('SELECT * FROM "user_roles"', [mockPivotData]);
+
             await repository.deleteRecordFromPivotTable(
                 '2',
                 model as any,
                 {
                     type: 'belongsToMany',
                     table: 'roles',
-                    foreignKey: 'role_id',
+                    foreignKey: 'id',
                     pivotTable: 'user_roles',
                     pivotLocalKey: 'user_id',
                     pivotForeignKey: 'role_id'
@@ -282,7 +285,47 @@ describe('Repository', () => {
             );
 
             const queries = mockAdapter.getQueriesByType('prepare');
-            expect(queries.some(q => q.includes('DELETE') || q.includes('SELECT'))).toBe(true);
+            const executions = mockAdapter.getStatementExecutions();
+            
+            console.log('Queries:', queries);
+            console.log('Statement executions with parameters:', JSON.stringify(executions, null, 2));
+
+            // Verify SELECT query to fetch the pivot record was executed
+            const selectQuery = queries.find(q => 
+                q.includes('SELECT') && 
+                q.includes('user_roles')
+            );
+            expect(selectQuery).toBeDefined();
+            expect(selectQuery).toContain('SELECT * FROM "user_roles"');
+            expect(selectQuery).toContain('WHERE');
+            expect(selectQuery).toContain('user_id');
+            expect(selectQuery).toContain('role_id');
+            expect(selectQuery).toContain('LIMIT 1');
+            
+            // Verify the SELECT was executed with the correct WHERE parameters
+            const selectExecution = executions.find(e => e.query.includes('SELECT'));
+            expect(selectExecution).toBeDefined();
+            expect(selectExecution!.executions[0].values).toBeDefined();
+            
+            // Verify DELETE query parameters contain the fetched record values
+            const deleteExecution = executions.find(e => e.query.includes('DELETE'));
+            expect(deleteExecution).toBeDefined();
+            expect(deleteExecution!.executions[0].values).toMatchObject({
+                user_id: expect.any(String),
+                role_id: expect.any(String)
+            });
+            
+            // Verify DELETE query was executed - the record fetched is deleted
+            // This verifies that deleteRecordFromPivotTable:
+            // 1. Generates correct pivot keys from the model and foreign key
+            // 2. Fetches the record from the pivot table
+            // 3. Calls Delete() on that record with correct WHERE conditions
+            const deleteQuery = queries.find(q => q.includes('DELETE'));
+            expect(deleteQuery).toBeDefined();
+            expect(deleteQuery).toContain('DELETE FROM "user_roles"');
+            expect(deleteQuery).toContain('WHERE');
+            // The DELETE uses all columns from the fetched record as conditions
+            expect(deleteQuery).toMatch(/user_id|role_id/);
         });
     });
 });

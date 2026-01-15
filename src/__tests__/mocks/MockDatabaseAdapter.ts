@@ -56,6 +56,7 @@ export class MockDatabaseAdapter implements IDatabaseAdapter {
 
     private mockResults: Map<string, any[]> = new Map();
     private mockRowResults: Map<string, any> = new Map();
+    private preparedStatements: MockStatementAdapter[] = [];
     public isOpen = true;
 
     /**
@@ -79,6 +80,7 @@ export class MockDatabaseAdapter implements IDatabaseAdapter {
         this.operations = [];
         this.mockResults.clear();
         this.mockRowResults.clear();
+        this.preparedStatements = [];
     }
 
     async prepare(query: string): Promise<IStatementAdapter> {
@@ -111,7 +113,9 @@ export class MockDatabaseAdapter implements IDatabaseAdapter {
             }
         }
         
-        return new MockStatementAdapter(query, mockResults || [], mockRow);
+        const stmt = new MockStatementAdapter(query, mockResults || [], mockRow);
+        this.preparedStatements.push(stmt);
+        return stmt;
     }
 
     async exec(query: string): Promise<void> {
@@ -177,5 +181,15 @@ export class MockDatabaseAdapter implements IDatabaseAdapter {
             .filter(op => op.type === type)
             .map(op => op.query)
             .filter((q): q is string => q !== undefined);
+    }
+
+    /**
+     * Get all prepared statement executions with their parameters
+     */
+    public getStatementExecutions(): Array<{ query: string; executions: Array<{ values?: QueryValues[]; result?: any }> }> {
+        return this.preparedStatements.map(stmt => ({
+            query: stmt.query,
+            executions: stmt.executions
+        }));
     }
 }

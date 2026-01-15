@@ -78,7 +78,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
         relation: relation
     ): Promise<void> {
         const table = this.tableFactory(relation.pivotTable!, this.customDatabaseAdapter);
-        const record = await table.Record(this.generatePivotTableKeys(foreignKey, modelOfOrigin, relation));
+        const record = await table.Record({ where: this.generatePivotTableKeys(foreignKey, modelOfOrigin, relation) });
         await record?.Delete();
     }
 
