@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import Query from '../../base/Query';
+import Query from '@core/base/Query';
 import { MockDatabaseAdapter } from '../mocks/MockDatabaseAdapter';
 import { setupTestEnvironment, teardownTestEnvironment, createMockRow } from '../utils/testHelpers';
 

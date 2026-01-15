@@ -1,5 +1,5 @@
 import type IStatementAdapter from '@core/interfaces/IStatementAdapter.js';
-import type { QueryValues } from '../../types';
+import type { QueryValues } from '@core/index.js';
 
 /**
  * Mock statement adapter for testing prepared statements
@@ -12,21 +12,23 @@ export class MockStatementAdapter implements IStatementAdapter {
 
     constructor(
         public readonly query: string,
-        private mockResults: any[] = []
+        private mockResults: any[] = [],
+        private mockRow?: any
     ) {}
 
-    async run(...values: QueryValues[]): Promise<void> {
-        this.executions.push({ values });
+    async run(parameters?: QueryValues[]): Promise<unknown> {
+        this.executions.push({ values: parameters ? parameters : [] });
+        return undefined;
     }
 
-    async get(...values: QueryValues[]): Promise<any> {
-        const result = this.mockResults[0];
-        this.executions.push({ values, result });
+    async get(parameters?: QueryValues[]): Promise<any> {
+        const result = this.mockRow !== undefined ? this.mockRow : this.mockResults[0];
+        this.executions.push({ values: parameters ? parameters : [], result });
         return result;
     }
 
-    async all(...values: QueryValues[]): Promise<any[]> {
-        this.executions.push({ values, result: this.mockResults });
+    async all(parameters?: QueryValues[]): Promise<any[]> {
+        this.executions.push({ values: parameters ? parameters : [], result: this.mockResults });
         return this.mockResults;
     }
 

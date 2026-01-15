@@ -2,7 +2,7 @@ import Container from '../../runtime/Container';
 import Repository from '../../runtime/Repository';
 import { MockDatabaseAdapter } from '../mocks/MockDatabaseAdapter';
 import type IDatabaseAdapter from '../../interfaces/IDatabaseAdapter';
-import type { columnType } from '../../types';
+import type { columnType } from '@core/index.js';
 import Model from '../../abstract/Model';
 
 /**
@@ -22,7 +22,7 @@ export function setupTestEnvironment(adapter?: IDatabaseAdapter): MockDatabaseAd
     Repository.clearInstances();
     
     // Register mock adapter
-    Container.getInstance().register('database', mockAdapter);
+    Container.getInstance().registerAdapter('database', mockAdapter, true);
     
     return mockAdapter;
 }
@@ -42,20 +42,19 @@ export function createTestModel<T extends columnType>(
     tableName: string,
     columns: T,
     primaryKey: keyof T = 'id' as keyof T
-) {
+): typeof Model<T> {
     return class TestModel extends Model<T> {
         static tableName = tableName;
         static primaryKey = primaryKey as string;
         static columns = columns;
 
-        protected get configuration() {
-            return {
-                tableName: TestModel.tableName,
-                primaryKey: TestModel.primaryKey,
-                columns: TestModel.columns,
-            };
-        }
-    };
+        protected configuration = {
+            tableName: TestModel.tableName,
+            primaryKey: TestModel.primaryKey,
+            columns: TestModel.columns,
+            table: TestModel.tableName,
+        };
+    } as any;
 }
 
 /**

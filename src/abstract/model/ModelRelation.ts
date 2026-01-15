@@ -33,7 +33,7 @@ export default abstract class ModelRelations<
         await this.repository.insertRecordIntoPivotTable(foreignKey, this.self, relation);
     }
 
-    protected async ManyToMany<modelType extends Model<Type>>(
+    protected async ManyToMany<modelType extends Model<columnType>>(
         model: modelType,
         pivotTable: string = [this.Configuration.table, model.Configuration.table].sort().join('_'),
         localKey: string = this.Configuration.primaryKey,
@@ -56,7 +56,7 @@ export default abstract class ModelRelations<
         return this;
     }
 
-    protected hasMany<modelType extends Model<Type>>(
+    protected hasMany<modelType extends Model<columnType>>(
         model: modelType,
         foreignKey: string = `${this.Configuration.table}_${this.Configuration.primaryKey}`,
         localKey: string = this.Configuration.primaryKey
@@ -70,7 +70,7 @@ export default abstract class ModelRelations<
         return this;
     }
 
-    protected hasOne<modelType extends Model<Type>>(
+    protected hasOne<modelType extends Model<columnType>>(
         model: modelType,
         foreignKey: string = `${model.Configuration.primaryKey}`,
         localKey: string = `${model.Configuration.table}_${model.Configuration.primaryKey}`
@@ -84,7 +84,7 @@ export default abstract class ModelRelations<
         return this;
     }
 
-    protected belongsTo<modelType extends Model<Type>>(
+    protected belongsTo<modelType extends Model<columnType>>(
         model: modelType,
         foreignKey: string = `${model.Configuration.table}_${model.Configuration.primaryKey}`,
         localKey: string = model.Configuration.primaryKey

@@ -1,5 +1,5 @@
-import type { ISchemaBuilder } from '../../interfaces/ISchemaBuilder';
-import type { SchemaTableBuilder } from '../../abstract/SchemaTableBuilder';
+import type ISchemaBuilder from '../../interfaces/ISchemaBuilder';
+import type SchemaTableBuilder from '../../abstract/SchemaTableBuilder';
 
 /**
  * Mock schema builder for testing schema operations
@@ -11,22 +11,19 @@ export class MockSchemaBuilder implements ISchemaBuilder {
         callback?: any;
     }> = [];
 
-    createTable(tableName: string, callback: (table: SchemaTableBuilder) => void): string {
+    async createTable(tableName: string, callback: (table: SchemaTableBuilder) => void): Promise<void> {
         this.operations.push({ type: 'createTable', tableName, callback });
-        return `CREATE TABLE ${tableName} (id INTEGER PRIMARY KEY)`;
     }
 
-    dropTable(tableName: string): string {
+    async dropTable(tableName: string): Promise<void> {
         this.operations.push({ type: 'dropTable', tableName });
-        return `DROP TABLE ${tableName}`;
     }
 
-    alterTable(tableName: string, callback: (table: SchemaTableBuilder) => void): string {
+    async alterTable(tableName: string, callback: (table: SchemaTableBuilder) => void): Promise<void> {
         this.operations.push({ type: 'alterTable', tableName, callback });
-        return `ALTER TABLE ${tableName}`;
     }
 
-    hasTable(tableName: string): boolean {
+    async hasTable(tableName: string): Promise<boolean> {
         this.operations.push({ type: 'hasTable', tableName });
         return false;
     }
@@ -41,7 +38,7 @@ export class MockSchemaBuilder implements ISchemaBuilder {
     /**
      * Check if a specific operation was performed
      */
-    public hasOperation(type: string, tableName?: string): boolean {
+    public async hasOperation(type: string, tableName?: string): Promise<boolean> {
         return this.operations.some(op => 
             op.type === type && (!tableName || op.tableName === tableName)
         );

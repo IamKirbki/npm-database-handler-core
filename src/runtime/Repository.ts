@@ -30,19 +30,20 @@ export default class Repository<Type extends columnType, ModelType extends Model
         customDatabaseAdapter?: string,
         tableFactory?: TableFactory
     ): Repository<ModelType, Model<ModelType>> {
-        const className = ModelClass.name;
-        if (!this._instances.has(className)) {
+        // Use tableName as key to differentiate instances for different tables
+        const key = tableName || ModelClass.name;
+        if (!this._instances.has(key)) {
             const instance = new Repository<ModelType, Model<ModelType>>(
                 tableName, 
                 new ModelClass(), 
                 customDatabaseAdapter, 
                 tableFactory
             );
-            this._instances.set(className, instance);
+            this._instances.set(key, instance);
             return instance;
         }
 
-        return this._instances.get(className) as Repository<ModelType, Model<ModelType>>;
+        return this._instances.get(key) as Repository<ModelType, Model<ModelType>>;
     }
 
     public static clearInstances(): void {
