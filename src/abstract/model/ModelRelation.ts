@@ -2,12 +2,16 @@ import { columnType, joinedEntity, ModelConfig, QueryComparisonParameters, Query
 import Model from "@core/abstract/Model.js";
 import Repository from '../../runtime/Repository';
 
-export default abstract class ModelRelations<Type extends columnType> {
+export default abstract class ModelRelations<
+    Type extends columnType,
+    Self extends Model<Type> = Model<Type>
+> {
     protected joinedEntities: joinedEntity[] = [];
     protected relations: relation[] = [];
-    
+
     abstract get Configuration(): ModelConfig;
-    protected abstract get repository(): Repository<Type, Model<Type>>;
+    protected abstract get repository(): Repository<Type, Self>;
+    protected abstract get self(): Self;
 
     public get JoinedEntities(): joinedEntity[] {
         return this.joinedEntities;
@@ -26,7 +30,7 @@ export default abstract class ModelRelations<Type extends columnType> {
         const relation = this.relations[this.relations.length - 1];
         this.relations.pop();
 
-        await this.repository.insertRecordIntoPivotTable(foreignKey, this, relation);
+        await this.repository.insertRecordIntoPivotTable(foreignKey, this.self, relation);
     }
 
     protected async ManyToMany<modelType extends Model<Type>>(
@@ -52,7 +56,7 @@ export default abstract class ModelRelations<Type extends columnType> {
         return this;
     }
 
-    protected hasMany<modelType extends Model<columnType>>(
+    protected hasMany<modelType extends Model<Type>>(
         model: modelType,
         foreignKey: string = `${this.Configuration.table}_${this.Configuration.primaryKey}`,
         localKey: string = this.Configuration.primaryKey
@@ -66,7 +70,7 @@ export default abstract class ModelRelations<Type extends columnType> {
         return this;
     }
 
-    protected hasOne<modelType extends Model<columnType>>(
+    protected hasOne<modelType extends Model<Type>>(
         model: modelType,
         foreignKey: string = `${model.Configuration.primaryKey}`,
         localKey: string = `${model.Configuration.table}_${model.Configuration.primaryKey}`
@@ -80,7 +84,7 @@ export default abstract class ModelRelations<Type extends columnType> {
         return this;
     }
 
-    protected belongsTo<modelType extends Model<columnType>>(
+    protected belongsTo<modelType extends Model<Type>>(
         model: modelType,
         foreignKey: string = `${model.Configuration.table}_${model.Configuration.primaryKey}`,
         localKey: string = model.Configuration.primaryKey
@@ -105,7 +109,7 @@ export default abstract class ModelRelations<Type extends columnType> {
 
     public with(relation: string, queryScopes?: QueryWhereCondition): this {
         const result = this.callRelationMethod(relation);
-        
+
         if (result instanceof Promise) {
             throw new Error(
                 `Relation method '${relation}' is asynchronous. Use asyncWith() instead of with().`
@@ -147,7 +151,7 @@ export default abstract class ModelRelations<Type extends columnType> {
             throw new Error(`Relation method '${relation}' does not exist`);
         }
         const result = method.call(this);
-        
+
         //@TODO: check if method is not static 
         // Only return promise if the method is actually async
         return result instanceof Promise ? result : undefined;
