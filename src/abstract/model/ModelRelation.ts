@@ -1,6 +1,6 @@
 import { columnType, joinedEntity, ModelConfig, QueryComparisonParameters, QueryWhereCondition, relation } from "@core/types/index.js";
 import Model from "@core/abstract/Model.js";
-import Repository from '../../runtime/Repository';
+import Repository from '@core/runtime/Repository.js';
 
 export default abstract class ModelRelations<
     Type extends columnType,

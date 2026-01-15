@@ -1,19 +1,32 @@
 import Repository from "@core/runtime/Repository.js";
-import { columnType, QueryWhereCondition, QueryValues, ModelConfig, ExtraQueryParameters, } from "@core/types/index.js";
+import { columnType, QueryWhereCondition, QueryValues, ModelConfig, ExtraQueryParameters, RepositoryFactory, } from "@core/types/index.js";
 import ModelRelations from "@core/abstract/model/ModelRelation.js";
 
 /** Abstract Model class for ORM-style database interactions */
 export default abstract class Model<ModelType extends columnType> extends ModelRelations<ModelType> {
+    private _repositoryFactory?: RepositoryFactory<ModelType>;
     private _repository?: Repository<ModelType, Model<ModelType>>;
+
+    constructor(
+        repositoryFactory?: RepositoryFactory<ModelType>
+    ) {
+        super();
+        this._repositoryFactory = repositoryFactory;
+    }
 
     protected get repository(): Repository<ModelType, Model<ModelType>> {
         if (!this._repository) {
-            this._repository = Repository.getInstance<ModelType>(
-                this.constructor as new () => Model<ModelType>,
-                this.Configuration.table,
-                this.Configuration.customAdapter
-            );
+            if(this._repositoryFactory){
+                this._repository = this._repositoryFactory(this)
+            } else {
+                this._repository = Repository.getInstance(
+                    this.constructor as new () => Model<ModelType>,
+                    this.Configuration.table,
+                    this.Configuration.customAdapter
+                );
+            } 
         }
+
         return this._repository;
     }
 
@@ -258,6 +271,8 @@ export default abstract class Model<ModelType extends columnType> extends ModelR
         }
         return this;
     }
+
+    
 
     public toJSON(): Partial<ModelType> | ModelType {
         return this.attributes;
