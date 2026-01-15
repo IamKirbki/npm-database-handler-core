@@ -1,6 +1,6 @@
 import { inspect } from "util";
 import Query from "./Query.js";
-import { columnType, ModelWithTimestamps, QueryValues, QueryIsEqualParameter } from "@core/types/index.js";
+import { columnType, ModelWithTimestamps, QueryValues, QueryIsEqualParameter, QueryFactory, RecordFactory } from "@core/types/index.js";
 import QueryStatementBuilder from "@core/helpers/QueryStatementBuilder.js";
 
 /** Record class represents a single database row */
@@ -8,11 +8,21 @@ export default class Record<ColumnValuesType extends columnType> {
     private _values: ColumnValuesType = {} as ColumnValuesType;
     private readonly _tableName: string;
     private readonly _customAdapter?: string;
+    private readonly _queryFactory: QueryFactory;
+    private readonly _recordFactory: RecordFactory;
 
-    constructor(table: string, values: ColumnValuesType, adapter?: string) {
+    constructor(
+        table: string, 
+        values: ColumnValuesType, 
+        adapter?: string,
+        queryFactory: QueryFactory = (config) => new Query(config),
+        recordFactory: RecordFactory = (table, values, adapter) => new Record(table, values, adapter)
+    ) {
         this._tableName = table;
         this._values = values;
         this._customAdapter = adapter;
+        this._queryFactory = queryFactory;
+        this._recordFactory = recordFactory;
     }
 
     /** Get the raw values object for this record */
@@ -28,11 +38,12 @@ export default class Record<ColumnValuesType extends columnType> {
         }
 
         const queryStr = QueryStatementBuilder.BuildInsert(this._tableName, this._values);
-        const query = new Query({
+        const query = this._queryFactory({
             tableName: this._tableName,
             query: queryStr,
             parameters: this._values,
-            adapterName: this._customAdapter
+            adapterName: this._customAdapter,
+            recordFactory: this._recordFactory
         });
 
         const result = await query.Run<{ lastInsertRowid: number | bigint; changes: number }>();
@@ -51,11 +62,12 @@ export default class Record<ColumnValuesType extends columnType> {
         }
 
         const queryStrSelect = QueryStatementBuilder.BuildSelect(this._tableName, { where: { ...this._values } });
-        const querySelect = new Query({
+        const querySelect = this._queryFactory({
             tableName: this._tableName,
             query: queryStrSelect,
             parameters: this._values,
-            adapterName: this._customAdapter
+            adapterName: this._customAdapter,
+            recordFactory: this._recordFactory
         });
 
         const insertedRecord = await querySelect.All<ColumnValuesType>();
@@ -82,11 +94,12 @@ export default class Record<ColumnValuesType extends columnType> {
             params[`where_${key}` as keyof ColumnValuesType] = value;
         });
 
-        const _query = new Query({ 
+        const _query = this._queryFactory({ 
             tableName: this._tableName, 
             query: queryStr, 
             parameters: params as QueryIsEqualParameter, 
-            adapterName: this._customAdapter 
+            adapterName: this._customAdapter,
+            recordFactory: this._recordFactory
         });
         await _query.Run();
 
@@ -104,11 +117,12 @@ export default class Record<ColumnValuesType extends columnType> {
         }
 
         const queryStr = QueryStatementBuilder.BuildDelete(this._tableName, this._values);
-        const _query = new Query({ 
+        const _query = this._queryFactory({ 
             tableName: this._tableName, 
-            query: queryStr, parameters: 
-            this.values, adapterName: 
-            this._customAdapter 
+            query: queryStr, 
+            parameters: this.values, 
+            adapterName: this._customAdapter,
+            recordFactory: this._recordFactory
         });
         await _query.Run();
     }

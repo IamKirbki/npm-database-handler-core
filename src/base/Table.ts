@@ -5,29 +5,51 @@ import {
     ReadableTableColumnInfo,
     TableColumnInfo,
     columnType,
+    QueryFactory,
+    RecordFactory,
 } from "@core/types/index.js";
 import QueryStatementBuilder from "@core/helpers/QueryStatementBuilder.js";
 import { Record, Query } from "@core/index.js";
 
 /** Table class for interacting with a database table */
 export default class Table {
+    private readonly _query: Query;
     private readonly _customAdapter?: string;
     private readonly _name: string;
+    private readonly _queryFactory: QueryFactory;
+    private readonly _recordFactory: RecordFactory;
 
     /** Private constructor - use Table.create() */
-    constructor(name: string, customAdapter?: string) {
+    constructor(
+        name: string, 
+        customAdapter?: string,
+        queryFactory: QueryFactory = (config) => new Query(config),
+        recordFactory: RecordFactory = (table, values, adapter) => new Record(table, values, adapter)
+    ) {
         this._name = name;
         this._customAdapter = customAdapter;
+        this._queryFactory = queryFactory;
+        this._recordFactory = recordFactory;
+        
+        this._query = this._queryFactory({
+            tableName: this._name,
+            adapterName: this._customAdapter,
+            recordFactory: this._recordFactory
+        });
+    }
+
+    public get QueryHelperObject(): Query {
+        return this._query;
     }
 
     /** Get raw column information */
-    public async TableColumnInformation(): Promise<TableColumnInfo[]> {
-        return Query.TableColumnInformation(this._name, this._customAdapter);
+    public async TableColumnInformation(tableName?: string): Promise<TableColumnInfo[]> {
+        return this._query.TableColumnInformation(tableName || this._name);
     }
 
     /** Get readable, formatted column information */
     public async ReadableTableColumnInformation(): Promise<ReadableTableColumnInfo[]> {
-        const columns = await this.TableColumnInformation();
+        const columns = await this.TableColumnInformation(this._name);
         return columns.map((col) => ({
             name: col.name,
             type: col.type,
@@ -39,10 +61,11 @@ export default class Table {
 
     public async Drop(): Promise<void> {
         const queryStr = `DROP TABLE IF EXISTS "${this._name}";`;
-        const query = new Query({
+        const query = this._queryFactory({
             tableName: this._name,
             query: queryStr,
-            adapterName: this._customAdapter
+            adapterName: this._customAdapter,
+            recordFactory: this._recordFactory
         });
         await query.Run();
     }
@@ -63,10 +86,11 @@ export default class Table {
         if (options?.where && Object.keys(options.where).length > 0)
             params = options.where;
 
-        const query = new Query({
+        const query = this._queryFactory({
             tableName: this._name,
             query: queryStr,
-            parameters: params
+            parameters: params,
+            recordFactory: this._recordFactory
         });
         const results = await query.All<Type>();
         return results;
@@ -88,18 +112,20 @@ export default class Table {
 
     /** Get the total count of records */
     public async RecordsCount(): Promise<number> {
-        const query = new Query({
+        const query = this._queryFactory({
             tableName: this._name,
-            query: `SELECT COUNT(*) as count FROM "${this._name}"`
+            query: `SELECT COUNT(*) as count FROM "${this._name}"`,
+            recordFactory: this._recordFactory
         });
         const count = await query.Count();
         return count || 0;
     }
 
     public async exists(): Promise<boolean> {
-        const query = new Query({
+        const query = this._queryFactory({
             tableName: this._name,
-            adapterName: this._customAdapter
+            adapterName: this._customAdapter,
+            recordFactory: this._recordFactory
         })
 
         return await query.DoesTableExist();
@@ -107,7 +133,7 @@ export default class Table {
 
     /** Insert a record into the table */
     public async Insert<Type extends columnType>(values: Type): Promise<Record<Type> | undefined> {
-        const record = new Record<Type>(this._name, values);
+        const record = this._recordFactory(this._name, values, this._customAdapter);
         await record.Insert();
         return record;
     }
@@ -117,16 +143,17 @@ export default class Table {
         Joins: Join | Join[],
         options?: DefaultQueryParameters & ExtraQueryParameters
     ): Promise<Record<Type>[]> {
-        const queryString = await QueryStatementBuilder.BuildJoin(this._name, Joins, options);
+        const queryString = await QueryStatementBuilder.BuildJoin(this._name, Joins, this.QueryHelperObject, options);
 
         let params = {}
         if (options?.where)
             params = options.where
 
-        const query = new Query({
+        const query = this._queryFactory({
             tableName: this._name,
             query: queryString,
-            parameters: params
+            parameters: params,
+            recordFactory: this._recordFactory
         });
 
         const joinedTables = Array.isArray(Joins) ? Joins.map(j => j.fromTable) : [Joins.fromTable];
@@ -167,7 +194,7 @@ export default class Table {
             // Combine main table data with nested joined table data
             const combinedData: Type = { ...mainTableData, ...joinedTableData } as Type;
 
-            return new Record<Type>(this._name, combinedData);
+            return this._recordFactory<Type>(this._name, combinedData, this._customAdapter);
         });
     }
 }

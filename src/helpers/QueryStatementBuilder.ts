@@ -269,10 +269,11 @@ export default class QueryStatementBuilder {
     public static async BuildJoin(
         fromTableName: string,
         joins: Join | Join[],
+        query: Query,
         options?: DefaultQueryParameters & ExtraQueryParameters
     ): Promise<string> {
         const queryParts: string[] = [];
-        const selectClause = await QueryStatementBuilder.BuildJoinSelect(fromTableName, joins);
+        const selectClause = await QueryStatementBuilder.BuildJoinSelect(fromTableName, joins, query);
 
         queryParts.push(`SELECT ${selectClause}`);
         queryParts.push(`FROM "${fromTableName}"`);
@@ -285,9 +286,10 @@ export default class QueryStatementBuilder {
 
     public static async BuildJoinSelect(
         fromTableName: string,
-        joins: Join | Join[]
+        joins: Join | Join[],
+        query: Query
     ): Promise<string> {
-        const mainTableCols = await Query.TableColumnInformation(fromTableName);
+        const mainTableCols = await query.TableColumnInformation(fromTableName);
         const mainTableSelect = mainTableCols.map(col =>
             `"${fromTableName}"."${col.name}" AS "${fromTableName}__${col.name}"`
         ).join(', ');
@@ -295,7 +297,7 @@ export default class QueryStatementBuilder {
         const joinArray = Array.isArray(joins) ? joins : [joins];
         const joinedSelects = await Promise.all(
             joinArray.map(async (join) => {
-                const cols = await Query.TableColumnInformation(join.fromTable);
+                const cols = await query.TableColumnInformation(join.fromTable);
                 return cols.map(col =>
                     `"${join.fromTable}"."${col.name}" AS "${join.fromTable}__${col.name}"`
                 ).join(', ');

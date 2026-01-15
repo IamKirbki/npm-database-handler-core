@@ -1,12 +1,5 @@
-import { columnType, QueryWhereCondition, QueryIsEqualParameter, TableColumnInfo, QueryComparisonParameters } from "@core/types/index.js";
+import { columnType, QueryWhereCondition, QueryIsEqualParameter, TableColumnInfo, QueryComparisonParameters, QueryConstructorType, RecordFactory } from "@core/types/index.js";
 import { Container, Record, IDatabaseAdapter } from "@core/index.js";
-
-export type QueryConstructorType = {
-  tableName: string;
-  query?: string;
-  parameters?: QueryWhereCondition;
-  adapterName?: string;
-};
 
 /** Query class for executing custom SQL queries */
 export default class Query {
@@ -15,6 +8,7 @@ export default class Query {
   private readonly _adapter: IDatabaseAdapter;
   private _query?: string = "";
   private _parameters: QueryWhereCondition = {};
+  private readonly _recordFactory: RecordFactory;
 
   public get Parameters(): QueryWhereCondition {
     return this._parameters;
@@ -24,15 +18,17 @@ export default class Query {
     tableName,
     query,
     parameters,
-    adapterName
+    adapterName,
+    recordFactory = (table, values, adapter) => new Record(table, values, adapter)
   }: QueryConstructorType) {
     this.TableName = tableName;
     this._query = query;
 
     if (parameters)
-      this._parameters = Query.ConvertParamsToObject(parameters);
+      this._parameters = this.ConvertParamsToObject(parameters);
 
     this._adapter = Container.getInstance().getAdapter(adapterName)
+    this._recordFactory = recordFactory;
   }
 
   /** Execute a non-SELECT query (INSERT, UPDATE, DELETE, etc.) */
@@ -52,7 +48,7 @@ export default class Query {
 
     const stmt = await this._adapter.prepare(this._query);
     const results = await stmt.all(this.Parameters) as Type[];
-    return results.map(res => new Record<Type>(this.TableName, res));
+    return results.map(res => this._recordFactory<Type>(this.TableName, res));
   }
 
   /** Execute a SELECT query and return the first matching row */
@@ -62,11 +58,11 @@ export default class Query {
     }
     const stmt = await this._adapter.prepare(this._query);
     const results = await stmt.get(this.Parameters) as Type | undefined;
-    return results ? new Record<Type>(this.TableName, results) : undefined;
+    return results ? this._recordFactory<Type>(this.TableName, results) : undefined;
   }
 
-  public static async TableColumnInformation(tableName: string, customAdapter?: string): Promise<TableColumnInfo[]> {
-    return Container.getInstance().getAdapter(customAdapter).tableColumnInformation(tableName);
+  public async TableColumnInformation(tableName: string): Promise<TableColumnInfo[]> {
+    return this._adapter.tableColumnInformation(tableName);
   }
 
   public async DoesTableExist(): Promise<boolean> {
@@ -82,7 +78,7 @@ export default class Query {
     return parseInt(result.count) || 0;
   }
 
-  public static ConvertParamsToArray(params: QueryWhereCondition): QueryComparisonParameters[] {
+  public ConvertParamsToArray(params: QueryWhereCondition): QueryComparisonParameters[] {
     const paramArray: QueryComparisonParameters[] = [];
 
     if (Array.isArray(params)) {
@@ -101,7 +97,7 @@ export default class Query {
   }
 
   /** Convert various parameter formats to a consistent object format */
-  public static ConvertParamsToObject(params: QueryWhereCondition): QueryIsEqualParameter {
+  public ConvertParamsToObject(params: QueryWhereCondition): QueryIsEqualParameter {
     const paramObject: QueryIsEqualParameter = {};
     if (Array.isArray(params)) {
       params.forEach(param => {
@@ -115,7 +111,7 @@ export default class Query {
   }
 
   /** Databases don't like numeric values when inserting with a query */
-  public static ConvertValueToString(params: QueryIsEqualParameter): QueryIsEqualParameter {
+  public ConvertValueToString(params: QueryIsEqualParameter): QueryIsEqualParameter {
     return Object.entries(params).map(([key, value]) => {
       return { [key]: value !== null && !(value instanceof Date) && value !== undefined ? value.toString() : value };
     }).reduce((acc, curr) => ({ ...acc, ...curr }), {});
