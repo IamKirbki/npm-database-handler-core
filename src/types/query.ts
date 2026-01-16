@@ -27,12 +27,14 @@ export type ExtraQueryParameters = {
     expressions?: PossibleExpressions[];
 };
 
-export type PossibleExpressions = SpatialQueryExpression;
-
-export type QueryExpression = {
-    type: "spatialDistance";
+// Base type for all query expressions
+export type QueryExpression<T extends string = string> = {
+    type: T;
     requirements: QueryExpressionRequirements;
 };
+
+// Union type of all supported expressions - add new types here
+export type PossibleExpressions = SpatialQueryExpression; // | FutureExpression | AnotherExpression
 
 export type QueryExpressionRequirements = {
     phase: QueryEvaluationPhase;
@@ -57,8 +59,7 @@ export type SpatialDistanceDefinition = {
     orderByDistance?: 'ASC' | 'DESC';
 };
 
-export type SpatialQueryExpression = QueryExpression & {
-    type: 'spatialDistance';
+export type SpatialQueryExpression = QueryExpression<'spatialDistance'> & {
     parameters: SpatialDistanceDefinition;
 }
 

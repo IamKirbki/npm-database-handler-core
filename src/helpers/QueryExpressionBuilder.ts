@@ -8,13 +8,40 @@ export type expressionClause = {
     orderByClause?: string;
 };
 
+// Type for expression builder functions
+// eslint-disable-next-line no-unused-vars
+type ExpressionBuilderFunction<T extends PossibleExpressions = PossibleExpressions> = (expression: T) => expressionClause;
+
 export default class QueryExpressionBuilder {
+    // Registry of expression builders - easily extensible
+    private static expressionBuilders: Map<string, ExpressionBuilderFunction> = new Map([
+        ['spatialDistance', (expr) => QueryExpressionBuilder.BuildSpacialDistanceExpression(expr as SpatialQueryExpression)],
+        // Add new expression builders here:
+        // ['jsonAggregation', (expr) => QueryExpressionBuilder.BuildJsonAggregation(expr as JsonAggregationExpression)],
+        // ['windowFunction', (expr) => QueryExpressionBuilder.BuildWindowFunction(expr as WindowFunctionExpression)],
+    ]);
+
+    /**
+     * Register a custom expression builder
+     * Allows adding new expression types without modifying core code
+     */
+    public static registerExpressionBuilder<T extends PossibleExpressions>(
+        type: string,
+        builder: ExpressionBuilderFunction<T>
+    ): void {
+        this.expressionBuilders.set(type, builder as ExpressionBuilderFunction);
+    }
+
     public static buildExpressionsPart(expressions: PossibleExpressions[]): expressionClause[] {
         const queryParts: expressionClause[] = [];
 
         expressions.forEach(expression => {
-            if (expression.type === 'spatialDistance') {
-                queryParts.push(this.BuildSpacialDistanceExpression(expression));
+            const builder = this.expressionBuilders.get(expression.type);
+            if (builder) {
+                queryParts.push(builder(expression));
+            } else {
+                // eslint-disable-next-line no-undef
+                console.warn(`No builder registered for expression type: ${expression.type}`);
             }
         });
 
