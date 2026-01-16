@@ -13,6 +13,8 @@ describe('Repository', () => {
 
     beforeEach(() => {
         mockAdapter = setupTestEnvironment();
+        mockAdapter.setTableExists('users', true);
+        mockAdapter.setTableExists('user_roles', true);
     });
 
     afterEach(() => {

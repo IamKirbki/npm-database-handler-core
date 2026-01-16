@@ -27,6 +27,23 @@ describe('QueryStatementBuilder - Spatial Expressions', () => {
             expect(query).toContain('AS distance');
         });
 
+        it('should throw if invalid reference point is provided', () => {
+            expect(() => {
+                const query = QueryStatementBuilder.BuildSelect('locations', {
+                    expressions: [
+                        {
+                            type: 'spatialDistance',
+                            parameters: {
+                                referencePoint: { lat: 'invalid', lon: -74.0060 },
+                                targetColumns: { lat: 'latitude', lon: 'longitude' },
+                                unit: 'km'
+                            }
+                        }
+                    ]
+                });
+            }).toThrow('Invalid reference point for spatial distance expression.');
+        });
+
         it('should build SELECT query with spatial distance expression in miles', () => {
             const query = QueryStatementBuilder.BuildSelect('locations', {
                 expressions: [

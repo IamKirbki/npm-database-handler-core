@@ -20,6 +20,9 @@ export default class QueryExpressionBuilder {
     }
 
     public static BuildSpacialDistanceExpression(expression: SpacialDistanceDefinition): expressionClause {
+        if(typeof expression.referencePoint.lat !== 'number' || typeof expression.referencePoint.lon !== 'number') {
+            throw new Error('Invalid reference point for spatial distance expression.');
+        }
         const baseExpressionClause = `(
                 ${expression.earthRadius || (expression.unit === 'km' ? 6371 : 3959)} * acos(
                     cos(radians(${expression.referencePoint.lat}))

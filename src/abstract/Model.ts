@@ -1,5 +1,5 @@
 import Repository from "@core/runtime/Repository.js";
-import { columnType, QueryWhereCondition, QueryValues, ModelConfig, ExtraQueryParameters, SpatialQueryExpression, } from "@core/types/index.js";
+import { columnType, QueryWhereCondition, QueryValues, ModelConfig, ExtraQueryParameters, SpatialQueryExpression } from "@core/types/index.js";
 import ModelRelations from "@core/abstract/model/ModelRelation.js";
 
 /** Abstract Model class for ORM-style database interactions */

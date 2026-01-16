@@ -31,18 +31,28 @@ export default class Query {
     this._recordFactory = recordFactory;
   }
 
+  private async throwIfTableNotExists(): Promise<void> {
+    const exists = await this.DoesTableExist();
+    if (!exists) {
+      throw new Error(`Table "${this.TableName}" does not exist.`);
+    }
+  }
+
   /** Execute a non-SELECT query (INSERT, UPDATE, DELETE, etc.) */
   public async Run<Type>(): Promise<Type> {
-    if(!this._query) {
-      throw new Error("No query defined to run.");
+    await this.throwIfTableNotExists();
+    if (!this._query) {
+      throw new Error("No query defined to execute.");
     }
+
     const stmt = await this._adapter.prepare(this._query);
     return await stmt.run(this.Parameters) as Type;
   }
 
   /** Execute a SELECT query and return all matching rows */
   public async All<Type extends columnType>(): Promise<Record<Type>[]> {
-    if(!this._query) {
+    await this.throwIfTableNotExists();
+    if (!this._query) {
       throw new Error("No query defined to run.");
     }
 
@@ -53,9 +63,11 @@ export default class Query {
 
   /** Execute a SELECT query and return the first matching row */
   public async Get<Type extends columnType>(): Promise<Record<Type> | undefined> {
-    if(!this._query) {
+    await this.throwIfTableNotExists();
+    if (!this._query) {
       throw new Error("No query defined to run.");
     }
+
     const stmt = await this._adapter.prepare(this._query);
     const results = await stmt.get(this.Parameters) as Type | undefined;
     return results ? this._recordFactory<Type>(this.TableName, results) : undefined;
@@ -70,9 +82,11 @@ export default class Query {
   }
 
   public async Count(): Promise<number> {
-    if(!this._query) {
+    await this.throwIfTableNotExists();
+    if (!this._query) {
       throw new Error("No query defined to run.");
     }
+
     const stmt = await this._adapter.prepare(this._query);
     const result = await stmt.get(this.Parameters) as { count: string };
     return parseInt(result.count) || 0;

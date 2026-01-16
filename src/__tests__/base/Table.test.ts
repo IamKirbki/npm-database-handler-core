@@ -9,6 +9,7 @@ describe('Table', () => {
 
     beforeEach(() => {
         mockAdapter = setupTestEnvironment();
+        mockAdapter.setTableExists('users', true);
     });
 
     afterEach(() => {

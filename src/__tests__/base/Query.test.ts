@@ -8,6 +8,7 @@ describe('Query', () => {
 
     beforeEach(() => {
         mockAdapter = setupTestEnvironment();
+        mockAdapter.setTableExists('users', true);
     });
 
     afterEach(() => {
@@ -56,7 +57,7 @@ describe('Query', () => {
         it('should throw error when no query is defined', async () => {
             const query = new Query({ tableName: 'users' });
 
-            await expect(query.Run()).rejects.toThrow('No query defined to run');
+            await expect(query.Run()).rejects.toThrow('No query defined to execute.');
         });
 
         it('should execute UPDATE query', async () => {
