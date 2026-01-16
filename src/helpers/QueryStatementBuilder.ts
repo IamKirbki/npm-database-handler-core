@@ -343,14 +343,14 @@ export default class QueryStatementBuilder {
         const expressionClauses = projectionExpressions
             .map(expr => expr.baseExpressionClause)
             .filter(clause => clause)
-            .join(',\n        ');
+            .join(', ');
         
         innerQueryParts.push(`SELECT`);
         if (expressionClauses) {
-            innerQueryParts.push(`    ${selectClause.split(', ').join(',\n        ')},`);
-            innerQueryParts.push(`    ${expressionClauses}`);
+            innerQueryParts.push(`${selectClause.split(', ').join(', ')},`);
+            innerQueryParts.push(`${expressionClauses}`);
         } else {
-            innerQueryParts.push(`    ${selectClause.split(', ').join(',\n        ')}`);
+            innerQueryParts.push(`${selectClause.split(', ').join(', ')}`);
         }
         innerQueryParts.push(`FROM "${fromTableName}"`);
         innerQueryParts.push(this.BuildJoinPart(fromTableName, joins));
@@ -369,9 +369,9 @@ export default class QueryStatementBuilder {
         
         const outerSelectClause = QueryExpressionBuilder.buildJoinOuterSelectClause(columnAliases, expressions);
         queryParts.push(`SELECT`);
-        queryParts.push(`    ${outerSelectClause}`);
+        queryParts.push(`${outerSelectClause}`);
         queryParts.push(`FROM (`);
-        queryParts.push(`    ${innerQueryParts.join('\n    ')}`);
+        queryParts.push(`${innerQueryParts.join('\n')}`);
         queryParts.push(`) AS wrapped`);
         
         // Add expression-based WHERE to outer query
