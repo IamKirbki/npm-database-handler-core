@@ -20,7 +20,7 @@ export default abstract class Model<ModelType extends columnType> extends ModelR
 
     protected get self(): Model<ModelType> {
         return this;
-    };
+    }
 
     protected configuration: ModelConfig = {
         table: '',  // Must be set by subclass
