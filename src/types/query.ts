@@ -61,17 +61,17 @@ export type SpatialDistanceDefinition = {
 
 export type SpatialQueryExpression = QueryExpression<'spatialDistance'> & {
     parameters: SpatialDistanceDefinition;
-}
+};
 
 export type SpatialPointColumns = {
     lat: string;
     lon: string;
-}
+};
 
 export type SpatialPoint = {
     lat: number;
     lon: number;
-}
+};
 
 export type QueryEvaluationPhase =
     | 'base'        // can run in the main SELECT
