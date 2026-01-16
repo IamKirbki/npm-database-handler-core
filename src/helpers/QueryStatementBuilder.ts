@@ -1,6 +1,6 @@
 import { Query } from "@core/index.js";
 import { DefaultQueryParameters, ExtraQueryParameters, QueryWhereCondition, Join, QueryComparisonParameters, QueryIsEqualParameter } from "@core/types/index.js";
-import QueryExpressionBuilder from "./QueryExpressionBuilder";
+import QueryExpressionBuilder, { expressionClause } from "./QueryExpressionBuilder.js";
 
 /** Utility class for building SQL query strings */
 export default class QueryStatementBuilder {
@@ -31,12 +31,29 @@ export default class QueryStatementBuilder {
     public static BuildSelect(tableName: string, options: DefaultQueryParameters & ExtraQueryParameters = { select: "*" }): string {
         const queryParts: string[] = [];
         const expressions = QueryExpressionBuilder.buildExpressionsPart(options.expressions ?? []);
-        const { havingClauses, options: syncedOptions } = QueryExpressionBuilder.SyncQueryOptionsWithExpressions(expressions, options);
+        const syncedOptions = QueryExpressionBuilder.SyncQueryOptionsWithExpressions(expressions, options);
 
-        queryParts.push(`SELECT ${syncedOptions.select ?? '*'}`);
-        queryParts.push(`FROM "${tableName}"`);
-        queryParts.push(this.BuildWhere(syncedOptions.where));
-        queryParts.push(havingClauses.join(" AND "));
+        // Build SELECT clause
+        const selectClause = QueryExpressionBuilder.buildSelectClause(syncedOptions.select, expressions);
+        queryParts.push(`SELECT ${selectClause}`);
+
+        // Build FROM clause (with subquery for projection expressions)
+        queryParts.push(QueryExpressionBuilder.buildFromClause(tableName, expressions));
+
+        // Build WHERE clause (base + literal conditions)
+        const baseWhere = this.BuildWhere(syncedOptions.where);
+        const whereClause = QueryExpressionBuilder.buildWhereWithLiterals(baseWhere, syncedOptions.literalWhere);
+        if (whereClause) {
+            queryParts.push(whereClause);
+        }
+
+        // Build ORDER BY from expressions
+        const expressionOrderBy = QueryExpressionBuilder.buildOrderByFromExpressions(expressions);
+        if (expressionOrderBy) {
+            queryParts.push(expressionOrderBy);
+        }
+
+        // Build query options (ORDER BY, LIMIT, OFFSET)
         queryParts.push(this.BuildQueryOptions(syncedOptions));
 
         return queryParts.filter(part => part && part.trim() !== "").join(" ");
@@ -276,16 +293,100 @@ export default class QueryStatementBuilder {
         query: Query,
         options?: DefaultQueryParameters & ExtraQueryParameters
     ): Promise<string> {
+        const expressions = QueryExpressionBuilder.buildExpressionsPart(options?.expressions ?? []);
+        const syncedOptions = QueryExpressionBuilder.SyncQueryOptionsWithExpressions(expressions, options ?? {});
+        const shouldWrap = QueryExpressionBuilder.shouldWrapJoinQuery(expressions);
+
+        if (shouldWrap) {
+            return this.buildWrappedJoinQuery(fromTableName, joins, query, expressions, syncedOptions);
+        }
+
+        return this.buildSimpleJoinQuery(fromTableName, joins, query, syncedOptions);
+    }
+
+    private static async buildSimpleJoinQuery(
+        fromTableName: string,
+        joins: Join | Join[],
+        query: Query,
+        options: DefaultQueryParameters & ExtraQueryParameters & { literalWhere?: string[] }
+    ): Promise<string> {
         const queryParts: string[] = [];
         const selectClause = await QueryStatementBuilder.BuildJoinSelect(fromTableName, joins, query);
 
         queryParts.push(`SELECT ${selectClause}`);
         queryParts.push(`FROM "${fromTableName}"`);
         queryParts.push(this.BuildJoinPart(fromTableName, joins));
-        queryParts.push(this.BuildWhere(options?.where));
-        queryParts.push(this.BuildQueryOptions(options ?? {}));
+        
+        const baseWhere = this.BuildWhere(options.where);
+        const whereClause = QueryExpressionBuilder.buildWhereWithLiterals(baseWhere, options.literalWhere);
+        if (whereClause) {
+            queryParts.push(whereClause);
+        }
+        
+        queryParts.push(this.BuildQueryOptions(options));
 
-        return queryParts.join(" ");
+        return queryParts.filter(part => part && part.trim() !== "").join(" ");
+    }
+
+    private static async buildWrappedJoinQuery(
+        fromTableName: string,
+        joins: Join | Join[],
+        query: Query,
+        expressions: expressionClause[],
+        options: DefaultQueryParameters & ExtraQueryParameters & { literalWhere?: string[] }
+    ): Promise<string> {
+        const queryParts: string[] = [];
+        const innerQueryParts: string[] = [];
+        
+        const selectClause = await QueryStatementBuilder.BuildJoinSelect(fromTableName, joins, query);
+        const projectionExpressions = QueryExpressionBuilder.filterExpressionsByPhase(expressions, 'projection');
+        const expressionClauses = projectionExpressions
+            .map(expr => expr.baseExpressionClause)
+            .filter(clause => clause)
+            .join(',\n        ');
+        
+        innerQueryParts.push(`SELECT`);
+        if (expressionClauses) {
+            innerQueryParts.push(`    ${selectClause.split(', ').join(',\n        ')},`);
+            innerQueryParts.push(`    ${expressionClauses}`);
+        } else {
+            innerQueryParts.push(`    ${selectClause.split(', ').join(',\n        ')}`);
+        }
+        innerQueryParts.push(`FROM "${fromTableName}"`);
+        innerQueryParts.push(this.BuildJoinPart(fromTableName, joins));
+        
+        const baseWhere = this.BuildWhere(options.where);
+        if (baseWhere) {
+            innerQueryParts.push(baseWhere);
+        }
+        
+        // Build outer query
+        const columnAliases = selectClause.split(', ').map(col => {
+            // Extract alias from "... AS alias" pattern
+            const match = col.match(/AS "([^"]+)"/);
+            return match ? match[1] : col;
+        });
+        
+        const outerSelectClause = QueryExpressionBuilder.buildJoinOuterSelectClause(columnAliases, expressions);
+        queryParts.push(`SELECT`);
+        queryParts.push(`    ${outerSelectClause}`);
+        queryParts.push(`FROM (`);
+        queryParts.push(`    ${innerQueryParts.join('\n    ')}`);
+        queryParts.push(`) AS wrapped`);
+        
+        // Add expression-based WHERE to outer query
+        const literalWhere = options.literalWhere;
+        if (literalWhere && literalWhere.length > 0) {
+            queryParts.push(`WHERE ${literalWhere.join(' AND ')}`);
+        }
+        
+        // Add expression-based ORDER BY to outer query
+        const expressionOrderBy = QueryExpressionBuilder.buildOrderByFromExpressions(expressions);
+        if (expressionOrderBy) {
+            queryParts.push(expressionOrderBy);
+        }
+        
+        return queryParts.join('\n');
     }
 
     public static async BuildJoinSelect(
@@ -295,7 +396,7 @@ export default class QueryStatementBuilder {
     ): Promise<string> {
         const mainTableCols = await query.TableColumnInformation(fromTableName);
         const mainTableSelect = mainTableCols.map(col =>
-            `"${fromTableName}"."${col.name}" AS "${fromTableName}__${col.name}"`
+            `"${fromTableName}"."${col.name}" AS "${QueryStatementBuilder.convertSingleJoinSelect(`${fromTableName}.${col.name}`)}"`
         ).join(', ');
 
         const joinArray = Array.isArray(joins) ? joins : [joins];
@@ -303,12 +404,16 @@ export default class QueryStatementBuilder {
             joinArray.map(async (join) => {
                 const cols = await query.TableColumnInformation(join.fromTable);
                 return cols.map(col =>
-                    `"${join.fromTable}"."${col.name}" AS "${join.fromTable}__${col.name}"`
+                    `"${join.fromTable}"."${col.name}" AS "${QueryStatementBuilder.convertSingleJoinSelect(`${join.fromTable}.${col.name}`)}"`
                 ).join(', ');
             })
         );
 
         return [mainTableSelect, ...joinedSelects].join(', ');
+    }
+
+    public static convertSingleJoinSelect(select: string): string {
+        return select.replace(/\./g, '__');
     }
 
     /**

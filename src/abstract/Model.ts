@@ -1,5 +1,5 @@
 import Repository from "@core/runtime/Repository.js";
-import { columnType, QueryWhereCondition, QueryValues, ModelConfig, ExtraQueryParameters, SpatialQueryExpression } from "@core/types/index.js";
+import { columnType, QueryWhereCondition, QueryValues, ModelConfig, ExtraQueryParameters, SpatialPoint, SpatialPointColumns, SpatialQueryExpression } from "@core/types/index.js";
 import ModelRelations from "@core/abstract/model/ModelRelation.js";
 
 /** Abstract Model class for ORM-style database interactions */
@@ -18,8 +18,8 @@ export default abstract class Model<ModelType extends columnType> extends ModelR
         return this._repository;
     }
 
-    protected get self(): Model<ModelType> { 
-        return this; 
+    protected get self(): Model<ModelType> {
+        return this;
     };
 
     protected configuration: ModelConfig = {
@@ -260,13 +260,37 @@ export default abstract class Model<ModelType extends columnType> extends ModelR
         return this;
     }
 
-    public near(spacialDefinition: SpatialQueryExpression): this {
-        if(this.queryOptions.expressions) {
-            this.queryOptions.expressions.push(spacialDefinition);
-        } else {
-            this.queryOptions.expressions = [spacialDefinition];
+    public near(
+        referencePoint: SpatialPoint,
+        targetColumns: SpatialPointColumns,
+        maxDistance: number,
+        unit: 'km' | 'miles',
+        orderByDistance: 'ASC' | 'DESC',
+        alias: string = "Distance"
+    ): this {
+        const expression: SpatialQueryExpression = {
+            type: 'spatialDistance',
+            requirements: {
+                phase: 'projection',
+                requiresAlias: true,
+                requiresSelectWrapping: true
+            },
+            parameters: {
+                referencePoint: referencePoint,
+                targetColumns: targetColumns,
+                alias: alias,
+                maxDistance: maxDistance,
+                orderByDistance: orderByDistance,
+                unit: unit,
+            }
         }
-        
+
+        if (!this.queryOptions.expressions) {
+            this.queryOptions.expressions = [];
+        }
+
+        this.queryOptions.expressions.push(expression);
+
         return this;
     }
 

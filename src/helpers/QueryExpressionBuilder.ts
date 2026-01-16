@@ -1,8 +1,10 @@
-import { DefaultQueryParameters, ExtraQueryParameters, PossibleExpressions, SpacialDistanceDefinition } from "@core/types/query";
+import { DefaultQueryParameters, ExtraQueryParameters, PossibleExpressions, SpatialQueryExpression } from "@core/types/query";
 
-type expressionClause = {
-    baseExpressionClause: string;
-    havingClause?: string;
+export type expressionClause = {
+    baseExpressionClause?: string;
+    phase?: 'base' | 'projection';
+    requiresWrapping?: boolean;
+    whereClause?: string;
     orderByClause?: string;
 };
 
@@ -12,54 +14,131 @@ export default class QueryExpressionBuilder {
 
         expressions.forEach(expression => {
             if (expression.type === 'spatialDistance') {
-                queryParts.push(this.BuildSpacialDistanceExpression(expression.parameters));
+                queryParts.push(this.BuildSpacialDistanceExpression(expression));
             }
         });
 
         return queryParts;
     }
 
-    public static BuildSpacialDistanceExpression(expression: SpacialDistanceDefinition): expressionClause {
-        if(typeof expression.referencePoint.lat !== 'number' || typeof expression.referencePoint.lon !== 'number') {
-            throw new Error('Invalid reference point for spatial distance expression.');
-        }
-        const baseExpressionClause = `(
-                ${expression.earthRadius || (expression.unit === 'km' ? 6371 : 3959)} * acos(
-                    cos(radians(${expression.referencePoint.lat}))
-                    * cos(radians(${expression.targetColumns.lat}))
-                    * cos(radians(${expression.targetColumns.lon}) - radians(${expression.referencePoint.lon}))
-                    * sin(radians(${expression.referencePoint.lat}))
-                    * sin(radians(${expression.targetColumns.lat}))
-                )
-            ) AS ${expression.alias || 'distance'}`;
-
-        const havingClause = expression.maxDistance ? `HAVING ${expression.alias || 'distance'} <= ${expression.maxDistance}` : undefined;
-        const orderByClause = expression.orderByDistance ? `${expression.alias || 'distance'} ${expression.orderByDistance}` : undefined;
-
-        return { baseExpressionClause, havingClause, orderByClause };
+    public static filterExpressionsByPhase(expressions: expressionClause[], phase: 'base' | 'projection'): expressionClause[] {
+        return expressions.filter(expr => expr.phase === phase);
     }
 
-    public static SyncQueryOptionsWithExpressions(expressions: expressionClause[], options: DefaultQueryParameters & ExtraQueryParameters): { options: DefaultQueryParameters & ExtraQueryParameters, havingClauses: string[] } {
-        const havingClauses: string[] = [];
+    public static buildSelectClause(selectOption: string | undefined, expressions: expressionClause[]): string {
+        const flatExpressions = this.filterExpressionsByPhase(expressions, 'base');
+        const selectColumns: string[] = [];
+        
+        if (selectOption && selectOption !== '*') {
+            selectColumns.push(selectOption);
+        }
+        if (flatExpressions.length > 0) {
+            selectColumns.push(flatExpressions.map(expr => expr.baseExpressionClause).join(", "));
+        }
+        
+        return selectColumns.length > 0 ? selectColumns.join(", ") : '*';
+    }
 
-        expressions.map(expr => {
-            Object.entries(expr).forEach(([key, clause]) => {
-                if (clause) {
-                    if (key === 'baseExpressionClause') {
-                        if (options.select) {
-                            options.select += `, ${clause}`;
-                        } else {
-                            options.select = `*, ${clause}`;
-                        }
-                    } else if (key === 'havingClause') {
-                        havingClauses.push(clause);
-                    } else if (key === 'orderByClause') {
-                        options.orderBy = clause;
-                    }
+    public static buildFromClause(tableName: string, expressions: expressionClause[]): string {
+        const projectionExpressions = this.filterExpressionsByPhase(expressions, 'projection');
+        
+        if (projectionExpressions.length > 0) {
+            const projectionClauses = projectionExpressions.map(expr => expr.baseExpressionClause).join(", ");
+            return `FROM (SELECT *, ${projectionClauses} FROM "${tableName}") AS subquery`;
+        }
+        
+        return `FROM "${tableName}"`;
+    }
+
+    public static buildOrderByFromExpressions(expressions: expressionClause[]): string {
+        const orderByClauses = expressions
+            .filter(expr => expr.orderByClause)
+            .map(expr => expr.orderByClause);
+        
+        return orderByClauses.length > 0 ? `ORDER BY ${orderByClauses.join(", ")}` : '';
+    }
+
+    public static buildWhereWithLiterals(baseWhere: string, literalWhere?: string[]): string {
+        const whereParts: string[] = [];
+        
+        if (baseWhere) {
+            whereParts.push(baseWhere);
+        }
+        
+        if (literalWhere && literalWhere.length > 0) {
+            if (whereParts.length > 0) {
+                whereParts.push(`AND ${literalWhere.join(' AND ')}`);
+            } else {
+                whereParts.push(`WHERE ${literalWhere.join(' AND ')}`);
+            }
+        }
+        
+        return whereParts.join(" ");
+    }
+
+    public static buildJoinOuterSelectClause(columnAliases: string[], expressions: expressionClause[]): string {
+        const projectionExpressions = this.filterExpressionsByPhase(expressions, 'projection');
+        const expressionAliases = projectionExpressions
+            .map(expr => {
+                // Extract alias from "... AS alias" pattern
+                const match = expr.baseExpressionClause?.match(/AS (\w+)$/i);
+                return match ? match[1] : null;
+            })
+            .filter(alias => alias !== null) as string[];
+        
+        return [...columnAliases, ...expressionAliases].join(',\n    ');
+    }
+
+    public static shouldWrapJoinQuery(expressions: expressionClause[]): boolean {
+        const projectionExpressions = this.filterExpressionsByPhase(expressions, 'projection');
+        return projectionExpressions.length > 0 && projectionExpressions.some(expr => 
+            expr.whereClause || expr.orderByClause
+        );
+    }
+
+    public static BuildSpacialDistanceExpression(expression: SpatialQueryExpression): expressionClause {
+        if (typeof expression.parameters.referencePoint.lat !== 'number' || typeof expression.parameters.referencePoint.lon !== 'number') {
+            throw new Error('Invalid reference point for spatial distance expression.');
+        }
+
+        const baseExpressionClause: string = `${expression.parameters.earthRadius ? expression.parameters.earthRadius : (expression.parameters.unit === 'km' ? 6371 : 3959)} * acos(
+            cos(radians(${expression.parameters.referencePoint.lat}))
+            * cos(radians(${expression.parameters.targetColumns.lat}))
+            * cos(radians(${expression.parameters.targetColumns.lon}) - radians(${expression.parameters.referencePoint.lon}))
+            + sin(radians(${expression.parameters.referencePoint.lat}))
+            * sin(radians(${expression.parameters.targetColumns.lat}))
+        ) AS ${expression.parameters.alias}`;
+
+        const whereClause = expression.parameters.maxDistance
+            ? `${expression.parameters.alias} <= ${expression.parameters.maxDistance}`
+            : undefined;
+
+        const orderByClause = expression.parameters.orderByDistance
+            ? `${expression.parameters.alias} ${expression.parameters.orderByDistance}`
+            : undefined;
+
+        return {
+            baseExpressionClause,
+            phase: expression.requirements.phase,
+            requiresWrapping: expression.requirements.requiresSelectWrapping || false,
+            whereClause,
+            orderByClause
+        }
+    }
+
+    public static SyncQueryOptionsWithExpressions(expressions: expressionClause[], options: DefaultQueryParameters & ExtraQueryParameters): DefaultQueryParameters & ExtraQueryParameters & { literalWhere?: string[] } {
+        const syncedOptions: DefaultQueryParameters & ExtraQueryParameters & { literalWhere?: string[] } = { ...options };
+
+        expressions.forEach(expression => {
+            if (expression.whereClause) {
+                if (!syncedOptions.literalWhere) {
+                    syncedOptions.literalWhere = [];
                 }
-            });
-        })
+                // Don't add WHERE prefix - it will be handled by buildWhereWithLiterals
+                syncedOptions.literalWhere.push(expression.whereClause);
+            }
+        });
 
-        return { options, havingClauses };
+        return syncedOptions;
     }
 }

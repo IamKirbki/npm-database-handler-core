@@ -30,21 +30,28 @@ export type ExtraQueryParameters = {
 export type PossibleExpressions = SpatialQueryExpression;
 
 export type QueryExpression = {
-    alias?: string;
-    contributesTo?: "select" | "having" | "orderBy";
+    type: "spatialDistance";
+    requirements: QueryExpressionRequirements;
 };
 
-export type SpacialDistanceDefinition = {
-    referencePoint: SpacialPoint;
+export type QueryExpressionRequirements = {
+    phase: QueryEvaluationPhase;
+    requiresAlias?: boolean;
+    requiresSelectWrapping?: boolean;
+};
 
-    targetColumns: {
-        lat: string;
-        lon: string;
-    };
+export type QueryShape =
+    | { kind: 'flat' }
+    | { kind: 'wrapped'; reason: 'projection-expressions' };
+
+export type SpatialDistanceDefinition = {
+    referencePoint: SpatialPoint;
+
+    targetColumns: SpatialPointColumns;
 
     unit: 'km' | 'miles';
     earthRadius?: number;
-    alias?: string;
+    alias: string;
 
     maxDistance?: number;
     orderByDistance?: 'ASC' | 'DESC';
@@ -52,13 +59,22 @@ export type SpacialDistanceDefinition = {
 
 export type SpatialQueryExpression = QueryExpression & {
     type: 'spatialDistance';
-    parameters: SpacialDistanceDefinition;
+    parameters: SpatialDistanceDefinition;
 }
 
-export type SpacialPoint = {
+export type SpatialPointColumns = {
+    lat: string;
+    lon: string;
+}
+
+export type SpatialPoint = {
     lat: number;
     lon: number;
 }
+
+export type QueryEvaluationPhase =
+    | 'base'        // can run in the main SELECT
+    | 'projection'; // requires a wrapping SELECT
 
 export type QueryConstructorType = {
     tableName: string;
