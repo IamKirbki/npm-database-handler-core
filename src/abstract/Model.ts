@@ -1,5 +1,5 @@
 import Repository from "@core/runtime/Repository.js";
-import { columnType, QueryWhereCondition, QueryValues, ModelConfig, ExtraQueryParameters, } from "@core/types/index.js";
+import { columnType, QueryWhereCondition, QueryValues, ModelConfig, ExtraQueryParameters, SpatialQueryExpression, } from "@core/types/index.js";
 import ModelRelations from "@core/abstract/model/ModelRelation.js";
 
 /** Abstract Model class for ORM-style database interactions */
@@ -260,7 +260,15 @@ export default abstract class Model<ModelType extends columnType> extends ModelR
         return this;
     }
 
-    
+    public near(spacialDefinition: SpatialQueryExpression): this {
+        if(this.queryOptions.expressions) {
+            this.queryOptions.expressions.push(spacialDefinition);
+        } else {
+            this.queryOptions.expressions = [spacialDefinition];
+        }
+        
+        return this;
+    }
 
     public toJSON(): Partial<ModelType> | ModelType {
         return this.attributes;

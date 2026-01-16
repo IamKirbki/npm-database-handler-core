@@ -1,5 +1,6 @@
 import { Query } from "@core/index.js";
 import { DefaultQueryParameters, ExtraQueryParameters, QueryWhereCondition, Join, QueryComparisonParameters, QueryIsEqualParameter } from "@core/types/index.js";
+import QueryExpressionBuilder from "./QueryExpressionBuilder";
 
 /** Utility class for building SQL query strings */
 export default class QueryStatementBuilder {
@@ -27,15 +28,18 @@ export default class QueryStatementBuilder {
      * // "SELECT id, name, email FROM users WHERE status = @status AND age = @age ORDER BY created_at DESC LIMIT 10 OFFSET 20"
      * ```
      */
-    public static BuildSelect(tableName: string, options?: DefaultQueryParameters & ExtraQueryParameters): string {
+    public static BuildSelect(tableName: string, options: DefaultQueryParameters & ExtraQueryParameters = { select: "*" }): string {
         const queryParts: string[] = [];
+        const expressions = QueryExpressionBuilder.buildExpressionsPart(options.expressions ?? []);
+        const { havingClauses, options: syncedOptions } = QueryExpressionBuilder.SyncQueryOptionsWithExpressions(expressions, options);
 
-        queryParts.push(`SELECT ${options?.select ?? "*"}`);
+        queryParts.push(`SELECT ${syncedOptions.select ?? '*'}`);
         queryParts.push(`FROM "${tableName}"`);
-        queryParts.push(this.BuildWhere(options?.where));
-        queryParts.push(this.BuildQueryOptions(options ?? {}));
+        queryParts.push(this.BuildWhere(syncedOptions.where));
+        queryParts.push(havingClauses.join(" AND "));
+        queryParts.push(this.BuildQueryOptions(syncedOptions));
 
-        return queryParts.join(" ");
+        return queryParts.filter(part => part && part.trim() !== "").join(" ");
     }
 
     /**

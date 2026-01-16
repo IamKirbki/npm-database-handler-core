@@ -80,6 +80,7 @@ export default class Table {
             orderBy: options?.orderBy,
             limit: options?.limit,
             offset: options?.offset,
+            expressions: options?.expressions
         });
 
         let params = {}
