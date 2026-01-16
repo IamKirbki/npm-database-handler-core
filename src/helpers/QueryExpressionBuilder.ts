@@ -150,7 +150,7 @@ export default class QueryExpressionBuilder {
             requiresWrapping: expression.requirements.requiresSelectWrapping || false,
             whereClause,
             orderByClause
-        }
+        };
     }
 
     public static SyncQueryOptionsWithExpressions(expressions: expressionClause[], options: DefaultQueryParameters & ExtraQueryParameters): DefaultQueryParameters & ExtraQueryParameters & { literalWhere?: string[] } {
