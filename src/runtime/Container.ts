@@ -1,5 +1,5 @@
-import AdapterNotFoundError from "@core/helpers/Errors/AdapterErrors/AdapterNotFoundError";
-import NoDefaultAdapterError from "@core/helpers/Errors/AdapterErrors/NoDefaultAdapterError";
+import AdapterNotFoundError from "@core/helpers/Errors/AdapterErrors/AdapterNotFoundError.js";
+import NoDefaultAdapterError from "@core/helpers/Errors/AdapterErrors/NoDefaultAdapterError.js";
 import IDatabaseAdapter from "@core/interfaces/IDatabaseAdapter.js";
 
 class Container {

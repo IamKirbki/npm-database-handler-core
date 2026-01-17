@@ -6,9 +6,9 @@ import {
     ExpressionBuilderFunction,
     expressionClause
 } from "@core/types/index.js";
-import SpatialDistanceExpression from "./ExpressionBuilders/SpatialDistanceExpression";
-import { UnknownExpressionTypeError } from "../Errors/ExpressionErrors/UnknownExpressionTypeError";
-import UnsupportedQueryPhaseError from "../Errors/ExpressionErrors/UnsupportedQueryPhaseError";
+import SpatialDistanceExpression from "./ExpressionBuilders/SpatialDistanceExpression.js";
+import { UnknownExpressionTypeError } from "../Errors/ExpressionErrors/UnknownExpressionTypeError.js";
+import UnsupportedQueryPhaseError from "../Errors/ExpressionErrors/UnsupportedQueryPhaseError.js";
 
 /**
  * A normalized, intermediate representation of a query expression.
