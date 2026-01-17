@@ -98,11 +98,11 @@ export default abstract class ModelRelations<
         return this;
     }
 
-    public static with<ParamterModelType extends Model<columnType>>(
-        this: new () => ParamterModelType,
+    public static with<ParameterModelType extends Model<columnType>>(
+        this: new () => ParameterModelType,
         relation: string,
         queryScopes?: QueryWhereCondition
-    ): ParamterModelType {
+    ): ParameterModelType {
         const instance = new this();
         return instance.with(relation, queryScopes);
     }
