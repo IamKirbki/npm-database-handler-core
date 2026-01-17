@@ -54,7 +54,7 @@ export function createTestModel<T extends columnType>(
             columns: TestModel.columns,
             table: TestModel.tableName,
         };
-    } as any;
+    };
 }
 
 /**
