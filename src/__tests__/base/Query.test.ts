@@ -57,7 +57,7 @@ describe('Query', () => {
         it('should throw error when no query is defined', async () => {
             const query = new Query({ tableName: 'users' });
 
-            await expect(query.Run()).rejects.toThrow('No query defined to execute.');
+            await expect(query.Run()).rejects.toThrow('The query is unexpectedly empty. Please ensure that the query is properly constructed and contains valid clauses.');
         });
 
         it('should execute UPDATE query', async () => {

@@ -1,3 +1,5 @@
+import AdapterNotFoundError from "@core/helpers/Errors/AdapterErrors/AdapterNotFoundError";
+import NoDefaultAdapterError from "@core/helpers/Errors/AdapterErrors/NoDefaultAdapterError";
 import IDatabaseAdapter from "@core/interfaces/IDatabaseAdapter.js";
 
 class Container {
@@ -29,10 +31,10 @@ class Container {
     public getAdapter(name?: string): IDatabaseAdapter {
         if (name) {
             const adapter = this._adapters.get(name);
-            if (!adapter) throw new Error(`Adapter '${name}' not found`);
+            if (!adapter) throw new AdapterNotFoundError(name);
             return adapter;
         }
-        if (!this._defaultAdapter) throw new Error("No default adapter set");
+        if (!this._defaultAdapter) throw new NoDefaultAdapterError();
         return this._defaultAdapter;
     }
 

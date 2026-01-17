@@ -8,7 +8,7 @@ import {
     QueryFactory,
     RecordFactory,
 } from "@core/types/index.js";
-import QueryStatementBuilder from "@core/helpers/QueryStatementBuilder.js";
+import QueryStatementBuilder from "@core/helpers/QueryBuilders/QueryStatementBuilder.js";
 import { Record, Query } from "@core/index.js";
 
 /** Table class for interacting with a database table */

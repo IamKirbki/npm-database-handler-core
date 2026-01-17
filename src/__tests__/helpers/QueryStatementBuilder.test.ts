@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import QueryStatementBuilder from '../../helpers/QueryStatementBuilder';
+import QueryStatementBuilder from '../../helpers/QueryBuilders/QueryStatementBuilder';
 
 describe('QueryStatementBuilder - Spatial Expressions', () => {
     describe('BuildSelect with spatialDistance expression', () => {
@@ -51,7 +51,7 @@ describe('QueryStatementBuilder - Spatial Expressions', () => {
                         }
                     ]
                 });
-            }).toThrow('Invalid reference point for spatial distance expression.');
+            }).toThrow('Invalid expression parameters: Invalid spatial distance expression parameters.');
         });
 
         it('should build SELECT query with spatial distance expression in miles', () => {

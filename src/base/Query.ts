@@ -1,5 +1,15 @@
-import { columnType, QueryWhereCondition, QueryIsEqualParameter, TableColumnInfo, QueryComparisonParameters, QueryConstructorType, RecordFactory } from "@core/types/index.js";
+import {
+  columnType,
+  QueryWhereCondition,
+  QueryIsEqualParameter,
+  TableColumnInfo,
+  QueryComparisonParameters,
+  QueryConstructorType,
+  RecordFactory
+} from "@core/types/index.js";
 import { Container, Record, IDatabaseAdapter } from "@core/index.js";
+import UnknownTableError from "@core/helpers/Errors/TableErrors/UnknownTableError.js";
+import UnexpectedEmptyQueryError from "@core/helpers/Errors/QueryErrors/UnexpectedEmptyQueryError.js";
 
 /** Query class for executing custom SQL queries */
 export default class Query {
@@ -34,7 +44,7 @@ export default class Query {
   private async throwIfTableNotExists(): Promise<void> {
     const exists = await this.DoesTableExist();
     if (!exists) {
-      throw new Error(`Table "${this.TableName}" does not exist.`);
+      throw new UnknownTableError(this.TableName);
     }
   }
 
@@ -42,7 +52,7 @@ export default class Query {
   public async Run<Type>(): Promise<Type> {
     await this.throwIfTableNotExists();
     if (!this._query) {
-      throw new Error("No query defined to execute.");
+      throw new UnexpectedEmptyQueryError();
     }
 
     const stmt = await this._adapter.prepare(this._query);

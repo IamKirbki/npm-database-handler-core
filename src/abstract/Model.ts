@@ -1,6 +1,6 @@
 import Repository from "@core/runtime/Repository.js";
-import { columnType, QueryWhereCondition, QueryValues, ModelConfig, ExtraQueryParameters, SpatialPoint, SpatialPointColumns, SpatialQueryExpression } from "@core/types/index.js";
 import ModelRelations from "@core/abstract/model/ModelRelation.js";
+import { columnType, QueryWhereCondition, QueryValues, ModelConfig, ExtraQueryParameters, SpatialPoint, SpatialPointColumns, SpatialQueryExpression } from "@core/types/index.js";
 
 /** Abstract Model class for ORM-style database interactions */
 export default abstract class Model<ModelType extends columnType> extends ModelRelations<ModelType> {
