@@ -1,4 +1,4 @@
-import type Table from "@core/base/Table";
+import type Table from "@core/base/Table.js";
 import type { columnType, Model, Query, QueryConstructorType, Record, Repository } from "@core/index.js";
 
 export type TableFactory = (name: string, adapter?: string) => Table;
@@ -13,4 +13,4 @@ export type RecordFactory = <T extends columnType>(
 
 export type RepositoryFactory<ModelType extends columnType> = (
     model: Model<ModelType>
-) => Repository<ModelType, Model<ModelType>>
+) => Repository<ModelType, Model<ModelType>>;

@@ -77,7 +77,7 @@ export default class QueryExpressionBuilder {
      * Converts high-level expression definitions into normalized clauses.
      *
      * Any expression without a registered builder is ignored
-     * (with a warning, because silence is how bugs breed).
+     * (with a error, because silence is how bugs breed).
      */
     public static buildExpressionsPart(
         expressions: PossibleExpressions[]
@@ -244,8 +244,10 @@ export default class QueryExpressionBuilder {
 
         const expressionAliases = projectionExpressions
             .map(expr => {
-                const match =
-                    expr.baseExpressionClause?.match(/AS (\w+)$/i);
+                const baseClause = expr.baseExpressionClause?.trim();
+                const match = baseClause
+                    ? baseClause.match(/AS\s+(.+)$/i)
+                    : null;
                 return match ? match[1] : null;
             })
             .filter(alias => alias !== null) as string[];

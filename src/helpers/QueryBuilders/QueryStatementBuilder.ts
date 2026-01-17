@@ -220,7 +220,8 @@ export default class QueryStatementBuilder {
         if (
             !where ||
             (Array.isArray(where) && where.length === 0) ||
-            Object.keys(where).length === 0
+            Object.keys(where).length === 0 || 
+            where instanceof Date
         ) {
             return "";
         }

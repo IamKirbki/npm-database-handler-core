@@ -10,15 +10,17 @@ import {
 import { Container, Record, IDatabaseAdapter } from "@core/index.js";
 import UnknownTableError from "@core/helpers/Errors/TableErrors/UnknownTableError.js";
 import UnexpectedEmptyQueryError from "@core/helpers/Errors/QueryErrors/UnexpectedEmptyQueryError.js";
+import QueryCache from "@core/runtime/QueryCache.js";
 
 /** Query class for executing custom SQL queries */
 export default class Query {
   public readonly TableName: string;
 
   private readonly _adapter: IDatabaseAdapter;
+  private readonly _recordFactory: RecordFactory;
+  private readonly _queryCache: QueryCache;
   private _query?: string = "";
   private _parameters: QueryWhereCondition = {};
-  private readonly _recordFactory: RecordFactory;
 
   public get Parameters(): QueryWhereCondition {
     return this._parameters;
@@ -38,13 +40,16 @@ export default class Query {
       this._parameters = this.ConvertParamsToObject(parameters);
 
     this._adapter = Container.getInstance().getAdapter(adapterName)
+    this._queryCache = QueryCache.getInstance();
     this._recordFactory = recordFactory;
   }
 
   private async throwIfTableNotExists(): Promise<void> {
-    const exists = await this.DoesTableExist();
-    if (!exists) {
-      throw new UnknownTableError(this.TableName);
+    if(!this._queryCache.doesTableExist(this.TableName)) {
+      const exists = await this.DoesTableExist();
+      if (!exists) {
+        throw new UnknownTableError(this.TableName);
+      }
     }
   }
 
