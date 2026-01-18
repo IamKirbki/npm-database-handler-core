@@ -45,11 +45,13 @@ export default class Query {
   }
 
   private async throwIfTableNotExists(): Promise<void> {
-    if(!this._queryCache.doesTableExist(this.TableName)) {
+    if (!this._queryCache.doesTableExist(this.TableName)) {
       const exists = await this.DoesTableExist();
       if (!exists) {
         throw new UnknownTableError(this.TableName);
       }
+
+      this._queryCache.addExistingTable(this.TableName);
     }
   }
 

@@ -13,4 +13,10 @@ export default class QueryCache {
     public doesTableExist(table: string): boolean {
         return this.existingTables.includes(table)
     }
+
+    public addExistingTable(table: string): void {
+        if(!this.doesTableExist(table)) {
+            this.existingTables.push(table);
+        }
+    }
 }

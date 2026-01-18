@@ -34,7 +34,9 @@ export type QueryExpression<T extends string = string> = {
 };
 
 // Union type of all supported expressions - add new types here
-export type PossibleExpressions = SpatialQueryExpression; // | FutureExpression | AnotherExpression
+export type PossibleExpressions =
+    SpatialQueryExpression |
+    TextRelevanceQueryExpression; // | FutureExpression | AnotherExpression
 
 export type QueryExpressionRequirements = {
     phase: QueryEvaluationPhase;
@@ -61,6 +63,21 @@ export type SpatialDistanceDefinition = {
 
 export type SpatialQueryExpression = QueryExpression<'spatialDistance'> & {
     parameters: SpatialDistanceDefinition;
+};
+
+export type TextRelevanceDefinition = {
+    targetColumns: string[];
+    searchTerm: string;
+
+    alias: string;
+    whereClauseKeyword?: string;
+
+    minimumRelevance?: number;
+    orderByRelevance?: 'ASC' | 'DESC';
+};
+
+export type TextRelevanceQueryExpression = QueryExpression<'textRelevance'> & {
+    parameters: TextRelevanceDefinition;
 };
 
 export type SpatialPointColumns = {

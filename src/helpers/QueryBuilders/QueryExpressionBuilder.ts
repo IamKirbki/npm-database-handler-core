@@ -4,11 +4,13 @@ import {
     PossibleExpressions,
     SpatialQueryExpression,
     ExpressionBuilderFunction,
-    expressionClause
+    expressionClause,
+    TextRelevanceQueryExpression
 } from "@core/types/index.js";
 import SpatialDistanceExpression from "./ExpressionBuilders/SpatialDistanceExpression.js";
 import { UnknownExpressionTypeError } from "../Errors/ExpressionErrors/UnknownExpressionTypeError.js";
 import UnsupportedQueryPhaseError from "../Errors/ExpressionErrors/UnsupportedQueryPhaseError.js";
+import TextRelevanceExpression from "./ExpressionBuilders/TextRelevanceExpression.js";
 
 /**
  * A normalized, intermediate representation of a query expression.
@@ -51,6 +53,13 @@ export default class QueryExpressionBuilder {
                     expr as SpatialQueryExpression
                 )
         ],
+        [
+            'textRelevance',
+            (expr) =>
+                new TextRelevanceExpression().build(
+                    expr as TextRelevanceQueryExpression
+                )
+        ]
 
         // Future examples:
         // ['jsonAggregation', (expr) => QueryExpressionBuilder.BuildJsonAggregation(expr)]

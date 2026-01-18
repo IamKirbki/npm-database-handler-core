@@ -220,7 +220,7 @@ export default class QueryStatementBuilder {
         if (
             !where ||
             (Array.isArray(where) && where.length === 0) ||
-            Object.keys(where).length === 0 || 
+            Object.keys(where).length === 0 ||
             where instanceof Date
         ) {
             return "";
@@ -271,6 +271,18 @@ export default class QueryStatementBuilder {
         query: Query,
         options?: DefaultQueryParameters & ExtraQueryParameters
     ): Promise<string> {
+        const normalizeBlacklist = options?.expressions?.map((expr) => {
+            if (expr.type === 'textRelevance' && expr.parameters.whereClauseKeyword) {
+                return expr.parameters.whereClauseKeyword;
+            } else {
+                return "";
+            }
+        }).filter(e => e !== "");
+
+        if (options?.where) {
+            options.where = this.normalizeAndQualifyConditions(options.where, fromTableName, normalizeBlacklist);
+        }
+
         const expressions =
             QueryExpressionBuilder.buildExpressionsPart(
                 options?.expressions ?? []
@@ -285,21 +297,120 @@ export default class QueryStatementBuilder {
         const shouldWrap =
             QueryExpressionBuilder.shouldWrapJoinQuery(expressions);
 
-        return shouldWrap
-            ? this.buildWrappedJoinQuery(
+        console.log(shouldWrap
+            ? await this.buildWrappedJoinQuery(
                 fromTableName,
                 joins,
                 query,
                 expressions,
                 syncedOptions
             )
-            : this.buildSimpleJoinQuery(
+            : await this.buildSimpleJoinQuery(
+                fromTableName,
+                joins,
+                query,
+                syncedOptions
+            ))
+
+        return shouldWrap
+            ? await this.buildWrappedJoinQuery(
+                fromTableName,
+                joins,
+                query,
+                expressions,
+                syncedOptions
+            )
+            : await this.buildSimpleJoinQuery(
                 fromTableName,
                 joins,
                 query,
                 syncedOptions
             );
     }
+
+    /**
+ * Normalizes and qualifies WHERE conditions for JOIN queries.
+ *
+ * This function exists because JOIN queries are a lawless wasteland:
+ * unqualified column names WILL collide, ambiguity WILL happen,
+ * and Postgres WILL scream at you in ALL CAPS.
+ *
+ * Responsibilities:
+ * 1. Normalize WHERE input into a comparison-array format
+ *    - Object form: { id: 1 }
+ *    - Array form:  [{ column, operator, value }]
+ *
+ * 2. Qualify column names with the base table
+ *    - Prevents "column reference is ambiguous"
+ *    - Preserves already-qualified columns
+ *
+ * This ensures WHERE clauses are:
+ * - structurally consistent
+ * - safe for JOIN-heavy queries
+ * - predictable for expression injection later
+ *
+ * @param where - WHERE conditions in object or comparison-array form
+ * @param tableName - Base table name used to qualify unscoped columns
+ *
+ * @returns Array of fully-qualified comparison conditions
+ *
+ * @example
+ * // Input (object form)
+ * { id: 5, status: 'active' }
+ *
+ * // Output
+ * [
+ *   { column: '"users"."id"', operator: '=', value: 5 },
+ *   { column: '"users"."status"', operator: '=', value: 'active' }
+ * ]
+ *
+ * @example
+ * // Input (already qualified)
+ * [{ column: 'orders.id', operator: '>', value: 10 }]
+ *
+ * // Output (unchanged)
+ * [{ column: 'orders.id', operator: '>', value: 10 }]
+ */
+    private static normalizeAndQualifyConditions(
+        where: QueryWhereCondition,
+        tableName: string,
+        normalizeBlacklist: string[] = []
+    ): QueryComparisonParameters[] {
+
+        // Step 1: Normalize WHERE into an array of comparison objects.
+        // This removes branching logic later in the query builder.
+        let conditions: QueryComparisonParameters[];
+
+        if (Array.isArray(where)) {
+            conditions = where;
+        } else {
+            conditions = Object.entries(where).map(
+                ([column, value]) => ({
+                    column,
+                    operator: "=" as const,
+                    value
+                })
+            );
+        }
+
+        // Step 2: Qualify column names with the base table.
+        // Skip qualification if:
+        // - Column is in the blacklist (e.g., expression aliases like "Relevance")
+        // - Column already contains a dot (already qualified)
+        return conditions.map(condition => {
+            const shouldSkipQualification =
+                normalizeBlacklist.some(blk => condition.column.includes(blk)) ||
+                condition.column.includes(".");
+
+            return {
+                ...condition,
+                column: shouldSkipQualification
+                    ? condition.column
+                    : `${tableName}.${condition.column}`
+            };
+        });
+    }
+
 
     /**
      * Build a non-wrapped JOIN query.

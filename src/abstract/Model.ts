@@ -1,6 +1,17 @@
 import Repository from "@core/runtime/Repository.js";
 import ModelRelations from "@core/abstract/model/ModelRelation.js";
-import { columnType, QueryWhereCondition, QueryValues, ModelConfig, ExtraQueryParameters, SpatialPoint, SpatialPointColumns, SpatialQueryExpression } from "@core/types/index.js";
+import {
+    columnType,
+    QueryWhereCondition,
+    QueryValues,
+    ModelConfig,
+    ExtraQueryParameters,
+    SpatialPoint,
+    SpatialPointColumns,
+    SpatialQueryExpression,
+    TextRelevanceQueryExpression,
+    QueryComparisonParameters
+} from "@core/types/index.js";
 
 /** Abstract Model class for ORM-style database interactions */
 export default abstract class Model<ModelType extends columnType> extends ModelRelations<ModelType> {
@@ -108,8 +119,28 @@ export default abstract class Model<ModelType extends columnType> extends ModelR
         return instance.where(conditions);
     }
 
+    private normalizeConditions(conditions: QueryWhereCondition): QueryComparisonParameters[] {
+        if (Array.isArray(conditions)) {
+            return conditions;
+        }
+
+        return Object.entries(conditions).map(([column, value]) => ({
+            column,
+            operator: "=" as const,
+            value
+        }));
+    }
+
     public where(conditions: QueryWhereCondition): this {
-        this.queryScopes = conditions;
+        const normalized = this.normalizeConditions(conditions);
+
+        if (!this.queryScopes) {
+            this.queryScopes = normalized;
+        } else {
+            const existing = this.normalizeConditions(this.queryScopes);
+            this.queryScopes = [...existing, ...normalized];
+        }
+
         return this;
     }
 
@@ -290,6 +321,43 @@ export default abstract class Model<ModelType extends columnType> extends ModelR
         }
 
         this.queryOptions.expressions.push(expression);
+
+        return this;
+    }
+
+    public textRelevant(
+        targetColumns: string[],
+        searchTerm: string,
+        alias: string = "relevance",
+        minimumRelevance?: number,
+        orderByRelevance: 'ASC' | 'DESC' = 'DESC'
+    ): this {
+        const whereClauseKeyword = `${alias}_searchTerm`;
+        const expression: TextRelevanceQueryExpression = {
+            type: 'textRelevance',
+            requirements: {
+                phase: 'projection',
+                requiresAlias: true,
+                requiresSelectWrapping: true
+            },
+            parameters: {
+                targetColumns: targetColumns,
+                searchTerm: searchTerm,
+                alias: alias,
+                minimumRelevance: minimumRelevance,
+                orderByRelevance: orderByRelevance,
+                whereClauseKeyword: whereClauseKeyword
+            }
+        }
+
+        if (!this.queryOptions.expressions) {
+            this.queryOptions.expressions = [];
+        }
+
+        this.queryOptions.expressions.push(expression);
+        this.where({
+            [whereClauseKeyword]: `${searchTerm.replace(/'/g, "''")}`
+        });
 
         return this;
     }
