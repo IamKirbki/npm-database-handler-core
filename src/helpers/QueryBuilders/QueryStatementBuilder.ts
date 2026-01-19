@@ -9,6 +9,14 @@ import {
     expressionClause,
 } from "@core/types/index.js";
 import QueryExpressionBuilder from "./QueryExpressionBuilder.js";
+import LimitDecorator from "./QueryDecorators/LimitDecorator.js";
+import WhereDecorator from "./QueryDecorators/WhereDecorator.js";
+import ExpressionDecorator from "./QueryDecorators/ExpressionDecorator.js";
+import JoinDecorator from "./QueryDecorators/JoinDecorator.js";
+import BaseQueryBuilder from "./BaseQueryBuilder.js";
+import IQueryBuilder from "@core/interfaces/IQueryBuilder.js";
+import OrderByDecorator from "./QueryDecorators/OrderByDecorator.js";
+import GroupByDecorator from "./QueryDecorators/GroupByDecorator.js";
 
 /**
  * Utility class responsible for converting structured query intent
@@ -35,156 +43,26 @@ export default class QueryStatementBuilder {
      * The actual query shape (flat vs wrapped) is delegated to the
      * QueryExpressionBuilder.
      */
-    public static BuildSelect(
+    public static async BuildSelect(
         tableName: string,
         options: DefaultQueryParameters & ExtraQueryParameters = { select: "*" },
-    ): string {
-        const queryParts: string[] = [];
+    ): Promise<string> {
+        let builder: IQueryBuilder = new BaseQueryBuilder(tableName, options.select);
+        builder = new ExpressionDecorator(builder, options.expressions || []);
 
-        /**
-         * Normalize expression definitions into executable SQL fragments.
-         * This step determines:
-         * - which expressions exist
-         * - their phase (base vs projection)
-         * - whether wrapping is required
-         */
-        const expressions = QueryExpressionBuilder.buildExpressionsPart(
-            options.expressions ?? [],
-        );
-
-        /**
-         * Sync query options with expression requirements.
-         *
-         * Examples:
-         * - Move distance filters into literal WHERE (outer query)
-         * - Remove ORDER BY if expression defines its own ordering
-         */
-        const syncedOptions =
-            QueryExpressionBuilder.SyncQueryOptionsWithExpressions(
-                expressions,
-                options,
-            );
-
-        /**
-         * Build SELECT clause.
-         * This may include:
-         * - raw column selections
-         * - projection expression aliases
-         */
-        const selectClause = QueryExpressionBuilder.buildSelectClause(
-            syncedOptions.select,
-            expressions,
-        );
-
-        queryParts.push(`SELECT ${selectClause}`);
-
-        /**
-         * Build FROM clause.
-         *
-         * If projection expressions exist, this will emit:
-         *   FROM ( <inner query> ) AS wrapped
-         *
-         * Otherwise:
-         *   FROM "table"
-         */
-        const { fromClause, hasWrapping } = QueryExpressionBuilder.buildFromClause(
-            tableName,
-            expressions,
-            // syncedOptions.where,
-        );
-
-        queryParts.push(fromClause);
-
-        /**
-         * Base WHERE clause applies only to:
-         * - literal column filters
-         * - base expressions
-         * 
-         * For wrapped queries, expression conditions are applied in outer query.
-         */
-        const skipExpressionConditions = hasWrapping;
-        const baseWhere = this.BuildWhere(
-            syncedOptions.where,
-            expressions,
-            skipExpressionConditions,
-        );
-
-        /**
-         * For wrapped queries with expression conditions,
-         * build the WHERE clause with proper alias extraction.
-         */
-        let whereClause = "";
-
-        if (hasWrapping && syncedOptions.where) {
-            const whereParts: string[] = [];
-
-            // Add expression-based WHERE conditions
-            const whereArray = Array.isArray(syncedOptions.where)
-                ? syncedOptions.where
-                : Object.entries(syncedOptions.where).map(([column, value]) => ({
-                    column,
-                    operator: "=" as const,
-                    value,
-                }));
-
-            whereArray.forEach((condition) => {
-                const matchedExpression = expressions?.find(
-                    (expr) => expr.whereClauseKeyword === condition.column,
-                );
-                if (matchedExpression) {
-                    const alias = condition.column.split("_")[0];
-                    const operator = condition.operator || "=";
-                    whereParts.push(`${alias} ${operator} @${condition.column}`);
-                }
-            });
-
-            // Add literal WHERE conditions
-            if (syncedOptions.literalWhere?.length) {
-                whereParts.push(...syncedOptions.literalWhere);
-            }
-
-            whereClause = whereParts.length > 0
-                ? `WHERE ${whereParts.join(" AND ")}`
-                : "";
-        } else {
-            // Non-wrapped query uses standard WHERE building
-            whereClause = QueryExpressionBuilder.buildWhereWithLiterals(
-                baseWhere,
-                syncedOptions.literalWhere,
-            );
+        if (options?.where) {
+            const qualifiedWhere = this.normalizeAndQualifyConditions(options.where, tableName);
+            const expressions = QueryExpressionBuilder.buildExpressionsPart(options?.expressions ?? []);
+            builder = new WhereDecorator(builder, qualifiedWhere, expressions);
         }
 
-        if (whereClause) {
-            queryParts.push(whereClause);
+        builder = new GroupByDecorator(builder, options.groupBy);
+        if (options.limit) {
+            builder = new LimitDecorator(builder, options.limit, options.offset);
         }
 
-        /**
-         * GROUP BY derived from expressions (e.g. JSON_AGG grouping)
-         */
-        const expressionGroupBy =
-            QueryExpressionBuilder.buildGroupByFromExpressions(expressions);
-
-        if (expressionGroupBy) {
-            queryParts.push(expressionGroupBy);
-        }
-
-        /**
-         * ORDER BY derived from expressions (e.g. distance ASC)
-         * takes precedence over user-defined ordering.
-         */
-        const expressionOrderBy =
-            QueryExpressionBuilder.buildOrderByFromExpressions(expressions);
-
-        if (expressionOrderBy) {
-            queryParts.push(expressionOrderBy);
-        }
-
-        /**
-         * Append LIMIT / OFFSET / remaining ORDER BY
-         */
-        queryParts.push(this.BuildQueryOptions(syncedOptions));
-
-        return queryParts.filter((part) => part && part.trim() !== "").join(" ");
+        builder = new OrderByDecorator(builder, options.orderBy);
+        return await builder.build();
     }
 
     /**
@@ -354,53 +232,26 @@ export default class QueryStatementBuilder {
         query: Query,
         options?: DefaultQueryParameters & ExtraQueryParameters,
     ): Promise<string> {
-        const normalizeBlacklist = options?.expressions
-            ?.map((expr) => {
-                if (
-                    expr.type === "textRelevance" &&
-                    expr.parameters.whereClauseKeyword
-                ) {
-                    return expr.parameters.whereClauseKeyword;
-                } else {
-                    return "";
-                }
-            })
-            .filter((e) => e !== "");
+        const expressions = QueryExpressionBuilder.buildExpressionsPart(options?.expressions ?? []);
+
+        let builder: IQueryBuilder = new BaseQueryBuilder(fromTableName);
+        builder = new JoinDecorator(builder, fromTableName, joins, query, options);
 
         if (options?.where) {
-            options.where = this.normalizeAndQualifyConditions(
-                options.where,
-                fromTableName,
-                normalizeBlacklist,
-            );
+            const qualifiedWhere = this.normalizeAndQualifyConditions(options.where, fromTableName);
+            builder = new WhereDecorator(builder, qualifiedWhere, expressions);
         }
 
-        const expressions = QueryExpressionBuilder.buildExpressionsPart(
-            options?.expressions ?? [],
-        );
+        builder = new ExpressionDecorator(builder, options?.expressions ?? []);
+        builder = new WhereDecorator(builder, {}, expressions);
+        builder = new GroupByDecorator(builder);
 
-        const syncedOptions =
-            QueryExpressionBuilder.SyncQueryOptionsWithExpressions(
-                expressions,
-                options ?? {},
-            );
+        if (options?.limit) {
+            builder = new LimitDecorator(builder, options.limit, options.offset);
+        }
 
-        const shouldWrap = QueryExpressionBuilder.shouldWrapJoinQuery(expressions);
-
-        return shouldWrap
-            ? await this.buildWrappedJoinQuery(
-                fromTableName,
-                joins,
-                query,
-                expressions,
-                syncedOptions,
-            )
-            : await this.buildSimpleJoinQuery(
-                fromTableName,
-                joins,
-                query,
-                syncedOptions,
-            );
+        builder = new OrderByDecorator(builder, options?.orderBy);
+        return await builder.build();
     }
 
     /**
@@ -451,8 +302,6 @@ export default class QueryStatementBuilder {
         tableName: string,
         normalizeBlacklist: string[] = [],
     ): QueryComparisonParameters[] {
-        // Step 1: Normalize WHERE into an array of comparison objects.
-        // This removes branching logic later in the query builder.
         let conditions: QueryComparisonParameters[];
 
         if (Array.isArray(where)) {
@@ -481,279 +330,5 @@ export default class QueryStatementBuilder {
                     : `${tableName}.${condition.column}`,
             };
         });
-    }
-
-    /**
-     * Build a non-wrapped JOIN query.
-     *
-     * Used when:
-     * - no projection expressions exist
-     * - all expressions can run in base phase
-     */
-    private static async buildSimpleJoinQuery(
-        fromTableName: string,
-        joins: Join | Join[],
-        query: Query,
-        options: DefaultQueryParameters &
-            ExtraQueryParameters & {
-                literalWhere?: string[];
-            },
-    ): Promise<string> {
-        const selectClause = await QueryStatementBuilder.BuildJoinSelect(
-            fromTableName,
-            joins,
-            query,
-        );
-
-        const baseWhere = this.BuildWhere(options.where);
-        const whereClause = QueryExpressionBuilder.buildWhereWithLiterals(
-            baseWhere,
-            options.literalWhere,
-        );
-
-        return [
-            `SELECT ${selectClause}`,
-            `FROM "${fromTableName}"`,
-            this.BuildJoinPart(fromTableName, joins),
-            whereClause,
-            this.BuildQueryOptions(options),
-        ]
-            .filter(Boolean)
-            .join(" ");
-    }
-
-    /**
-     * Build a wrapped JOIN query.
-     *
-     * Structure:
-     * - Inner query: joins + base expressions + raw columns
-     * - Outer query: projection expressions + filtering + ordering
-     *
-     * This is REQUIRED for expressions like:
-     * - spatial distance
-     * - window functions
-     * - computed aliases used in WHERE / ORDER BY
-     */
-    private static async buildWrappedJoinQuery(
-        fromTableName: string,
-        joins: Join | Join[],
-        query: Query,
-        expressions: expressionClause[],
-        options: DefaultQueryParameters &
-            ExtraQueryParameters & {
-                literalWhere?: string[];
-            },
-    ): Promise<string> {
-        const innerQueryParts: string[] = [];
-
-        const selectClause = await QueryStatementBuilder.BuildJoinSelect(
-            fromTableName,
-            joins,
-            query,
-            options.blacklistTables
-        );
-
-        const projectionExpressions =
-            QueryExpressionBuilder.filterExpressionsByPhase(
-                expressions,
-                "projection",
-            );
-
-        const expressionClauses = projectionExpressions
-            .map((expr) => expr.baseExpressionClause)
-            .filter(Boolean)
-            .join(", ");
-
-        innerQueryParts.push("SELECT");
-
-        if (expressionClauses) {
-            innerQueryParts.push(`${selectClause}, ${expressionClauses}`);
-        } else {
-            innerQueryParts.push(selectClause);
-        }
-
-        innerQueryParts.push(`FROM "${fromTableName}"`);
-        innerQueryParts.push(this.BuildJoinPart(fromTableName, joins));
-
-        const baseWhere = this.BuildWhere(options.where, expressions, true);
-        if (baseWhere) {
-            innerQueryParts.push(baseWhere);
-        }
-
-        /**
-         * Extract column aliases from the inner SELECT.
-         * These are the ONLY columns visible to the outer query.
-         */
-        const columnAliases = selectClause.split(", ").map((col) => {
-            const match = col.match(/AS "([^"]+)"/);
-            return match ? match[1] : col;
-        });
-
-        const outerSelectClause = QueryExpressionBuilder.buildJoinOuterSelectClause(
-            columnAliases,
-            expressions,
-        );
-
-        /**
-         * GROUP BY derived from expressions (e.g. JSON_AGG grouping)
-         */
-        const expressionGroupBy =
-            QueryExpressionBuilder.buildGroupByFromExpressions(expressions);
-
-        return [
-            "SELECT",
-            outerSelectClause,
-            "FROM (",
-            innerQueryParts.join("\n"),
-            expressionGroupBy,
-            ") AS wrapped",
-            options.literalWhere?.length
-                ? `WHERE ${options.literalWhere.join(" AND ")}`
-                : "",
-            QueryExpressionBuilder.buildOrderByFromExpressions(expressions)
-        ]
-            .filter(Boolean)
-            .join("\n");
-    }
-
-    /**
-     * Build SELECT clause for JOIN queries.
-     *
-     * All selected columns are aliased using:
-     *   table.column → table__column
-     *
-     * This guarantees:
-     * - no name collisions
-     * - safe outer query access after wrapping
-     */
-    public static async BuildJoinSelect(
-        fromTableName: string,
-        joins: Join | Join[],
-        query: Query,
-        blacklistTables: string[] = [],
-    ): Promise<string> {
-        const mainTableCols = await query.TableColumnInformation(fromTableName);
-
-        const mainTableSelect = mainTableCols
-            .map(
-                (col) => {
-                    if (blacklistTables.includes(fromTableName)) {
-                        return "";
-                    }
-
-                    return `"${fromTableName}"."${col.name}" AS "${QueryStatementBuilder.convertSingleJoinSelect(
-                        `${fromTableName}.${col.name}`,
-                    )}"`;
-                },
-            )
-            .filter(e => e.trim() !== "")
-            .join(", ");
-
-        const joinArray = Array.isArray(joins) ? joins : [joins];
-
-        const joinedSelects = await Promise.all(
-            joinArray.map(async (join) => {
-                const cols = await query.TableColumnInformation(join.fromTable);
-
-                return cols
-                    .map(
-                        (col) => {
-                            if (blacklistTables.includes(join.fromTable)) {
-                                return "";
-                            }
-
-                            return `"${join.fromTable}"."${col.name}" AS "${QueryStatementBuilder.convertSingleJoinSelect(
-                                `${join.fromTable}.${col.name}`,
-                            )}"`;
-                        }
-                    )
-                    .filter(e => e.trim() !== "")
-                    .join(", ");
-            }),
-        );
-
-        const allSelects = [mainTableSelect, ...joinedSelects].filter(s => s.trim() !== "");
-        return allSelects.join(", ");
-    }
-
-    /**
-     * Convert dotted column paths into safe aliases.
-     *
-     * Example:
-     *   users.id → users__id
-     */
-    public static convertSingleJoinSelect(select: string): string {
-        return select.replace(/\./g, "__");
-    }
-
-    /**
-     * Build JOIN clauses recursively.
-     *
-     * This function is intentionally dumb:
-     * - it does not inspect expressions
-     * - it does not care about wrapping
-     *
-     * It only emits valid JOIN syntax.
-     */
-    public static BuildJoinPart(
-        fromTableName: string,
-        joins: Join | Join[],
-    ): string {
-        const joinArray = Array.isArray(joins) ? joins : [joins];
-
-        return joinArray
-            .map((join) => {
-                const baseTable = join.baseTable || fromTableName;
-
-                return [
-                    `${join.joinType} JOIN "${join.fromTable}"`,
-                    this.BuildJoinOnPart(baseTable, join.fromTable, join.on),
-                ].join(" ");
-            })
-            .join(" ");
-    }
-
-    /**
-     * Build ON clause for JOINs.
-     *
-     * Supports multiple conditions joined by AND.
-     */
-    public static BuildJoinOnPart(
-        tableName: string,
-        joinTableName: string,
-        on: QueryIsEqualParameter | QueryIsEqualParameter[],
-    ): string {
-        const onArray = Array.isArray(on) ? on : [on];
-
-        return onArray
-            .map(
-                (part) =>
-                    `ON ${tableName}.${Object.values(part)[0]} = ${joinTableName}.${Object.keys(part)[0]}`,
-            )
-            .join(" AND ");
-    }
-
-    /**
-     * Build ORDER BY / LIMIT / OFFSET clauses.
-     *
-     * Expression-based ORDER BY clauses should already be injected
-     * before this function runs.
-     */
-    public static BuildQueryOptions(options: ExtraQueryParameters): string {
-        const queryParts: string[] = [];
-
-        if (options?.orderBy) {
-            queryParts.push(`ORDER BY ${options.orderBy}`);
-        }
-
-        if (options?.limit) {
-            queryParts.push(`LIMIT ${options.limit}`);
-
-            if (options?.offset) {
-                queryParts.push(`OFFSET ${options.offset}`);
-            }
-        }
-
-        return queryParts.join(" ");
     }
 }

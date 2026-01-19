@@ -23,6 +23,7 @@ export type ExtraQueryParameters = {
     orderBy?: string;
     limit?: number;
     offset?: number;
+    groupBy?: string;
 
     expressions?: PossibleExpressions[];
     blacklistTables?: string[];

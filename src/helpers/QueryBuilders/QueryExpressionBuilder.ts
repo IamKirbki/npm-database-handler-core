@@ -222,7 +222,7 @@ export default class QueryExpressionBuilder {
             .map(expr => expr.orderByClause);
 
         return orderByClauses.length > 0
-            ? `ORDER BY ${orderByClauses.join(", ")}`
+            ? `${orderByClauses.join(", ")}`
             : '';
     }
 
@@ -240,7 +240,7 @@ export default class QueryExpressionBuilder {
             .map(expr => expr.groupByClause);
 
         return groupByClauses.length > 0
-            ? `GROUP BY ${groupByClauses.map(e => e?.replace(/\./g, "__")).join(", ")}`
+            ? `${groupByClauses.map(e => e?.replace(/\./g, "__")).join(", ")}`
             : '';
     }
 
