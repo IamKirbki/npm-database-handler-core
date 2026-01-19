@@ -25,6 +25,7 @@ export type ExtraQueryParameters = {
     offset?: number;
 
     expressions?: PossibleExpressions[];
+    blacklistTables?: string[];
 };
 
 // Base type for all query expressions
@@ -36,7 +37,8 @@ export type QueryExpression<T extends string = string> = {
 // Union type of all supported expressions - add new types here
 export type PossibleExpressions =
     SpatialQueryExpression |
-    TextRelevanceQueryExpression; // | FutureExpression | AnotherExpression
+    TextRelevanceQueryExpression |
+    JsonAggregateQueryExpression; // | FutureExpression | AnotherExpression
 
 export type QueryExpressionRequirements = {
     phase: 'base' | 'projection';
@@ -51,7 +53,6 @@ export type QueryExpressionRequirements = {
     requiresAlias: boolean;
     requiresSelectWrapping: boolean;
 };
-
 
 export type QueryShape =
     | { kind: 'flat' }
@@ -97,6 +98,19 @@ export type TextRelevanceDefinition = {
 
 export type TextRelevanceQueryExpression = QueryExpression<'textRelevance'> & {
     parameters: TextRelevanceDefinition;
+};
+
+export type JsonAggregateDefinition = {
+    targetColumns: string[];
+    targetTable: string;
+
+    groupByColumns: string[];
+
+    alias: string;
+}
+
+export type JsonAggregateQueryExpression = QueryExpression<'jsonAggregate'> & {
+    parameters: JsonAggregateDefinition;
 };
 
 export type QueryEvaluationPhase =

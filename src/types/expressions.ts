@@ -54,7 +54,7 @@ export type expressionClause = {
      */
     whereClauseKeyword?: string;
 
-    cardinality?: 'row' | 'aggregate';
+    groupByClause?: string;
 };
 
 /**

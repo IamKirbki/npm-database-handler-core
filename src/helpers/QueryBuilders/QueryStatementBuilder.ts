@@ -159,6 +159,16 @@ export default class QueryStatementBuilder {
         }
 
         /**
+         * GROUP BY derived from expressions (e.g. JSON_AGG grouping)
+         */
+        const expressionGroupBy =
+            QueryExpressionBuilder.buildGroupByFromExpressions(expressions);
+
+        if (expressionGroupBy) {
+            queryParts.push(expressionGroupBy);
+        }
+
+        /**
          * ORDER BY derived from expressions (e.g. distance ASC)
          * takes precedence over user-defined ordering.
          */
@@ -540,6 +550,7 @@ export default class QueryStatementBuilder {
             fromTableName,
             joins,
             query,
+            options.blacklistTables
         );
 
         const projectionExpressions =
@@ -583,11 +594,18 @@ export default class QueryStatementBuilder {
             expressions,
         );
 
+        /**
+         * GROUP BY derived from expressions (e.g. JSON_AGG grouping)
+         */
+        const expressionGroupBy =
+            QueryExpressionBuilder.buildGroupByFromExpressions(expressions);
+
         return [
             "SELECT",
             outerSelectClause,
             "FROM (",
             innerQueryParts.join("\n"),
+            expressionGroupBy,
             ") AS wrapped",
             options.literalWhere?.length
                 ? `WHERE ${options.literalWhere.join(" AND ")}`
@@ -612,16 +630,23 @@ export default class QueryStatementBuilder {
         fromTableName: string,
         joins: Join | Join[],
         query: Query,
+        blacklistTables: string[] = [],
     ): Promise<string> {
         const mainTableCols = await query.TableColumnInformation(fromTableName);
 
         const mainTableSelect = mainTableCols
             .map(
-                (col) =>
-                    `"${fromTableName}"."${col.name}" AS "${QueryStatementBuilder.convertSingleJoinSelect(
+                (col) => {
+                    if (blacklistTables.includes(fromTableName)) {
+                        return "";
+                    }
+
+                    return `"${fromTableName}"."${col.name}" AS "${QueryStatementBuilder.convertSingleJoinSelect(
                         `${fromTableName}.${col.name}`,
-                    )}"`,
+                    )}"`;
+                },
             )
+            .filter(e => e.trim() !== "")
             .join(", ");
 
         const joinArray = Array.isArray(joins) ? joins : [joins];
@@ -632,16 +657,23 @@ export default class QueryStatementBuilder {
 
                 return cols
                     .map(
-                        (col) =>
-                            `"${join.fromTable}"."${col.name}" AS "${QueryStatementBuilder.convertSingleJoinSelect(
+                        (col) => {
+                            if (blacklistTables.includes(join.fromTable)) {
+                                return "";
+                            }
+
+                            return `"${join.fromTable}"."${col.name}" AS "${QueryStatementBuilder.convertSingleJoinSelect(
                                 `${join.fromTable}.${col.name}`,
-                            )}"`,
+                            )}"`;
+                        }
                     )
+                    .filter(e => e.trim() !== "")
                     .join(", ");
             }),
         );
 
-        return [mainTableSelect, ...joinedSelects].join(", ");
+        const allSelects = [mainTableSelect, ...joinedSelects].filter(s => s.trim() !== "");
+        return allSelects.join(", ");
     }
 
     /**

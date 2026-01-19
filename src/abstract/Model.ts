@@ -11,6 +11,7 @@ import {
     SpatialQueryExpression,
     TextRelevanceQueryExpression,
     QueryComparisonParameters,
+    JsonAggregateQueryExpression,
 } from '@core/types/index.js';
 
 /** Abstract Model class for ORM-style database interactions */
@@ -342,16 +343,13 @@ export default abstract class Model<
             },
         };
 
-        if (!this.queryOptions.expressions) {
-            this.queryOptions.expressions = [];
-        }
-
+        this.queryOptions.expressions ??= [];
         this.queryOptions.expressions.push(expression);
 
         return this;
     }
 
-    public textRelevant(
+    public isTextRelevant(
         targetColumns: string[],
         searchTerm: string,
         minimumRelevance?: number,
@@ -377,14 +375,43 @@ export default abstract class Model<
             },
         };
 
-        if (!this.queryOptions.expressions) {
-            this.queryOptions.expressions = [];
-        }
-
+        this.queryOptions.expressions ??= [];
         this.queryOptions.expressions.push(expression);
+
         this.where({
             [whereClauseKeyword]: searchTerm,
         });
+
+        return this;
+    }
+
+    public JsonAggregate(
+        targetColumns: string[],
+        targetTable: string,
+        groupByColumns: string[] = [],
+        alias: string = targetTable
+    ): this {
+        const expression: JsonAggregateQueryExpression = {
+            type: 'jsonAggregate',
+            requirements: {
+                phase: 'projection',
+                cardinality: 'row',
+                requiresAlias: true,
+                requiresSelectWrapping: true,
+            },
+            parameters: {
+                targetColumns: targetColumns,
+                targetTable: targetTable,
+                groupByColumns: groupByColumns,
+                alias: alias,
+            },
+        };
+
+        this.queryOptions.expressions ??= [];
+        this.queryOptions.expressions.push(expression);
+
+        this.queryOptions.blacklistTables ??= [];
+        this.queryOptions.blacklistTables.push(targetTable);
 
         return this;
     }

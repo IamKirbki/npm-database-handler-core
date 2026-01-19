@@ -12,8 +12,8 @@ export default class Repository<Type extends columnType, ModelType extends Model
     private tableFactory: TableFactory;
 
     constructor(
-        tableName: string, 
-        ModelClass: ModelType, 
+        tableName: string,
+        ModelClass: ModelType,
         customDatabaseAdapter?: string,
         tableFactory: TableFactory = (name, adapter) => new Table(name, adapter)
     ) {
@@ -34,9 +34,9 @@ export default class Repository<Type extends columnType, ModelType extends Model
         const key = tableName || ModelClass.name;
         if (!this._instances.has(key)) {
             const instance = new Repository<ModelType, Model<ModelType>>(
-                tableName, 
-                new ModelClass(), 
-                customDatabaseAdapter, 
+                tableName,
+                new ModelClass(),
+                customDatabaseAdapter,
                 tableFactory
             );
             this._instances.set(key, instance);
@@ -162,6 +162,11 @@ export default class Repository<Type extends columnType, ModelType extends Model
             }
 
             if (relation.type === 'manyToMany') {
+                queryOptions = queryOptions || {};
+                queryOptions.blacklistTables = queryOptions.blacklistTables || [];
+
+                queryOptions.blacklistTables.push(relation.pivotTable!);
+
                 return [
                     {
                         fromTable: relation.pivotTable,

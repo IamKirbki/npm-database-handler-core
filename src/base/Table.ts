@@ -21,7 +21,7 @@ export default class Table {
 
     /** Private constructor - use Table.create() */
     constructor(
-        name: string, 
+        name: string,
         customAdapter?: string,
         queryFactory: QueryFactory = (config) => new Query(config),
         recordFactory: RecordFactory = (table, values, adapter) => new Record(table, values, adapter)
@@ -30,7 +30,7 @@ export default class Table {
         this._customAdapter = customAdapter;
         this._queryFactory = queryFactory;
         this._recordFactory = recordFactory;
-        
+
         this._query = this._queryFactory({
             tableName: this._name,
             adapterName: this._customAdapter,
@@ -173,10 +173,6 @@ export default class Table {
             const mainTableData: columnType = {};
             const joinedTableData: { [tableName: string]: columnType } = {};
 
-            for (const tableName of joinedTables) {
-                joinedTableData[tableName] = {};
-            }
-
             for (const [aliasedKey, value] of Object.entries(record.values)) {
                 if (aliasedKey.includes('__')) {
                     const [tableName, columnName] = aliasedKey.split('__');
@@ -185,6 +181,9 @@ export default class Table {
                         mainTableData[columnName] = value;
                     }
                     else if (joinedTables.includes(tableName)) {
+                        if (!joinedTableData[tableName]) {
+                            joinedTableData[tableName] = {};
+                        }
                         joinedTableData[tableName][columnName] = value;
                     }
                 } else {
@@ -192,8 +191,11 @@ export default class Table {
                 }
             }
 
-            // Combine main table data with nested joined table data
-            const combinedData: Type = { ...mainTableData, ...joinedTableData } as Type;
+            const filteredJoinedData = Object.fromEntries(
+                Object.entries(joinedTableData).filter(([_, data]) => Object.keys(data).length > 0)
+            );
+
+            const combinedData: Type = { ...mainTableData, ...filteredJoinedData } as Type;
 
             return this._recordFactory<Type>(this._name, combinedData, this._customAdapter);
         });

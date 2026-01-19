@@ -6,11 +6,13 @@ import {
     ExpressionBuilderFunction,
     expressionClause,
     TextRelevanceQueryExpression,
+    JsonAggregateQueryExpression,
 } from "@core/types/index.js";
 import SpatialDistanceExpression from "./ExpressionBuilders/SpatialDistanceExpression.js";
 import { UnknownExpressionTypeError } from "../Errors/ExpressionErrors/UnknownExpressionTypeError.js";
 import UnsupportedQueryPhaseError from "../Errors/ExpressionErrors/UnsupportedQueryPhaseError.js";
 import TextRelevanceExpression from "./ExpressionBuilders/TextRelevanceExpression.js";
+import JsonAggregateExpression from "./ExpressionBuilders/JsonAggregateExpression.js";
 
 /**
  * A normalized, intermediate representation of a query expression.
@@ -58,6 +60,13 @@ export default class QueryExpressionBuilder {
             (expr) =>
                 new TextRelevanceExpression().build(
                     expr as TextRelevanceQueryExpression
+                )
+        ],
+        [
+            'jsonAggregate',
+            (expr) =>
+                new JsonAggregateExpression().build(
+                    expr as JsonAggregateQueryExpression
                 )
         ]
 
@@ -214,6 +223,24 @@ export default class QueryExpressionBuilder {
 
         return orderByClauses.length > 0
             ? `ORDER BY ${orderByClauses.join(", ")}`
+            : '';
+    }
+
+    /**
+     * Builds GROUP BY clauses originating from expressions.
+     *
+     * This is essential for aggregate expressions like JSON_AGG
+     * that need to group by specific columns.
+     */
+    public static buildGroupByFromExpressions(
+        expressions: expressionClause[]
+    ): string {
+        const groupByClauses = expressions
+            .filter(expr => expr.groupByClause)
+            .map(expr => expr.groupByClause);
+
+        return groupByClauses.length > 0
+            ? `GROUP BY ${groupByClauses.map(e => e?.replace(/\./g, "__")).join(", ")}`
             : '';
     }
 
