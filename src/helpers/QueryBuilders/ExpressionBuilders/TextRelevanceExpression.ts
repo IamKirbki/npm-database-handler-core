@@ -1,22 +1,33 @@
+import InvalidExpressionParametersError from "@core/helpers/Errors/ExpressionErrors/InvalidExpressionParametersError.js";
 import IExpressionBuilder from "@core/interfaces/IExpressionBuilder.js";
 import { expressionClause, TextRelevanceQueryExpression } from "@core/types/index.js";
 
 export default class TextRelevanceExpression implements IExpressionBuilder {
     build(expression: TextRelevanceQueryExpression): expressionClause {
         if (!this.validate(expression)) {
-            throw new Error(
+            throw new InvalidExpressionParametersError(
                 "Invalid text relevance expression parameters."
             );
         }
 
-        const baseExpressionClause = `ts_rank(
-            to_tsvector(${expression.parameters.targetColumns.join(" || ' ' || ")}),
-            to_tsquery('@${expression.parameters.whereClauseKeyword}')
+        // Build universal LIKE-based relevance scoring
+        // Score: 3 = exact match, 2 = starts with, 1 = contains, 0 = no match
+        const columnConcat = expression.parameters.targetColumns
+            .map(col => `COALESCE(${col}, '')`)
+            .join(" || ' ' || ");
+
+        const baseExpressionClause = `(
+            CASE 
+                WHEN LOWER(${columnConcat}) = LOWER(@${expression.parameters.whereClauseKeyword}) THEN 3
+                WHEN LOWER(${columnConcat}) LIKE LOWER(@${expression.parameters.whereClauseKeyword} || '%') THEN 2
+                WHEN LOWER(${columnConcat}) LIKE LOWER('%' || @${expression.parameters.whereClauseKeyword} || '%') THEN 1
+                ELSE 0
+            END
         ) AS ${expression.parameters.alias}`;
 
 
-        const whereClause = expression.parameters.minimumRelevance
-            ? `${expression.parameters.alias} >= ${expression.parameters.minimumRelevance}`
+        const whereClause = expression.parameters.minimumRelevance !== undefined
+            ? `${expression.parameters.alias} >= ${Number(expression.parameters.minimumRelevance)}`
             : undefined;
 
         const orderByClause = expression.parameters.orderByRelevance
@@ -29,7 +40,8 @@ export default class TextRelevanceExpression implements IExpressionBuilder {
             requiresWrapping:
                 expression.requirements.requiresSelectWrapping || false,
             whereClause,
-            orderByClause
+            orderByClause,
+            whereClauseKeyword: expression.parameters.whereClauseKeyword
         };
     }
 
@@ -40,7 +52,8 @@ export default class TextRelevanceExpression implements IExpressionBuilder {
             typeof expression.parameters.searchTerm === 'string' &&
             Array.isArray(expression.parameters.targetColumns) &&
             expression.parameters.targetColumns.every(col => typeof col === 'string') &&
-            typeof expression.parameters.alias === 'string'
+            typeof expression.parameters.alias === 'string' &&
+            typeof expression.parameters.minimumRelevance == 'number'
         );
     }
 }

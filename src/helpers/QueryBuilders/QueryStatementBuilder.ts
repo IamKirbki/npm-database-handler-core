@@ -6,7 +6,7 @@ import {
     Join,
     QueryComparisonParameters,
     QueryIsEqualParameter,
-    expressionClause
+    expressionClause,
 } from "@core/types/index.js";
 import QueryExpressionBuilder from "./QueryExpressionBuilder.js";
 
@@ -24,7 +24,6 @@ import QueryExpressionBuilder from "./QueryExpressionBuilder.js";
  * - Projection query = computed expressions that require SELECT aliasing
  */
 export default class QueryStatementBuilder {
-
     /**
      * Build a SELECT SQL statement.
      *
@@ -38,7 +37,7 @@ export default class QueryStatementBuilder {
      */
     public static BuildSelect(
         tableName: string,
-        options: DefaultQueryParameters & ExtraQueryParameters = { select: "*" }
+        options: DefaultQueryParameters & ExtraQueryParameters = { select: "*" },
     ): string {
         const queryParts: string[] = [];
 
@@ -50,7 +49,7 @@ export default class QueryStatementBuilder {
          * - whether wrapping is required
          */
         const expressions = QueryExpressionBuilder.buildExpressionsPart(
-            options.expressions ?? []
+            options.expressions ?? [],
         );
 
         /**
@@ -63,7 +62,7 @@ export default class QueryStatementBuilder {
         const syncedOptions =
             QueryExpressionBuilder.SyncQueryOptionsWithExpressions(
                 expressions,
-                options
+                options,
             );
 
         /**
@@ -72,11 +71,10 @@ export default class QueryStatementBuilder {
          * - raw column selections
          * - projection expression aliases
          */
-        const selectClause =
-            QueryExpressionBuilder.buildSelectClause(
-                syncedOptions.select,
-                expressions
-            );
+        const selectClause = QueryExpressionBuilder.buildSelectClause(
+            syncedOptions.select,
+            expressions,
+        );
 
         queryParts.push(`SELECT ${selectClause}`);
 
@@ -89,29 +87,72 @@ export default class QueryStatementBuilder {
          * Otherwise:
          *   FROM "table"
          */
-        queryParts.push(
-            QueryExpressionBuilder.buildFromClause(
-                tableName,
-                expressions
-            )
+        const { fromClause, hasWrapping } = QueryExpressionBuilder.buildFromClause(
+            tableName,
+            expressions,
+            // syncedOptions.where,
         );
+
+        queryParts.push(fromClause);
 
         /**
          * Base WHERE clause applies only to:
          * - literal column filters
          * - base expressions
+         * 
+         * For wrapped queries, expression conditions are applied in outer query.
          */
-        const baseWhere = this.BuildWhere(syncedOptions.where);
+        const skipExpressionConditions = hasWrapping;
+        const baseWhere = this.BuildWhere(
+            syncedOptions.where,
+            expressions,
+            skipExpressionConditions,
+        );
 
         /**
-         * Literal WHERE clauses (e.g. distance filters) are injected
-         * after expression evaluation.
+         * For wrapped queries with expression conditions,
+         * build the WHERE clause with proper alias extraction.
          */
-        const whereClause =
-            QueryExpressionBuilder.buildWhereWithLiterals(
+        let whereClause = "";
+
+        if (hasWrapping && syncedOptions.where) {
+            const whereParts: string[] = [];
+
+            // Add expression-based WHERE conditions
+            const whereArray = Array.isArray(syncedOptions.where)
+                ? syncedOptions.where
+                : Object.entries(syncedOptions.where).map(([column, value]) => ({
+                    column,
+                    operator: "=" as const,
+                    value,
+                }));
+
+            whereArray.forEach((condition) => {
+                const matchedExpression = expressions?.find(
+                    (expr) => expr.whereClauseKeyword === condition.column,
+                );
+                if (matchedExpression) {
+                    const alias = condition.column.split("_")[0];
+                    const operator = condition.operator || "=";
+                    whereParts.push(`${alias} ${operator} @${condition.column}`);
+                }
+            });
+
+            // Add literal WHERE conditions
+            if (syncedOptions.literalWhere?.length) {
+                whereParts.push(...syncedOptions.literalWhere);
+            }
+
+            whereClause = whereParts.length > 0
+                ? `WHERE ${whereParts.join(" AND ")}`
+                : "";
+        } else {
+            // Non-wrapped query uses standard WHERE building
+            whereClause = QueryExpressionBuilder.buildWhereWithLiterals(
                 baseWhere,
-                syncedOptions.literalWhere
+                syncedOptions.literalWhere,
             );
+        }
 
         if (whereClause) {
             queryParts.push(whereClause);
@@ -133,9 +174,7 @@ export default class QueryStatementBuilder {
          */
         queryParts.push(this.BuildQueryOptions(syncedOptions));
 
-        return queryParts
-            .filter(part => part && part.trim() !== "")
-            .join(" ");
+        return queryParts.filter((part) => part && part.trim() !== "").join(" ");
     }
 
     /**
@@ -145,15 +184,15 @@ export default class QueryStatementBuilder {
      */
     public static BuildInsert(
         tableName: string,
-        record: QueryIsEqualParameter
+        record: QueryIsEqualParameter,
     ): string {
         const columns = Object.keys(record);
-        const placeholders = columns.map(col => `@${col}`);
+        const placeholders = columns.map((col) => `@${col}`);
 
         return [
             `INSERT INTO "${tableName}"`,
-            `(${columns.map(c => `"${c}"`).join(", ")})`,
-            `VALUES (${placeholders.join(", ")})`
+            `(${columns.map((c) => `"${c}"`).join(", ")})`,
+            `VALUES (${placeholders.join(", ")})`,
         ].join(" ");
     }
 
@@ -167,16 +206,14 @@ export default class QueryStatementBuilder {
     public static BuildUpdate(
         tableName: string,
         record: QueryWhereCondition,
-        where: QueryWhereCondition
+        where: QueryWhereCondition,
     ): string {
-        const setClauses = Object.keys(record)
-            .map(col => `${col} = @${col}`);
+        const setClauses = Object.keys(record).map((col) => `${col} = @${col}`);
 
         return [
             `UPDATE "${tableName}"`,
             `SET ${setClauses.join(", ")}`,
-            this.BuildWhere(where)
-                .replace(/@(\w+)/g, '@where_$1')
+            this.BuildWhere(where).replace(/@(\w+)/g, "@where_$1"),
         ].join(" ");
     }
 
@@ -185,12 +222,9 @@ export default class QueryStatementBuilder {
      */
     public static BuildDelete(
         tableName: string,
-        where: QueryWhereCondition
+        where: QueryWhereCondition,
     ): string {
-        return [
-            `DELETE FROM "${tableName}"`,
-            this.BuildWhere(where)
-        ].join(" ");
+        return [`DELETE FROM "${tableName}"`, this.BuildWhere(where)].join(" ");
     }
 
     /**
@@ -201,11 +235,11 @@ export default class QueryStatementBuilder {
      */
     public static BuildCount(
         tableName: string,
-        where?: QueryWhereCondition
+        where?: QueryWhereCondition,
     ): string {
         return [
             `SELECT COUNT(*) as count FROM "${tableName}"`,
-            this.BuildWhere(where)
+            this.BuildWhere(where),
         ].join(" ");
     }
 
@@ -215,8 +249,15 @@ export default class QueryStatementBuilder {
      * Supports:
      * - simple equality objects
      * - operator-based condition arrays
+     *
+     * @param skipExpressionConditions - If true, skip conditions that match expression whereClauseKeywords.
+     *                                    Used in inner queries where expression aliases don't exist yet.
      */
-    public static BuildWhere(where?: QueryWhereCondition): string {
+    public static BuildWhere(
+        where?: QueryWhereCondition,
+        expressions?: expressionClause[],
+        skipExpressionConditions?: boolean,
+    ): string {
         if (
             !where ||
             (Array.isArray(where) && where.length === 0) ||
@@ -227,35 +268,67 @@ export default class QueryStatementBuilder {
         }
 
         const isSimpleObject =
-            !Array.isArray(where) &&
-            typeof where === "object" &&
-            where !== null;
+            !Array.isArray(where) && typeof where === "object" && where !== null;
 
         return [
             "WHERE",
             isSimpleObject
-                ? this.buildWhereSimple(where as QueryIsEqualParameter)
+                ? this.buildWhereSimple(where as QueryIsEqualParameter, expressions, skipExpressionConditions)
                 : this.buildWhereWithOperators(
-                    where as QueryComparisonParameters[]
-                )
+                    where as QueryComparisonParameters[],
+                    expressions,
+                    skipExpressionConditions,
+                ),
         ].join(" ");
     }
 
     private static buildWhereWithOperators(
-        where: QueryComparisonParameters[]
+        where: QueryComparisonParameters[],
+        expressions?: expressionClause[],
+        skipExpressionConditions?: boolean,
     ): string {
         return where
-            .map(condition =>
-                `${condition.column} ${condition.operator} @${condition.column.trim()}`
-            )
+            .map((condition) => {
+                const matchedExpression = expressions?.find(
+                    (expr) => expr.whereClauseKeyword === condition.column,
+                );
+                if (matchedExpression) {
+                    // Skip expression conditions in inner query (they go in literalWhere/outer query)
+                    if (skipExpressionConditions) {
+                        return null;
+                    }
+                    const alias = condition.column.split("_")[0];
+                    return `${alias} ${condition.operator} @${condition.column.trim()}`;
+                } else {
+                    return `${condition.column} ${condition.operator} @${condition.column.trim()}`;
+                }
+            })
+            .filter(Boolean)
             .join(" AND ");
     }
 
     private static buildWhereSimple(
-        where: QueryIsEqualParameter
+        where: QueryIsEqualParameter,
+        expressions?: expressionClause[],
+        skipExpressionConditions?: boolean,
     ): string {
         return Object.keys(where)
-            .map(col => `${col} = @${col}`)
+            .map((col) => {
+                const matchedExpression = expressions?.find(
+                    (expr) => expr.whereClauseKeyword === col,
+                );
+                if (matchedExpression) {
+                    if (skipExpressionConditions) {
+                        return null;
+                    }
+
+                    const alias = col.split("_")[0];
+                    return `${alias} = @${col}`;
+                } else {
+                    return `${col} = @${col}`;
+                }
+            })
+            .filter(Boolean)
             .join(" AND ");
     }
 
@@ -269,48 +342,40 @@ export default class QueryStatementBuilder {
         fromTableName: string,
         joins: Join | Join[],
         query: Query,
-        options?: DefaultQueryParameters & ExtraQueryParameters
+        options?: DefaultQueryParameters & ExtraQueryParameters,
     ): Promise<string> {
-        const normalizeBlacklist = options?.expressions?.map((expr) => {
-            if (expr.type === 'textRelevance' && expr.parameters.whereClauseKeyword) {
-                return expr.parameters.whereClauseKeyword;
-            } else {
-                return "";
-            }
-        }).filter(e => e !== "");
+        const normalizeBlacklist = options?.expressions
+            ?.map((expr) => {
+                if (
+                    expr.type === "textRelevance" &&
+                    expr.parameters.whereClauseKeyword
+                ) {
+                    return expr.parameters.whereClauseKeyword;
+                } else {
+                    return "";
+                }
+            })
+            .filter((e) => e !== "");
 
         if (options?.where) {
-            options.where = this.normalizeAndQualifyConditions(options.where, fromTableName, normalizeBlacklist);
+            options.where = this.normalizeAndQualifyConditions(
+                options.where,
+                fromTableName,
+                normalizeBlacklist,
+            );
         }
 
-        const expressions =
-            QueryExpressionBuilder.buildExpressionsPart(
-                options?.expressions ?? []
-            );
+        const expressions = QueryExpressionBuilder.buildExpressionsPart(
+            options?.expressions ?? [],
+        );
 
         const syncedOptions =
             QueryExpressionBuilder.SyncQueryOptionsWithExpressions(
                 expressions,
-                options ?? {}
+                options ?? {},
             );
 
-        const shouldWrap =
-            QueryExpressionBuilder.shouldWrapJoinQuery(expressions);
-
-        console.log(shouldWrap
-            ? await this.buildWrappedJoinQuery(
-                fromTableName,
-                joins,
-                query,
-                expressions,
-                syncedOptions
-            )
-            : await this.buildSimpleJoinQuery(
-                fromTableName,
-                joins,
-                query,
-                syncedOptions
-            ))
+        const shouldWrap = QueryExpressionBuilder.shouldWrapJoinQuery(expressions);
 
         return shouldWrap
             ? await this.buildWrappedJoinQuery(
@@ -318,65 +383,64 @@ export default class QueryStatementBuilder {
                 joins,
                 query,
                 expressions,
-                syncedOptions
+                syncedOptions,
             )
             : await this.buildSimpleJoinQuery(
                 fromTableName,
                 joins,
                 query,
-                syncedOptions
+                syncedOptions,
             );
     }
 
     /**
- * Normalizes and qualifies WHERE conditions for JOIN queries.
- *
- * This function exists because JOIN queries are a lawless wasteland:
- * unqualified column names WILL collide, ambiguity WILL happen,
- * and Postgres WILL scream at you in ALL CAPS.
- *
- * Responsibilities:
- * 1. Normalize WHERE input into a comparison-array format
- *    - Object form: { id: 1 }
- *    - Array form:  [{ column, operator, value }]
- *
- * 2. Qualify column names with the base table
- *    - Prevents "column reference is ambiguous"
- *    - Preserves already-qualified columns
- *
- * This ensures WHERE clauses are:
- * - structurally consistent
- * - safe for JOIN-heavy queries
- * - predictable for expression injection later
- *
- * @param where - WHERE conditions in object or comparison-array form
- * @param tableName - Base table name used to qualify unscoped columns
- *
- * @returns Array of fully-qualified comparison conditions
- *
- * @example
- * // Input (object form)
- * { id: 5, status: 'active' }
- *
- * // Output
- * [
- *   { column: '"users"."id"', operator: '=', value: 5 },
- *   { column: '"users"."status"', operator: '=', value: 'active' }
- * ]
- *
- * @example
- * // Input (already qualified)
- * [{ column: 'orders.id', operator: '>', value: 10 }]
- *
- * // Output (unchanged)
- * [{ column: 'orders.id', operator: '>', value: 10 }]
- */
+     * Normalizes and qualifies WHERE conditions for JOIN queries.
+     *
+     * This function exists because JOIN queries are a lawless wasteland:
+     * unqualified column names WILL collide, ambiguity WILL happen,
+     * and Postgres WILL scream at you in ALL CAPS.
+     *
+     * Responsibilities:
+     * 1. Normalize WHERE input into a comparison-array format
+     *    - Object form: { id: 1 }
+     *    - Array form:  [{ column, operator, value }]
+     *
+     * 2. Qualify column names with the base table
+     *    - Prevents "column reference is ambiguous"
+     *    - Preserves already-qualified columns
+     *
+     * This ensures WHERE clauses are:
+     * - structurally consistent
+     * - safe for JOIN-heavy queries
+     * - predictable for expression injection later
+     *
+     * @param where - WHERE conditions in object or comparison-array form
+     * @param tableName - Base table name used to qualify unscoped columns
+     *
+     * @returns Array of fully-qualified comparison conditions
+     *
+     * @example
+     * // Input (object form)
+     * { id: 5, status: 'active' }
+     *
+     * // Output
+     * [
+     *   { column: '"users"."id"', operator: '=', value: 5 },
+     *   { column: '"users"."status"', operator: '=', value: 'active' }
+     * ]
+     *
+     * @example
+     * // Input (already qualified)
+     * [{ column: 'orders.id', operator: '>', value: 10 }]
+     *
+     * // Output (unchanged)
+     * [{ column: 'orders.id', operator: '>', value: 10 }]
+     */
     private static normalizeAndQualifyConditions(
         where: QueryWhereCondition,
         tableName: string,
-        normalizeBlacklist: string[] = []
+        normalizeBlacklist: string[] = [],
     ): QueryComparisonParameters[] {
-
         // Step 1: Normalize WHERE into an array of comparison objects.
         // This removes branching logic later in the query builder.
         let conditions: QueryComparisonParameters[];
@@ -384,33 +448,30 @@ export default class QueryStatementBuilder {
         if (Array.isArray(where)) {
             conditions = where;
         } else {
-            conditions = Object.entries(where).map(
-                ([column, value]) => ({
-                    column,
-                    operator: "=" as const,
-                    value
-                })
-            );
+            conditions = Object.entries(where).map(([column, value]) => ({
+                column,
+                operator: "=" as const,
+                value,
+            }));
         }
 
         // Step 2: Qualify column names with the base table.
         // Skip qualification if:
         // - Column is in the blacklist (e.g., expression aliases like "Relevance")
         // - Column already contains a dot (already qualified)
-        return conditions.map(condition => {
+        return conditions.map((condition) => {
             const shouldSkipQualification =
-                normalizeBlacklist.some(blk => condition.column.includes(blk)) ||
+                normalizeBlacklist.some((blk) => condition.column.includes(blk)) ||
                 condition.column.includes(".");
 
             return {
                 ...condition,
                 column: shouldSkipQualification
                     ? condition.column
-                    : `${tableName}.${condition.column}`
+                    : `${tableName}.${condition.column}`,
             };
         });
     }
-
 
     /**
      * Build a non-wrapped JOIN query.
@@ -423,30 +484,29 @@ export default class QueryStatementBuilder {
         fromTableName: string,
         joins: Join | Join[],
         query: Query,
-        options: DefaultQueryParameters & ExtraQueryParameters & {
-            literalWhere?: string[]
-        }
+        options: DefaultQueryParameters &
+            ExtraQueryParameters & {
+                literalWhere?: string[];
+            },
     ): Promise<string> {
-        const selectClause =
-            await QueryStatementBuilder.BuildJoinSelect(
-                fromTableName,
-                joins,
-                query
-            );
+        const selectClause = await QueryStatementBuilder.BuildJoinSelect(
+            fromTableName,
+            joins,
+            query,
+        );
 
         const baseWhere = this.BuildWhere(options.where);
-        const whereClause =
-            QueryExpressionBuilder.buildWhereWithLiterals(
-                baseWhere,
-                options.literalWhere
-            );
+        const whereClause = QueryExpressionBuilder.buildWhereWithLiterals(
+            baseWhere,
+            options.literalWhere,
+        );
 
         return [
             `SELECT ${selectClause}`,
             `FROM "${fromTableName}"`,
             this.BuildJoinPart(fromTableName, joins),
             whereClause,
-            this.BuildQueryOptions(options)
+            this.BuildQueryOptions(options),
         ]
             .filter(Boolean)
             .join(" ");
@@ -469,36 +529,34 @@ export default class QueryStatementBuilder {
         joins: Join | Join[],
         query: Query,
         expressions: expressionClause[],
-        options: DefaultQueryParameters & ExtraQueryParameters & {
-            literalWhere?: string[]
-        }
+        options: DefaultQueryParameters &
+            ExtraQueryParameters & {
+                literalWhere?: string[];
+            },
     ): Promise<string> {
         const innerQueryParts: string[] = [];
 
-        const selectClause =
-            await QueryStatementBuilder.BuildJoinSelect(
-                fromTableName,
-                joins,
-                query
-            );
+        const selectClause = await QueryStatementBuilder.BuildJoinSelect(
+            fromTableName,
+            joins,
+            query,
+        );
 
         const projectionExpressions =
             QueryExpressionBuilder.filterExpressionsByPhase(
                 expressions,
-                "projection"
+                "projection",
             );
 
         const expressionClauses = projectionExpressions
-            .map(expr => expr.baseExpressionClause)
+            .map((expr) => expr.baseExpressionClause)
             .filter(Boolean)
             .join(", ");
 
         innerQueryParts.push("SELECT");
 
         if (expressionClauses) {
-            innerQueryParts.push(
-                `${selectClause}, ${expressionClauses}`
-            );
+            innerQueryParts.push(`${selectClause}, ${expressionClauses}`);
         } else {
             innerQueryParts.push(selectClause);
         }
@@ -506,7 +564,7 @@ export default class QueryStatementBuilder {
         innerQueryParts.push(`FROM "${fromTableName}"`);
         innerQueryParts.push(this.BuildJoinPart(fromTableName, joins));
 
-        const baseWhere = this.BuildWhere(options.where);
+        const baseWhere = this.BuildWhere(options.where, expressions, true);
         if (baseWhere) {
             innerQueryParts.push(baseWhere);
         }
@@ -515,18 +573,15 @@ export default class QueryStatementBuilder {
          * Extract column aliases from the inner SELECT.
          * These are the ONLY columns visible to the outer query.
          */
-        const columnAliases = selectClause
-            .split(", ")
-            .map(col => {
-                const match = col.match(/AS "([^"]+)"/);
-                return match ? match[1] : col;
-            });
+        const columnAliases = selectClause.split(", ").map((col) => {
+            const match = col.match(/AS "([^"]+)"/);
+            return match ? match[1] : col;
+        });
 
-        const outerSelectClause =
-            QueryExpressionBuilder.buildJoinOuterSelectClause(
-                columnAliases,
-                expressions
-            );
+        const outerSelectClause = QueryExpressionBuilder.buildJoinOuterSelectClause(
+            columnAliases,
+            expressions,
+        );
 
         return [
             "SELECT",
@@ -556,34 +611,34 @@ export default class QueryStatementBuilder {
     public static async BuildJoinSelect(
         fromTableName: string,
         joins: Join | Join[],
-        query: Query
+        query: Query,
     ): Promise<string> {
-        const mainTableCols =
-            await query.TableColumnInformation(fromTableName);
+        const mainTableCols = await query.TableColumnInformation(fromTableName);
 
         const mainTableSelect = mainTableCols
-            .map(col =>
-                `"${fromTableName}"."${col.name}" AS "${QueryStatementBuilder.convertSingleJoinSelect(
-                    `${fromTableName}.${col.name}`
-                )}"`
+            .map(
+                (col) =>
+                    `"${fromTableName}"."${col.name}" AS "${QueryStatementBuilder.convertSingleJoinSelect(
+                        `${fromTableName}.${col.name}`,
+                    )}"`,
             )
             .join(", ");
 
         const joinArray = Array.isArray(joins) ? joins : [joins];
 
         const joinedSelects = await Promise.all(
-            joinArray.map(async join => {
-                const cols =
-                    await query.TableColumnInformation(join.fromTable);
+            joinArray.map(async (join) => {
+                const cols = await query.TableColumnInformation(join.fromTable);
 
                 return cols
-                    .map(col =>
-                        `"${join.fromTable}"."${col.name}" AS "${QueryStatementBuilder.convertSingleJoinSelect(
-                            `${join.fromTable}.${col.name}`
-                        )}"`
+                    .map(
+                        (col) =>
+                            `"${join.fromTable}"."${col.name}" AS "${QueryStatementBuilder.convertSingleJoinSelect(
+                                `${join.fromTable}.${col.name}`,
+                            )}"`,
                     )
                     .join(", ");
-            })
+            }),
         );
 
         return [mainTableSelect, ...joinedSelects].join(", ");
@@ -610,22 +665,17 @@ export default class QueryStatementBuilder {
      */
     public static BuildJoinPart(
         fromTableName: string,
-        joins: Join | Join[]
+        joins: Join | Join[],
     ): string {
         const joinArray = Array.isArray(joins) ? joins : [joins];
 
         return joinArray
-            .map(join => {
-                const baseTable =
-                    join.baseTable || fromTableName;
+            .map((join) => {
+                const baseTable = join.baseTable || fromTableName;
 
                 return [
                     `${join.joinType} JOIN "${join.fromTable}"`,
-                    this.BuildJoinOnPart(
-                        baseTable,
-                        join.fromTable,
-                        join.on
-                    )
+                    this.BuildJoinOnPart(baseTable, join.fromTable, join.on),
                 ].join(" ");
             })
             .join(" ");
@@ -639,14 +689,14 @@ export default class QueryStatementBuilder {
     public static BuildJoinOnPart(
         tableName: string,
         joinTableName: string,
-        on: QueryIsEqualParameter | QueryIsEqualParameter[]
+        on: QueryIsEqualParameter | QueryIsEqualParameter[],
     ): string {
         const onArray = Array.isArray(on) ? on : [on];
 
         return onArray
             .map(
-                part =>
-                    `ON ${tableName}.${Object.values(part)[0]} = ${joinTableName}.${Object.keys(part)[0]}`
+                (part) =>
+                    `ON ${tableName}.${Object.values(part)[0]} = ${joinTableName}.${Object.keys(part)[0]}`,
             )
             .join(" AND ");
     }
@@ -657,9 +707,7 @@ export default class QueryStatementBuilder {
      * Expression-based ORDER BY clauses should already be injected
      * before this function runs.
      */
-    public static BuildQueryOptions(
-        options: ExtraQueryParameters
-    ): string {
+    public static BuildQueryOptions(options: ExtraQueryParameters): string {
         const queryParts: string[] = [];
 
         if (options?.orderBy) {

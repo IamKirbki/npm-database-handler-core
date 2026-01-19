@@ -6,6 +6,7 @@ class Container {
     private static _instance: Container;
     private _adapters: Map<string, IDatabaseAdapter> = new Map();
     private _defaultAdapter?: IDatabaseAdapter;
+    public logging: boolean = false;
 
     private constructor() { }
 
@@ -19,7 +20,7 @@ class Container {
     public registerAdapter(name: string, adapter: IDatabaseAdapter, isDefault = false): void {
         this._adapters.set(name, adapter);
         if (isDefault || !this._defaultAdapter) {
-            if(this._defaultAdapter) {
+            if (this._defaultAdapter) {
                 // eslint-disable-next-line no-undef
                 console.warn(`Setting default adapter to '${name}'`);
             }

@@ -43,6 +43,18 @@ export type expressionClause = {
      *   distance ASC
      */
     orderByClause?: string;
+
+    /**
+     * The keyword used in WHERE conditions to reference this expression.
+     *
+     * Example:
+     *   relevance_searchTerm
+     *
+     * This is used to match incoming WHERE parameters with expressions.
+     */
+    whereClauseKeyword?: string;
+
+    cardinality?: 'row' | 'aggregate';
 };
 
 /**
@@ -53,5 +65,5 @@ export type expressionClause = {
  * - returns a normalized expressionClause
  */
 export type ExpressionBuilderFunction<T extends PossibleExpressions = PossibleExpressions> =
-/* eslint-disable-next-line no-unused-vars */
+    /* eslint-disable-next-line no-unused-vars */
     (expression: T) => expressionClause;

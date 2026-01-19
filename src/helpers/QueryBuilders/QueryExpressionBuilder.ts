@@ -5,7 +5,7 @@ import {
     SpatialQueryExpression,
     ExpressionBuilderFunction,
     expressionClause,
-    TextRelevanceQueryExpression
+    TextRelevanceQueryExpression,
 } from "@core/types/index.js";
 import SpatialDistanceExpression from "./ExpressionBuilders/SpatialDistanceExpression.js";
 import { UnknownExpressionTypeError } from "../Errors/ExpressionErrors/UnknownExpressionTypeError.js";
@@ -170,8 +170,9 @@ export default class QueryExpressionBuilder {
      */
     public static buildFromClause(
         tableName: string,
-        expressions: expressionClause[]
-    ): string {
+        expressions: expressionClause[],
+        // where?: QueryWhereCondition,
+    ): { fromClause: string; hasWrapping: boolean } {
         const projectionExpressions =
             this.filterExpressionsByPhase(expressions, 'projection');
 
@@ -181,15 +182,21 @@ export default class QueryExpressionBuilder {
                     .map(expr => expr.baseExpressionClause)
                     .join(", ");
 
-            return `
+            return {
+                fromClause: `
                 FROM (
                     SELECT *, ${projectionClauses}
                     FROM "${tableName}"
                 ) AS subquery
-            `.trim();
+            `.trim(),
+                hasWrapping: true,
+            };
         }
 
-        return `FROM "${tableName}"`;
+        return {
+            fromClause: `FROM "${tableName}"`,
+            hasWrapping: false,
+        };
     }
 
     /**

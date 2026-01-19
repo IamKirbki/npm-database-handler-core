@@ -44,7 +44,7 @@ export default class SpatialDistanceExpression implements IExpressionBuilder {
             orderByClause
         };
     }
-    
+
     validate(expression: SpatialQueryExpression): boolean {
         // Basic validation for spatial distance expression
         return (

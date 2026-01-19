@@ -39,10 +39,19 @@ export type PossibleExpressions =
     TextRelevanceQueryExpression; // | FutureExpression | AnotherExpression
 
 export type QueryExpressionRequirements = {
-    phase: QueryEvaluationPhase;
-    requiresAlias?: boolean;
-    requiresSelectWrapping?: boolean;
+    phase: 'base' | 'projection';
+
+    cardinality: 'row' | 'aggregate';
+
+    select?: string;
+    where?: string;
+    having?: string;
+    orderBy?: string;
+
+    requiresAlias: boolean;
+    requiresSelectWrapping: boolean;
 };
+
 
 export type QueryShape =
     | { kind: 'flat' }
@@ -65,6 +74,16 @@ export type SpatialQueryExpression = QueryExpression<'spatialDistance'> & {
     parameters: SpatialDistanceDefinition;
 };
 
+export type SpatialPointColumns = {
+    lat: string;
+    lon: string;
+};
+
+export type SpatialPoint = {
+    lat: number;
+    lon: number;
+};
+
 export type TextRelevanceDefinition = {
     targetColumns: string[];
     searchTerm: string;
@@ -78,16 +97,6 @@ export type TextRelevanceDefinition = {
 
 export type TextRelevanceQueryExpression = QueryExpression<'textRelevance'> & {
     parameters: TextRelevanceDefinition;
-};
-
-export type SpatialPointColumns = {
-    lat: string;
-    lon: string;
-};
-
-export type SpatialPoint = {
-    lat: number;
-    lon: number;
 };
 
 export type QueryEvaluationPhase =
