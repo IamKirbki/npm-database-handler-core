@@ -68,7 +68,7 @@ export default class WhereDecorator extends QueryDecorator {
         }
 
         const isSimpleObject =
-            !Array.isArray(conditions) && typeof conditions === "object" && conditions !== null;
+            !Array.isArray(conditions) && typeof conditions === "object";
 
         return [
             "WHERE",

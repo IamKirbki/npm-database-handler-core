@@ -155,7 +155,7 @@ export default class QueryStatementBuilder {
         }
 
         const isSimpleObject =
-            !Array.isArray(where) && typeof where === "object" && where !== null;
+            !Array.isArray(where) && typeof where === "object";
 
         return [
             "WHERE",

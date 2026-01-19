@@ -310,10 +310,12 @@ export default abstract class Model<
             { [this.primaryKeyColumn]: this.primaryKey },
             attributes,
         );
+
         if (newRecord) {
             this.originalAttributes = newRecord.values;
             this.exists = true;
         }
+
         return this;
     }
 
