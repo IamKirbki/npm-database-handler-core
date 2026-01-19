@@ -21,7 +21,7 @@ describe('QueryStatementBuilder - Spatial Expressions', () => {
                     }
                 ]
             });
-            
+
             console.log(query);
             expect(query).toContain('6371'); // Earth radius in km
             expect(query).toContain('acos');
@@ -73,7 +73,7 @@ describe('QueryStatementBuilder - Spatial Expressions', () => {
                     }
                 ]
             });
-            
+
             console.log(query);
             expect(query).toContain('3959'); // Earth radius in miles
             expect(query).toContain('34.0522');
@@ -98,7 +98,7 @@ describe('QueryStatementBuilder - Spatial Expressions', () => {
                     }
                 ]
             });
-            
+
             console.log(query);
             expect(query).toContain('AS distance_from_london');
             expect(query).not.toContain('AS distance ');
@@ -123,7 +123,7 @@ describe('QueryStatementBuilder - Spatial Expressions', () => {
                     }
                 ]
             });
-            
+
             console.log(query);
             expect(query).toContain('WHERE distance <= 50');
         });
@@ -147,7 +147,7 @@ describe('QueryStatementBuilder - Spatial Expressions', () => {
                     }
                 ]
             });
-            
+
             console.log(query);
             expect(query).toContain('WHERE dist <= 100');
         });
@@ -171,7 +171,7 @@ describe('QueryStatementBuilder - Spatial Expressions', () => {
                     }
                 ]
             });
-            
+
             console.log(query);
             expect(query).toContain('ORDER BY distance ASC');
         });
@@ -195,7 +195,7 @@ describe('QueryStatementBuilder - Spatial Expressions', () => {
                     }
                 ]
             });
-            
+
             console.log(query);
             expect(query).toContain('ORDER BY distance DESC');
         });
@@ -220,7 +220,7 @@ describe('QueryStatementBuilder - Spatial Expressions', () => {
                     }
                 ]
             });
-            
+
             console.log(query);
             expect(query).toContain('6500');
             expect(query).not.toContain('6371');
@@ -245,7 +245,7 @@ describe('QueryStatementBuilder - Spatial Expressions', () => {
                     }
                 ]
             });
-            
+
             console.log(query);
             expect(query).toContain('SELECT id, name, address');
             expect(query).toContain('AS distance_km');
@@ -270,7 +270,7 @@ describe('QueryStatementBuilder - Spatial Expressions', () => {
                     }
                 ]
             });
-            
+
             console.log(query);
             expect(query).toContain('WHERE');
             expect(query).toContain('active = @active');
@@ -298,7 +298,7 @@ describe('QueryStatementBuilder - Spatial Expressions', () => {
                     }
                 ]
             });
-            
+
             console.log(query);
             expect(query).toContain('LIMIT 10');
             expect(query).toContain('ORDER BY distance ASC');
@@ -327,7 +327,7 @@ describe('QueryStatementBuilder - Spatial Expressions', () => {
                     }
                 ]
             });
-            
+
             console.log(query);
             expect(query).toContain('SELECT id, name, category');
             expect(query).toContain('FROM "stores"');
@@ -359,7 +359,7 @@ describe('QueryStatementBuilder - Spatial Expressions', () => {
                     }
                 ]
             });
-            
+
             console.log(query);
             expect(query).toContain('-33.8688');
             expect(query).toContain('151.2093');
@@ -413,7 +413,7 @@ describe('QueryStatementBuilder - Spatial Expressions', () => {
             );
 
             console.log('\n=== Wrapped Join Query ===\n', query, '\n');
-            
+
             expect(query).toContain('SELECT');
             expect(query).toContain('FROM (');
             expect(query).toContain(') AS wrapped');

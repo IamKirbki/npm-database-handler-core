@@ -74,7 +74,7 @@ export default class Table {
     public async Records<Type extends columnType>(
         options?: DefaultQueryParameters & ExtraQueryParameters
     ): Promise<Record<Type>[]> {
-        const queryStr = QueryStatementBuilder.BuildSelect(this._name, {
+        const queryStr = await QueryStatementBuilder.BuildSelect(this._name, {
             select: options?.select,
             where: options?.where,
             orderBy: options?.orderBy,

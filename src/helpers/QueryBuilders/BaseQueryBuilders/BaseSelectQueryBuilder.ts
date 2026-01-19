@@ -1,6 +1,6 @@
 import IQueryBuilder from "@core/interfaces/IQueryBuilder.js";
 
-export default class BaseQueryBuilder implements IQueryBuilder {
+export default class BaseSelectQueryBuilder implements IQueryBuilder {
     private tableName: string;
     private select: string;
 

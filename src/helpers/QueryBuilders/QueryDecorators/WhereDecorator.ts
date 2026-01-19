@@ -89,11 +89,12 @@ export default class WhereDecorator extends QueryDecorator {
                 if (matchedExpression) {
                     if (this.skipExpressionConditions) return null;
 
-                    // Gebruik alias voor SQL, maar volledige naam voor de parameter
                     const alias = colName.split("_")[0];
                     return `${alias} ${condition.operator} @${colName}`;
                 }
 
+                // Extract column name for parameter (remove table prefix if present)
+                // const paramName = colName.includes(".") ? colName.split(".").pop() : colName;
                 return `${colName} ${condition.operator} @${colName}`;
             })
             .filter(Boolean)
@@ -114,7 +115,9 @@ export default class WhereDecorator extends QueryDecorator {
                     return `${alias} = @${col}`;
                 }
 
-                return `${col} = @${col}`;
+                // Extract column name for parameter (remove table prefix if present)
+                const paramName = col.includes(".") ? col.split(".").pop() : col;
+                return `${col} = @${paramName}`;
             })
             .filter(Boolean)
             .join(" AND ");

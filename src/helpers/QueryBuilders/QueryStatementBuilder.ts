@@ -13,7 +13,7 @@ import LimitDecorator from "./QueryDecorators/LimitDecorator.js";
 import WhereDecorator from "./QueryDecorators/WhereDecorator.js";
 import ExpressionDecorator from "./QueryDecorators/ExpressionDecorator.js";
 import JoinDecorator from "./QueryDecorators/JoinDecorator.js";
-import BaseQueryBuilder from "./BaseQueryBuilder.js";
+import BaseSelectQueryBuilder from "./BaseQueryBuilders/BaseSelectQueryBuilder.js";
 import IQueryBuilder from "@core/interfaces/IQueryBuilder.js";
 import OrderByDecorator from "./QueryDecorators/OrderByDecorator.js";
 import GroupByDecorator from "./QueryDecorators/GroupByDecorator.js";
@@ -47,13 +47,12 @@ export default class QueryStatementBuilder {
         tableName: string,
         options: DefaultQueryParameters & ExtraQueryParameters = { select: "*" },
     ): Promise<string> {
-        let builder: IQueryBuilder = new BaseQueryBuilder(tableName, options.select);
+        let builder: IQueryBuilder = new BaseSelectQueryBuilder(tableName, options.select);
         builder = new ExpressionDecorator(builder, options.expressions || []);
 
         if (options?.where) {
-            const qualifiedWhere = this.normalizeAndQualifyConditions(options.where, tableName);
             const expressions = QueryExpressionBuilder.buildExpressionsPart(options?.expressions ?? []);
-            builder = new WhereDecorator(builder, qualifiedWhere, expressions);
+            builder = new WhereDecorator(builder, options.where, expressions);
         }
 
         builder = new GroupByDecorator(builder, options.groupBy);
@@ -234,7 +233,7 @@ export default class QueryStatementBuilder {
     ): Promise<string> {
         const expressions = QueryExpressionBuilder.buildExpressionsPart(options?.expressions ?? []);
 
-        let builder: IQueryBuilder = new BaseQueryBuilder(fromTableName);
+        let builder: IQueryBuilder = new BaseSelectQueryBuilder(fromTableName);
         builder = new JoinDecorator(builder, fromTableName, joins, query, options);
 
         if (options?.where) {
