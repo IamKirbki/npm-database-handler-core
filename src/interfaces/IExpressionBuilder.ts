@@ -1,6 +1,7 @@
-import { PossibleExpressions, expressionClause } from "@core/index";
+import { PossibleComputedExpressions, PossibleExpressions, expressionClause } from "@core/index";
 
 export default interface IExpressionBuilder {
-    build(expression: PossibleExpressions): expressionClause;
-    validate?(expression: PossibleExpressions): boolean;
+    build(expression: PossibleExpressions | PossibleComputedExpressions): expressionClause;
+    validate?(expression: PossibleExpressions | PossibleComputedExpressions): boolean;
+    get defaultRequirements(): PossibleExpressions['requirements'];
 }

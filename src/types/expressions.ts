@@ -1,4 +1,4 @@
-import { PossibleExpressions } from "./query.js";
+import { PossibleExpressions, QueryEvaluationPhase } from "./query.js";
 
 export type expressionClause = {
     /**
@@ -16,7 +16,7 @@ export type expressionClause = {
      * - base:      Can live directly in SELECT
      * - projection: Must be computed in a subquery
      */
-    phase?: 'base' | 'projection';
+    phase?: QueryEvaluationPhase;
 
     /**
      * Signals that this expression cannot safely exist in the same
@@ -25,6 +25,8 @@ export type expressionClause = {
      * This is the “SQL is dumb, wrap it” flag.
      */
     requiresWrapping?: boolean;
+
+    selectClause?: string;
 
     /**
      * A WHERE condition that depends on the expression alias.
@@ -55,6 +57,8 @@ export type expressionClause = {
     whereClauseKeyword?: string;
 
     groupByClause?: string;
+
+    havingClause?: string;
 };
 
 /**

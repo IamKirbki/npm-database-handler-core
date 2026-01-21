@@ -1,6 +1,6 @@
 import InvalidExpressionParametersError from "@core/helpers/Errors/ExpressionErrors/InvalidExpressionParametersError.js";
 import IExpressionBuilder from "@core/interfaces/IExpressionBuilder.js";
-import { expressionClause, TextRelevanceQueryExpression } from "@core/types/index.js";
+import { expressionClause, QueryEvaluationPhase, QueryExpressionRequirements, TextRelevanceQueryExpression } from "@core/types/index.js";
 
 export default class TextRelevanceExpression implements IExpressionBuilder {
     build(expression: TextRelevanceQueryExpression): expressionClause {
@@ -55,5 +55,14 @@ export default class TextRelevanceExpression implements IExpressionBuilder {
             typeof expression.parameters.alias === 'string' &&
             typeof expression.parameters.minimumRelevance == 'number'
         );
+    }
+
+    get defaultRequirements(): QueryExpressionRequirements {
+        return {
+            phase: QueryEvaluationPhase.PROJECTION,
+            cardinality: 'row',
+            requiresAlias: true,
+            requiresSelectWrapping: true
+        };
     }
 }

@@ -191,10 +191,10 @@ export default class Repository<Type extends columnType, ModelType extends Model
 
             return [{
                 fromTable: relation.model.Configuration.table,
-                baseTable: Model.Configuration.table,
+                baseTable: relation.localKey.includes('.') ? relation.localKey.split('.')[0] : Model.Configuration.table,
                 joinType: JoinType,
                 on: [
-                    { [relation.foreignKey!]: relation.localKey! }
+                    { [relation.foreignKey!]: relation.localKey.includes('.') ? relation.localKey.split('.')[1] : relation.localKey! }
                 ]
             }] as Join[];
         });

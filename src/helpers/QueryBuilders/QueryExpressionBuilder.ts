@@ -7,6 +7,7 @@ import {
     expressionClause,
     TextRelevanceQueryExpression,
     JsonAggregateQueryExpression,
+    QueryEvaluationPhase,
 } from "@core/types/index.js";
 import SpatialDistanceExpression from "./ExpressionBuilders/SpatialDistanceExpression.js";
 import { UnknownExpressionTypeError } from "../Errors/ExpressionErrors/UnknownExpressionTypeError.js";
@@ -75,6 +76,27 @@ export default class QueryExpressionBuilder {
         // ['windowFunction', (expr) => QueryExpressionBuilder.BuildWindowFunction(expr)]
     ]);
 
+    private static expressionDefaults: Map<string, PossibleExpressions['requirements']> = new Map([
+        [
+            'spatialDistance',
+            new SpatialDistanceExpression().defaultRequirements
+        ],
+        [
+            'textRelevance',
+            new TextRelevanceExpression().defaultRequirements
+        ],
+        [
+            'jsonAggregate',
+            new JsonAggregateExpression().defaultRequirements
+        ]
+    ]);
+
+    public static getExpressionDefaultRequirements(
+        type: string
+    ): PossibleExpressions['requirements'] | undefined {
+        return this.expressionDefaults.get(type);
+    }
+
     /**
      * Registers a new expression builder at runtime.
      *
@@ -124,10 +146,12 @@ export default class QueryExpressionBuilder {
      */
     public static filterExpressionsByPhase(
         expressions: expressionClause[],
-        phase: 'base' | 'projection'
+        phase: QueryEvaluationPhase
     ): expressionClause[] {
+
         const unsupportedPhases = expressions.filter(
-            expr => expr.phase !== 'base' && expr.phase !== 'projection'
+            expr => expr.phase !== QueryEvaluationPhase.BASE &&
+                expr.phase !== QueryEvaluationPhase.PROJECTION
         );
 
         if (unsupportedPhases.length > 0) {
@@ -151,7 +175,7 @@ export default class QueryExpressionBuilder {
         selectOption: string | undefined,
         expressions: expressionClause[]
     ): string {
-        const flatExpressions = this.filterExpressionsByPhase(expressions, 'base');
+        const flatExpressions = this.filterExpressionsByPhase(expressions, QueryEvaluationPhase.BASE);
         const selectColumns: string[] = [];
 
         if (selectOption && selectOption !== '*') {
@@ -183,7 +207,7 @@ export default class QueryExpressionBuilder {
         // where?: QueryWhereCondition,
     ): { fromClause: string; hasWrapping: boolean } {
         const projectionExpressions =
-            this.filterExpressionsByPhase(expressions, 'projection');
+            this.filterExpressionsByPhase(expressions, QueryEvaluationPhase.PROJECTION);
 
         if (projectionExpressions.length > 0) {
             const projectionClauses =
@@ -244,6 +268,18 @@ export default class QueryExpressionBuilder {
             : '';
     }
 
+    public static buildHavingFromExpressions(
+        expressions: expressionClause[]
+    ): string {
+        const havingClauses = expressions
+            .filter(expr => expr.havingClause)
+            .map(expr => expr.havingClause);
+
+        return havingClauses.length > 0
+            ? `${havingClauses.join(" AND ")}`
+            : '';
+    }
+
     /**
      * Merges standard WHERE conditions with expression-driven literals.
      *
@@ -283,7 +319,7 @@ export default class QueryExpressionBuilder {
         expressions: expressionClause[]
     ): string {
         const projectionExpressions =
-            this.filterExpressionsByPhase(expressions, 'projection');
+            this.filterExpressionsByPhase(expressions, QueryEvaluationPhase.PROJECTION);
 
         const expressionAliases = projectionExpressions
             .map(expr => {
@@ -309,13 +345,10 @@ export default class QueryExpressionBuilder {
         expressions: expressionClause[]
     ): boolean {
         const projectionExpressions =
-            this.filterExpressionsByPhase(expressions, 'projection');
+            this.filterExpressionsByPhase(expressions, QueryEvaluationPhase.PROJECTION);
 
         return (
-            projectionExpressions.length > 0 &&
-            projectionExpressions.some(expr =>
-                expr.whereClause || expr.orderByClause
-            )
+            projectionExpressions.length > 0
         );
     }
 

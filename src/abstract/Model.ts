@@ -12,6 +12,9 @@ import {
     TextRelevanceQueryExpression,
     QueryComparisonParameters,
     JsonAggregateQueryExpression,
+    JsonAggregateDefinition,
+    NestedJsonAggregateDefinition,
+    QueryEvaluationPhase,
 } from '@core/types/index.js';
 
 /** Abstract Model class for ORM-style database interactions */
@@ -330,7 +333,7 @@ export default abstract class Model<
         const expression: SpatialQueryExpression = {
             type: 'spatialDistance',
             requirements: {
-                phase: 'projection',
+                phase: QueryEvaluationPhase.PROJECTION,
                 cardinality: 'row',
                 requiresAlias: true,
                 requiresSelectWrapping: true,
@@ -362,7 +365,7 @@ export default abstract class Model<
         const expression: TextRelevanceQueryExpression = {
             type: 'textRelevance',
             requirements: {
-                phase: 'projection',
+                phase: QueryEvaluationPhase.PROJECTION,
                 cardinality: 'row',
                 requiresAlias: true,
                 requiresSelectWrapping: true,
@@ -388,24 +391,26 @@ export default abstract class Model<
     }
 
     public JsonAggregate(
-        targetColumns: string[],
-        targetTable: string,
-        groupByColumns: string[] = [],
-        alias: string = targetTable
+        table: JsonAggregateDefinition['table'],
+        columns: JsonAggregateDefinition['columns'],
+        groupByColumns: JsonAggregateDefinition['groupByColumns'] = [],
+        alias: JsonAggregateDefinition['alias'] = table[0],
+        nested?: JsonAggregateDefinition['nested']
     ): this {
         const expression: JsonAggregateQueryExpression = {
             type: 'jsonAggregate',
             requirements: {
-                phase: 'projection',
+                phase: QueryEvaluationPhase.PROJECTION,
                 cardinality: 'row',
                 requiresAlias: true,
                 requiresSelectWrapping: true,
             },
             parameters: {
-                targetColumns: targetColumns,
-                targetTable: targetTable,
+                columns: columns,
+                table: table,
                 groupByColumns: groupByColumns,
                 alias: alias,
+                nested: nested,
             },
         };
 
@@ -413,10 +418,23 @@ export default abstract class Model<
         this.queryOptions.expressions.push(expression);
 
         this.queryOptions.blacklistTables ??= [];
-        this.queryOptions.blacklistTables.push(targetTable);
+        this.queryOptions.blacklistTables.push(...Array.from(new Set(this.collectTables({ table, nested: nested || [] }))));
 
         return this;
     }
+
+    private collectTables(def: { table: string; nested?: NestedJsonAggregateDefinition<string>[] }): string[] {
+        const result = [def.table];
+
+        if (def.nested) {
+            for (const child of def.nested) {
+                result.push(...this.collectTables(child));
+            }
+        }
+
+        return result;
+    }
+
 
     public toJSON(): Partial<ModelType> | ModelType {
         return this.attributes;

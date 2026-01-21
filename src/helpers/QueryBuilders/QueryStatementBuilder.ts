@@ -48,10 +48,11 @@ export default class QueryStatementBuilder {
         options: DefaultQueryParameters & ExtraQueryParameters = { select: "*" },
     ): Promise<string> {
         let builder: IQueryBuilder = new BaseSelectQueryBuilder(tableName, options.select);
-        builder = new ExpressionDecorator(builder, options.expressions || []);
+        const expressions = QueryExpressionBuilder.buildExpressionsPart(options?.expressions ?? []);
+
+        builder = new ExpressionDecorator(builder, expressions);
 
         if (options?.where) {
-            const expressions = QueryExpressionBuilder.buildExpressionsPart(options?.expressions ?? []);
             builder = new WhereDecorator(builder, options.where, expressions);
         }
 
@@ -241,7 +242,7 @@ export default class QueryStatementBuilder {
             builder = new WhereDecorator(builder, qualifiedWhere, expressions);
         }
 
-        builder = new ExpressionDecorator(builder, options?.expressions ?? []);
+        builder = new ExpressionDecorator(builder, expressions);
         builder = new WhereDecorator(builder, {}, expressions);
         builder = new GroupByDecorator(builder);
 

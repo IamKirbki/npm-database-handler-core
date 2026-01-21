@@ -192,6 +192,7 @@ export default class Table {
             }
 
             const filteredJoinedData = Object.fromEntries(
+                // eslint-disable-next-line no-unused-vars
                 Object.entries(joinedTableData).filter(([_, data]) => Object.keys(data).length > 0)
             );
 

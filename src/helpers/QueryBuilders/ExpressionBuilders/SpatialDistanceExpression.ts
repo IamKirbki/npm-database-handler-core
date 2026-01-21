@@ -1,6 +1,6 @@
 import InvalidExpressionParametersError from "@core/helpers/Errors/ExpressionErrors/InvalidExpressionParametersError.js";
 import IExpressionBuilder from "@core/interfaces/IExpressionBuilder.js";
-import { expressionClause, SpatialQueryExpression } from "@core/types/index.js";
+import { expressionClause, QueryEvaluationPhase, SpatialQueryExpression } from "@core/types/index.js";
 
 export default class SpatialDistanceExpression implements IExpressionBuilder {
     build(expression: SpatialQueryExpression): expressionClause {
@@ -57,5 +57,14 @@ export default class SpatialDistanceExpression implements IExpressionBuilder {
                 expression.parameters.unit === 'miles') &&
             typeof expression.parameters.alias === 'string'
         );
+    }
+
+    get defaultRequirements(): SpatialQueryExpression['requirements'] {
+        return {
+            phase: QueryEvaluationPhase.PROJECTION,
+            cardinality: 'row',
+            requiresAlias: true,
+            requiresSelectWrapping: true
+        };
     }
 }

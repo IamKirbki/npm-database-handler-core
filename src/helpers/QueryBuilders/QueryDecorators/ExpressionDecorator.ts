@@ -1,4 +1,4 @@
-import { PossibleExpressions, expressionClause } from "@core/types/index.js";
+import { expressionClause, QueryEvaluationPhase } from "@core/types/index.js";
 import QueryDecorator from "./QueryDecorator.js";
 import IQueryBuilder from "@core/interfaces/IQueryBuilder.js";
 import QueryExpressionBuilder from "../QueryExpressionBuilder.js";
@@ -18,10 +18,10 @@ export default class ExpressionDecorator extends QueryDecorator {
 
     constructor(
         component: IQueryBuilder,
-        rawExpressions: PossibleExpressions[]
+        expressions: expressionClause[]
     ) {
         super(component);
-        this.parsedExpressions = QueryExpressionBuilder.buildExpressionsPart(rawExpressions);
+        this.parsedExpressions = expressions;
     }
 
     async build(): Promise<string> {
@@ -40,7 +40,7 @@ export default class ExpressionDecorator extends QueryDecorator {
     }
 
     private injectBaseExpressions(sql: string): string {
-        const baseExpressions = QueryExpressionBuilder.filterExpressionsByPhase(this.parsedExpressions, "base");
+        const baseExpressions = QueryExpressionBuilder.filterExpressionsByPhase(this.parsedExpressions, QueryEvaluationPhase.BASE);
         if (baseExpressions.length === 0) return sql;
 
         const clauses = baseExpressions.map(e => e.baseExpressionClause).join(", ");
@@ -48,7 +48,7 @@ export default class ExpressionDecorator extends QueryDecorator {
     }
 
     private wrapQuery(innerSql: string): string {
-        const projectionExpressions = QueryExpressionBuilder.filterExpressionsByPhase(this.parsedExpressions, "projection");
+        const projectionExpressions = QueryExpressionBuilder.filterExpressionsByPhase(this.parsedExpressions, QueryEvaluationPhase.PROJECTION);
         const projectionClauses = projectionExpressions.map(e => e.baseExpressionClause).join(", ");
 
         const sqlBeforeFromMatch = innerSql.match(/SELECT\s+(.*?)\s+FROM/i);
@@ -56,10 +56,14 @@ export default class ExpressionDecorator extends QueryDecorator {
             throw new Error("Could not find SELECT ... FROM clause in the inner SQL.");
         }
 
+        const groupBy = QueryExpressionBuilder.buildGroupByFromExpressions(this.parsedExpressions).trim();
+        const having = QueryExpressionBuilder.buildHavingFromExpressions(this.parsedExpressions).trim();
+
         return `SELECT * FROM (
             ${sqlBeforeFromMatch[0].replace(" FROM", "")}, ${projectionClauses}
             ${innerSql.slice(sqlBeforeFromMatch.index! + sqlBeforeFromMatch[0].length - 5)}
-            GROUP BY ${QueryExpressionBuilder.buildGroupByFromExpressions(this.parsedExpressions)}
+            ${groupBy != "" ? "GROUP BY " + groupBy : ""}
+            ${having != "" ? "HAVING " + having : ""}
         )`;
     }
 

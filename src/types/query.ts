@@ -39,10 +39,18 @@ export type QueryExpression<T extends string = string> = {
 export type PossibleExpressions =
     SpatialQueryExpression |
     TextRelevanceQueryExpression |
-    JsonAggregateQueryExpression; // | FutureExpression | AnotherExpression
+    JsonAggregateQueryExpression;
+
+export type ComputedExpression<T extends string = string> = {
+    type: T;
+}
+
+export type PossibleComputedExpressions =
+    SpatialComputedExpression |
+    TextRelevanceComputedExpression;
 
 export type QueryExpressionRequirements = {
-    phase: 'base' | 'projection';
+    phase: QueryEvaluationPhase;
 
     cardinality: 'row' | 'aggregate';
 
@@ -68,11 +76,15 @@ export type SpatialDistanceDefinition = {
     earthRadius?: number;
     alias: string;
 
-    maxDistance?: number;
+    maxDistance: number;
     orderByDistance?: 'ASC' | 'DESC';
 };
 
 export type SpatialQueryExpression = QueryExpression<'spatialDistance'> & {
+    parameters: SpatialDistanceDefinition;
+};
+
+export type SpatialComputedExpression = ComputedExpression<'spatialDistance'> & {
     parameters: SpatialDistanceDefinition;
 };
 
@@ -101,22 +113,62 @@ export type TextRelevanceQueryExpression = QueryExpression<'textRelevance'> & {
     parameters: TextRelevanceDefinition;
 };
 
-export type JsonAggregateDefinition = {
-    targetColumns: string[];
-    targetTable: string;
+export type TextRelevanceComputedExpression = ComputedExpression<'textRelevance'> & {
+    parameters: TextRelevanceDefinition;
+};
 
+export type JsonAggregateDefinition<Tables extends string = string> = {
+    /** Table this aggregate is built from */
+    table: Tables;
+
+    /** Columns selected from this table */
+    columns: string[];
+
+    /** GROUP BY columns required for this level */
     groupByColumns: string[];
 
+    /** Alias of this JSON object / array */
     alias: string;
+
+    /** Computed expressions */
+    computed?: PossibleComputedExpressions[];
+
+    /** Having clause */
+    having?: string;
+
+    /** Nested JSON objects or arrays */
+    nested?: NestedJsonAggregateDefinition<Tables>[];
+};
+
+export type NestedJsonAggregateDefinition<Tables extends string = string> = {
+    /** Table this aggregate is built from */
+    table: Tables;
+
+    /** Columns selected from this table */
+    columns: string[];
+
+    /** Alias of this JSON object / array */
+    alias: string;
+
+    /** Computed expressions */
+    computed?: PossibleComputedExpressions[];
+
+    /** Having clause */
+    having?: string;
+
+    /** Nested JSON objects or arrays */
+    nested?: NestedJsonAggregateDefinition<Tables>[];
 }
 
 export type JsonAggregateQueryExpression = QueryExpression<'jsonAggregate'> & {
     parameters: JsonAggregateDefinition;
 };
 
-export type QueryEvaluationPhase =
-    | 'base'        // can run in the main SELECT
-    | 'projection'; // requires a wrapping SELECT
+export enum QueryEvaluationPhase {
+    BASE = 'base',
+    PROJECTION = 'projection',
+    LATERAL = 'lateral'
+}
 
 export type QueryConstructorType = {
     tableName: string;
