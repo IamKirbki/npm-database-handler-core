@@ -43,7 +43,7 @@ export default class OrderByDecorator extends QueryDecorator {
 
     processOrderBy(orderBy?: string, extraOrderBy?: string): string {
         const allOrderBys = [orderBy, extraOrderBy].filter(o => o && o.trim() !== "");
-        
+
         if (allOrderBys.length === 0) {
             return "";
         }

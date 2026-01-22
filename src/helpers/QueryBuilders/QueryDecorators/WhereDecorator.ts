@@ -46,15 +46,18 @@ export default class WhereDecorator extends QueryDecorator {
             }
         }
 
+        let combinedWhereClause = "";
         if (whereClause && extraWhereClause) {
-            return `${baseQuery} ${whereClause} AND ${extraWhereClause}`;
+            combinedWhereClause = baseQuery.includes("GROUP BY") ? `${baseQuery.replace("GROUP BY", `${whereClause} AND ${extraWhereClause} GROUP BY`)}` : `${baseQuery} ${whereClause} AND ${extraWhereClause}`;
         } else if (whereClause) {
-            return `${baseQuery} ${whereClause}`;
+            combinedWhereClause = baseQuery.includes("GROUP BY") ? `${baseQuery.replace("GROUP BY", `${whereClause} GROUP BY`)}` : `${baseQuery} ${whereClause}`;
         } else if (extraWhereClause) {
-            return `${baseQuery} WHERE ${extraWhereClause}`;
+            combinedWhereClause = baseQuery.includes("GROUP BY") ? `${baseQuery.replace("GROUP BY", `WHERE ${extraWhereClause} GROUP BY`)}` : `${baseQuery} WHERE ${extraWhereClause}`;
+        } else {
+            combinedWhereClause = baseQuery;
         }
 
-        return baseQuery;
+        return combinedWhereClause;
     }
 
     private processWhere(conditions: QueryWhereCondition): string {

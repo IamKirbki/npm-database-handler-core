@@ -9,6 +9,7 @@ import {
     RecordFactory
 } from "@core/types/index.js";
 import QueryStatementBuilder from "@core/helpers/QueryBuilders/QueryStatementBuilder.js";
+import oldQueryStatementBuilder from "@core/helpers/QueryBuilders/oldQueryStatementBuilder.js";
 
 /** Record class represents a single database row */
 export default class Record<ColumnValuesType extends columnType> {
@@ -44,7 +45,7 @@ export default class Record<ColumnValuesType extends columnType> {
             throw new Error("Cannot insert record with no columns");
         }
 
-        const queryStr = await QueryStatementBuilder.BuildInsert(this._tableName, this._values);
+        const queryStr = await oldQueryStatementBuilder.BuildInsert(this._tableName, this._values);
         const query = this._queryFactory({
             tableName: this._tableName,
             query: queryStr,
@@ -68,7 +69,8 @@ export default class Record<ColumnValuesType extends columnType> {
             return undefined;
         }
 
-        const queryStrSelect = await QueryStatementBuilder.BuildSelect(this._tableName, { where: { ...this._values } });
+        const builder = new QueryStatementBuilder({ base: { from: this._tableName, where: { ...this._values } } });
+        const queryStrSelect = await builder.build();
         const querySelect = this._queryFactory({
             tableName: this._tableName,
             query: queryStrSelect,
@@ -93,7 +95,7 @@ export default class Record<ColumnValuesType extends columnType> {
             (newValues as object & ModelWithTimestamps).updated_at = new Date().toISOString();
         }
 
-        const queryStr = await QueryStatementBuilder.BuildUpdate(this._tableName, newValues as QueryIsEqualParameter, whereParameters);
+        const queryStr = await oldQueryStatementBuilder.BuildUpdate(this._tableName, newValues as QueryIsEqualParameter, whereParameters);
 
         // Merge newValues and originalValues for parameters (with 'where_' prefix for where clause)
         const params: Partial<ColumnValuesType> = { ...newValues };
@@ -123,7 +125,7 @@ export default class Record<ColumnValuesType extends columnType> {
             return;
         }
 
-        const queryStr = await QueryStatementBuilder.BuildDelete(this._tableName, this._values);
+        const queryStr = await oldQueryStatementBuilder.BuildDelete(this._tableName, this._values);
         const _query = this._queryFactory({
             tableName: this._tableName,
             query: queryStr,

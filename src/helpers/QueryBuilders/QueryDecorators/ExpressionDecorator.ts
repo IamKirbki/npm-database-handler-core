@@ -59,12 +59,10 @@ export default class ExpressionDecorator extends QueryDecorator {
         const groupBy = QueryExpressionBuilder.buildGroupByFromExpressions(this.parsedExpressions).trim();
         const having = QueryExpressionBuilder.buildHavingFromExpressions(this.parsedExpressions).trim();
 
-        return `SELECT * FROM (
-            ${sqlBeforeFromMatch[0].replace(" FROM", "")}, ${projectionClauses}
+        return `${sqlBeforeFromMatch[0].replace(" FROM", "")}, ${projectionClauses}
             ${innerSql.slice(sqlBeforeFromMatch.index! + sqlBeforeFromMatch[0].length - 5)}
             ${groupBy != "" ? "GROUP BY " + groupBy : ""}
-            ${having != "" ? "HAVING " + having : ""}
-        )`;
+            ${having != "" ? "HAVING " + having : ""}`;
     }
 
     private appendExpressionClauses(): void {

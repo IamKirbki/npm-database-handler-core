@@ -1,7 +1,7 @@
 import type Model from "@core/abstract/Model.js";
 import Record from "@core/base/Record.js";
 import Table from "@core/base/Table.js";
-import { columnType, Join, QueryWhereCondition, ExtraQueryParameters, relation, QueryComparisonParameters, QueryIsEqualParameter, TableFactory } from "@core/types/index.js";
+import { columnType, Join, QueryWhereCondition, relation, QueryComparisonParameters, QueryIsEqualParameter, TableFactory, QueryLayers } from "@core/types/index.js";
 
 export default class Repository<Type extends columnType, ModelType extends Model<Type>> {
     private static _instances: Map<string, Repository<columnType, Model<columnType>>> = new Map();
@@ -78,7 +78,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
         relation: relation
     ): Promise<void> {
         const table = this.tableFactory(relation.pivotTable!, this.customDatabaseAdapter);
-        const record = await table.Record({ where: this.generatePivotTableKeys(foreignKey, modelOfOrigin, relation) });
+        const record = await table.Record({ base: { where: this.generatePivotTableKeys(foreignKey, modelOfOrigin, relation) } });
         await record?.Delete();
     }
 
@@ -113,48 +113,48 @@ export default class Repository<Type extends columnType, ModelType extends Model
         await this.Table.Insert<Type>(attributes);
     }
 
-    public async first(conditions: QueryWhereCondition, Model: Model<Type>): Promise<Type | null> {
+    public async first(queryLayers: QueryLayers, Model: Model<Type>): Promise<Type | null> {
         let record;
         if (Model.JoinedEntities.length > 0) {
-            const results = await this.join(Model, conditions, { limit: 1 });
+            const results = await this.join(Model, { base: { from: Model.Configuration.table, where: queryLayers.base.where }, final: { limit: 1 } });
             record = results[0] ? { values: results[0] } : undefined;
         } else {
-            record = await this.Table.Record<Type>({ where: conditions });
+            record = await this.Table.Record<Type>(queryLayers);
         }
 
         return record ? record.values : null;
     }
 
-    public async get(conditions: QueryWhereCondition, queryOptions: ExtraQueryParameters, Model: Model<Type>): Promise<Type[]> {
+    public async get(QueryLayers: QueryLayers, Model: Model<Type>): Promise<Type[]> {
         if (Model.JoinedEntities.length > 0) {
-            return await this.join(Model, conditions, queryOptions);
+            return await this.join(Model, QueryLayers);
         } else {
-            const records = await this.Table.Records<Type>({ where: conditions, ...queryOptions });
+            const records = await this.Table.Records<Type>(QueryLayers);
             return records.map(record => record.values);
         }
     }
 
-    public async all(Model: Model<Type>, queryscopes?: QueryWhereCondition, queryOptions?: ExtraQueryParameters): Promise<Type[]> {
+    public async all(Model: Model<Type>, QueryLayers: QueryLayers): Promise<Type[]> {
         if (Model.JoinedEntities.length > 0) {
-            return await this.join(Model);
+            return await this.join(Model, QueryLayers);
         } else {
-            const records = await this.Table.Records<Type>({ where: queryscopes, ...queryOptions });
+            const records = await this.Table.Records<Type>(QueryLayers);
             return records.map(record => record.values);
         }
     }
 
     public async update(primaryKey: QueryIsEqualParameter, newAttributes: Partial<Type>): Promise<Record<Type> | undefined> {
-        const record = await this.Table.Record<Type>({ where: primaryKey as QueryWhereCondition });
+        const record = await this.Table.Record<Type>({ base: { where: primaryKey as QueryWhereCondition } });
         if (record) {
             return await record.Update(newAttributes, primaryKey);
         }
     }
 
-    private async join(Model: Model<Type>, conditions?: QueryWhereCondition, queryOptions?: ExtraQueryParameters): Promise<Type[]> {
-        const Join: Join[] = Model.JoinedEntities.flatMap(join => {
+    private async join(Model: Model<Type>, queryLayers: QueryLayers): Promise<Type[]> {
+        const Joins: Join[] = Model.JoinedEntities.flatMap(join => {
             const relation: relation | undefined = Model.Relations.find(rel => rel.model.Configuration.table.replace("_", "").toLowerCase() === join.relation.toLowerCase());
             if (join.queryScopes) {
-                conditions = this.mergeQueryWhereConditions(conditions || {}, join.queryScopes);
+                queryLayers.base.where = this.mergeQueryWhereConditions(queryLayers.base.where || {}, join.queryScopes);
             }
 
             if (!relation) {
@@ -162,10 +162,11 @@ export default class Repository<Type extends columnType, ModelType extends Model
             }
 
             if (relation.type === 'manyToMany') {
-                queryOptions = queryOptions || {};
-                queryOptions.blacklistTables = queryOptions.blacklistTables || [];
 
-                queryOptions.blacklistTables.push(relation.pivotTable!);
+                queryLayers.final ??= {};
+                queryLayers.final.blacklistTables ??= [];
+
+                queryLayers.final.blacklistTables.push(relation.pivotTable!);
 
                 return [
                     {
@@ -199,7 +200,8 @@ export default class Repository<Type extends columnType, ModelType extends Model
             }] as Join[];
         });
 
-        const records = await this.Table.Join<Type>(Join, { where: conditions, ...queryOptions });
+        queryLayers.base.joins = Joins;
+        const records = await this.Table.Join<Type>(queryLayers);
         return records.map(record => record.values);
     }
 

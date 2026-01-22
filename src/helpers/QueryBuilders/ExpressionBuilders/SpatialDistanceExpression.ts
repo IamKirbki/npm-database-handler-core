@@ -14,16 +14,18 @@ export default class SpatialDistanceExpression implements IExpressionBuilder {
             expression.parameters.earthRadius ??
             (expression.parameters.unit === 'km' ? 6371 : 3959);
 
+        const isComputed = expression.parameters.isComputed;
+
         const baseExpressionClause = `
             ${earthRadius} * acos(
                 cos(radians(${expression.parameters.referencePoint.lat}))
-                * cos(radians(${expression.parameters.targetColumns.lat}))
+                * cos(radians(${isComputed ? expression.parameters.targetColumns.lat.replace(".", "_") : `${expression.parameters.targetColumns.lat}`}))
                 * cos(
-                    radians(${expression.parameters.targetColumns.lon})
+                    radians(${isComputed ? expression.parameters.targetColumns.lon.replace(".", "_") : `${expression.parameters.targetColumns.lon}`})
                     - radians(${expression.parameters.referencePoint.lon})
                 )
                 + sin(radians(${expression.parameters.referencePoint.lat}))
-                * sin(radians(${expression.parameters.targetColumns.lat}))
+                * sin(radians(${isComputed ? expression.parameters.targetColumns.lat.replace(".", "_") : `${expression.parameters.targetColumns.lat}`}))
             ) AS ${expression.parameters.alias}
         `.trim();
 

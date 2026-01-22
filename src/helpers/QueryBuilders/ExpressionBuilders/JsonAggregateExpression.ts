@@ -34,7 +34,7 @@ export default class JsonAggregateExpression implements IExpressionBuilder {
 
     private buildJsonBuildObject(expression: JsonAggregateQueryExpression): string {
         const columnPart = expression.parameters.columns
-            .map(col => `'${col}', "${expression.parameters.table}"."${col}"`)
+            .map(col => `'${col}', "${expression.parameters.table}_${col}"`)
             .join(",\n  ");
 
         const computedPart = expression.parameters.computed?.length
@@ -42,7 +42,10 @@ export default class JsonAggregateExpression implements IExpressionBuilder {
                 .map(comp => {
                     const expr = {
                         type: comp.type,
-                        parameters: comp.parameters,
+                        parameters: {
+                            ...comp.parameters,
+                            isComputed: true
+                        },
                         requirements: QueryExpressionBuilder.getExpressionDefaultRequirements(comp.type)!
                     };
 

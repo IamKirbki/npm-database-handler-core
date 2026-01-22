@@ -1,0 +1,516 @@
+import { Query } from "@core/index.js";
+import { DefaultQueryParameters, ExtraQueryParameters, QueryWhereCondition, Join, QueryComparisonParameters, QueryIsEqualParameter, QueryEvaluationPhase, expressionClause } from "@core/types/index.js";
+import QueryExpressionBuilder from "./QueryExpressionBuilder.js";
+
+/** Utility class for building SQL query strings */
+export default class oldQueryStatementBuilder {
+    /**
+     * Build an INSERT SQL statement with named parameter placeholders
+     * 
+     * @param table - The table to insert into
+     * @param record - Object containing column names and their placeholder values
+     * @returns Complete INSERT SQL statement string with @fieldName placeholders
+     * 
+     * @example
+     * ```typescript
+     * const query = QueryStatementBuilder.BuildInsert(usersTable, {
+     *   name: 'John',
+     *   email: 'john@example.com',
+     *   age: 30
+     * });
+     * // "INSERT INTO users (name, email, age) VALUES (@name, @email, @age)"
+     * 
+     * // Note: The actual values will be bound separately using the Parameters object
+     * ```
+     */
+    public static BuildInsert(tableName: string, record: QueryIsEqualParameter): string {
+        const queryParts: string[] = [];
+        const columns = Object.keys(record);
+        const placeholders = columns.map(col => `@${col}`);
+
+        queryParts.push(`INSERT INTO "${tableName}"`);
+        queryParts.push(`(${columns.map(c => `"${c}"`).join(", ")})`);
+        queryParts.push(`VALUES (${placeholders.join(", ")})`);
+
+        return queryParts.join(" ");
+    }
+
+    /**
+     * Build an UPDATE SQL statement with SET clause and WHERE conditions
+     * 
+     * @param table - The table to update
+     * @param record - Object containing columns to update with their placeholder values
+     * @param where - Object containing WHERE conditions for targeting specific rows
+     * @returns Complete UPDATE SQL statement string with @fieldName placeholders
+     * 
+     * @example
+     * ```typescript
+     * const query = QueryStatementBuilder.BuildUpdate(
+     *   usersTable,
+     *   { name: 'John Doe', age: 31 },
+     *   { id: 1 }
+     * );
+     * // "UPDATE users SET name = @name, age = @age WHERE id = @id"
+     * 
+     * // Multiple WHERE conditions
+     * const query = QueryStatementBuilder.BuildUpdate(
+     *   usersTable,
+     *   { status: 'inactive' },
+     *   { status: 'active', last_login: '2023-01-01' }
+     * );
+     * // "UPDATE users SET status = @status WHERE status = @status AND last_login = @last_login"
+     * ```
+     */
+    public static BuildUpdate(tableName: string, record: QueryWhereCondition, where: QueryWhereCondition): string {
+        const queryParts: string[] = [];
+        const setClauses = Object.keys(record).map(col => `${col} = @${col}`);
+
+        queryParts.push(`UPDATE "${tableName}"`);
+        queryParts.push(`SET ${setClauses.join(", ")}`);
+        queryParts.push(this.BuildWhere(where).replace(/@(\w+)/g, '@where_$1'))
+
+        return queryParts.join(" ");
+    }
+
+    /**
+     * Build a DELETE SQL statement with WHERE conditions
+     * 
+     * @param table - The table to delete from
+     * @param where - Object containing WHERE conditions for targeting specific rows to delete
+     * @returns Complete DELETE SQL statement string with @fieldName placeholders
+     * 
+     * @example
+     * ```typescript
+     * const query = QueryStatementBuilder.BuildDelete(usersTable, { id: 1 });
+     * // "DELETE FROM users WHERE id = @id"
+     * 
+     * // Multiple WHERE conditions
+     * const query = QueryStatementBuilder.BuildDelete(usersTable, {
+     *   status: 'deleted',
+     *   last_login: '2020-01-01'
+     * });
+     * // "DELETE FROM users WHERE status = @status AND last_login = @last_login"
+     * ```
+     */
+    public static BuildDelete(tableName: string, where: QueryWhereCondition): string {
+        const queryParts: string[] = [];
+
+        queryParts.push(`DELETE FROM "${tableName}"`);
+        queryParts.push(this.BuildWhere(where));
+
+        return queryParts.join(" ");
+    }
+
+    /**
+     * Build a COUNT SQL statement to count rows, optionally with WHERE conditions
+     * 
+     * @param table - The table to count rows from
+     * @param where - Optional object containing WHERE conditions to filter counted rows
+     * @returns Complete COUNT SQL statement string with @fieldName placeholders
+     * 
+     * @example
+     * ```typescript
+     * // Count all rows
+     * const query = QueryStatementBuilder.BuildCount(usersTable);
+     * // "SELECT COUNT(*) as count FROM users"
+     * 
+     * // Count with conditions
+     * const query = QueryStatementBuilder.BuildCount(usersTable, {
+     *   status: 'active',
+     *   age: 25
+     * });
+     * // "SELECT COUNT(*) as count FROM users WHERE status = @status AND age = @age"
+     * ```
+     */
+    public static BuildCount(tableName: string, where?: QueryWhereCondition): string {
+        const queryParts: string[] = [];
+        queryParts.push(`SELECT COUNT(*) as count FROM "${tableName}"`);
+        queryParts.push(this.BuildWhere(where));
+
+        return queryParts.join(" ");
+    }
+
+    /**
+     * Build a WHERE clause from parameter conditions (helper method)
+     * 
+     * Joins multiple conditions with AND operator.
+     * Returns empty string if no conditions are provided.
+     * 
+     * @param where - Optional object containing WHERE conditions
+     * @returns WHERE clause string with @fieldName placeholders, or empty string if no conditions
+     * 
+     * @example
+     * ```typescript
+     * // Single condition
+     * const whereClause = QueryStatementBuilder.BuildWhere({ id: 1 });
+     * // "WHERE id = @id"
+     * 
+     * // Multiple conditions (joined with AND)
+     * const whereClause = QueryStatementBuilder.BuildWhere({
+     *   status: 'active',
+     *   age: 25,
+     *   role: 'admin'
+     * });
+     * // "WHERE status = @status AND age = @age AND role = @role"
+     * 
+     * // No conditions
+     * const whereClause = QueryStatementBuilder.BuildWhere();
+     * // ""
+     * ```
+     */
+    public static BuildWhere(where?: QueryWhereCondition): string {
+        if (!where || (Array.isArray(where) && where.length === 0) || Object.keys(where).length === 0) return "";
+        const isSimpleObject = !Array.isArray(where) && typeof where === 'object' && where !== null;
+
+        const queryParts: string[] = [];
+        queryParts.push("WHERE");
+
+        if (isSimpleObject) {
+            queryParts.push(this.buildWhereSimple(where as QueryIsEqualParameter));
+        } else {
+            queryParts.push(this.buildWhereWithOperators(where as QueryComparisonParameters[]));
+        }
+
+        return queryParts.join(" ");
+    }
+
+    private static buildWhereWithOperators(where: QueryComparisonParameters[]): string {
+        const queryParts: string[] = where.map(condition => {
+            const operator = condition.operator || "=";
+            return `${condition.column} ${operator} @${condition.column.trim()}`;
+        });
+
+        return queryParts.join(" AND ");
+    }
+
+    private static buildWhereSimple(where: QueryIsEqualParameter): string {
+        const queryParts: string[] = Object.keys(where).map(col => `${col} = @${col}`);
+        return queryParts.join(" AND ");
+    }
+
+    /**
+     * Build a SELECT statement with JOIN operations (INNER, LEFT, RIGHT, FULL)
+     * 
+     * Supports single or multiple joins, including nested joins.
+     * Combines the base SELECT with JOIN clauses and query options.
+     * The join type (INNER, LEFT, RIGHT, FULL) is specified in each Join object.
+     * 
+     * @param fromTable - The primary table to select from
+     * @param joins - Single Join object or array of Join objects defining the join operations
+     * @param options - Query options including select columns, orderBy, limit, offset
+     * @returns Complete SELECT statement with JOIN clauses
+     * 
+     * @example
+     * ```typescript
+     * // Single INNER JOIN
+     * const query = QueryStatementBuilder.BuildJoin(
+     *   usersTable,
+     *   { fromTable: ordersTable, joinType: 'INNER', on: { user_id: 'id' } },
+     *   { select: 'users.*, orders.total' }
+     * );
+     * // "SELECT users.*, orders.total FROM users INNER JOIN orders ON users.id = orders.user_id"
+     * 
+     * // Multiple joins with different types
+     * const query = QueryStatementBuilder.BuildJoin(
+     *   usersTable,
+     *   [
+     *     { fromTable: ordersTable, joinType: 'INNER', on: { user_id: 'id' } },
+     *     { fromTable: addressesTable, joinType: 'LEFT', on: { address_id: 'id' } }
+     *   ],
+     *   { orderBy: 'users.created_at DESC', limit: 10 }
+     * );
+     * 
+     * // Nested JOIN
+     * const query = QueryStatementBuilder.BuildJoin(
+     *   usersTable,
+     *   {
+     *     fromTable: ordersTable,
+     *     joinType: 'INNER',
+     *     on: { user_id: 'id' },
+     *     join: { fromTable: productsTable, joinType: 'INNER', on: { product_id: 'id' } }
+     *   }
+     * );
+     * ```
+     */
+    public static async BuildJoin(
+        fromTableName: string,
+        joins: Join | Join[],
+        query: Query,
+        options?: DefaultQueryParameters & ExtraQueryParameters
+    ): Promise<string> {
+        const expressions = QueryExpressionBuilder.buildExpressionsPart(options?.expressions ?? []);
+        const syncedOptions = QueryExpressionBuilder.SyncQueryOptionsWithExpressions(expressions, options ?? {});
+        const shouldWrap = QueryExpressionBuilder.shouldWrapJoinQuery(expressions);
+
+        if (shouldWrap) {
+            return this.buildWrappedJoinQuery(fromTableName, joins, query, expressions, syncedOptions);
+        }
+
+        return this.buildSimpleJoinQuery(fromTableName, joins, query, syncedOptions);
+    }
+
+    private static async buildSimpleJoinQuery(
+        fromTableName: string,
+        joins: Join | Join[],
+        query: Query,
+        options: DefaultQueryParameters & ExtraQueryParameters & { literalWhere?: string[] }
+    ): Promise<string> {
+        const queryParts: string[] = [];
+        const selectClause = await oldQueryStatementBuilder.BuildJoinSelect(fromTableName, joins, query);
+
+        queryParts.push(`SELECT ${selectClause}`);
+        queryParts.push(`FROM "${fromTableName}"`);
+        queryParts.push(this.BuildJoinPart(fromTableName, joins));
+
+        const baseWhere = this.BuildWhere(options.where);
+        const whereClause = QueryExpressionBuilder.buildWhereWithLiterals(baseWhere, options.literalWhere);
+        if (whereClause) {
+            queryParts.push(whereClause);
+        }
+
+        queryParts.push(this.BuildQueryOptions(options));
+
+        return queryParts.filter(part => part && part.trim() !== "").join(" ");
+    }
+
+    private static async buildWrappedJoinQuery(
+        fromTableName: string,
+        joins: Join | Join[],
+        query: Query,
+        expressions: expressionClause[],
+        options: DefaultQueryParameters & ExtraQueryParameters & { literalWhere?: string[] }
+    ): Promise<string> {
+        const queryParts: string[] = [];
+        const innerQueryParts: string[] = [];
+
+        const selectClause = await oldQueryStatementBuilder.BuildJoinSelect(fromTableName, joins, query);
+        const projectionExpressions = QueryExpressionBuilder.filterExpressionsByPhase(expressions, QueryEvaluationPhase.PROJECTION);
+        const expressionClauses = projectionExpressions
+            .map(expr => expr.baseExpressionClause)
+            .filter(clause => clause)
+            .join(', ');
+
+        innerQueryParts.push(`SELECT`);
+        if (expressionClauses) {
+            innerQueryParts.push(`${selectClause.split(', ').join(', ')},`);
+            innerQueryParts.push(`${expressionClauses}`);
+        } else {
+            innerQueryParts.push(`${selectClause.split(', ').join(', ')}`);
+        }
+        innerQueryParts.push(`FROM "${fromTableName}"`);
+        innerQueryParts.push(this.BuildJoinPart(fromTableName, joins));
+
+        const baseWhere = this.BuildWhere(options.where);
+        if (baseWhere) {
+            innerQueryParts.push(baseWhere);
+        }
+
+        // Build outer query
+        const columnAliases = selectClause.split(', ').map(col => {
+            // Extract alias from "... AS alias" pattern
+            const match = col.match(/AS "([^"]+)"/);
+            return match ? match[1] : col;
+        });
+
+        const outerSelectClause = QueryExpressionBuilder.buildJoinOuterSelectClause(columnAliases, expressions);
+        queryParts.push(`SELECT`);
+        queryParts.push(`${outerSelectClause}`);
+        queryParts.push(`FROM (`);
+        queryParts.push(`${innerQueryParts.join('\n')}`);
+        queryParts.push(`) AS wrapped`);
+
+        // Add expression-based WHERE to outer query
+        const literalWhere = options.literalWhere;
+        if (literalWhere && literalWhere.length > 0) {
+            queryParts.push(`WHERE ${literalWhere.join(' AND ')}`);
+        }
+
+        // Add expression-based ORDER BY to outer query
+        const expressionOrderBy = QueryExpressionBuilder.buildOrderByFromExpressions(expressions);
+        if (expressionOrderBy) {
+            queryParts.push(expressionOrderBy);
+        }
+
+        return queryParts.join('\n');
+    }
+
+    public static async BuildJoinSelect(
+        fromTableName: string,
+        joins: Join | Join[],
+        query: Query
+    ): Promise<string> {
+        const mainTableCols = await query.TableColumnInformation(fromTableName);
+        const mainTableSelect = mainTableCols.map(col =>
+            `"${fromTableName}"."${col.name}" AS "${oldQueryStatementBuilder.convertSingleJoinSelect(`${fromTableName}.${col.name}`)}"`
+        ).join(', ');
+
+        const joinArray = Array.isArray(joins) ? joins : [joins];
+        const joinedSelects = await Promise.all(
+            joinArray.map(async (join) => {
+                const cols = await query.TableColumnInformation(join.fromTable);
+                return cols.map(col =>
+                    `"${join.fromTable}"."${col.name}" AS "${oldQueryStatementBuilder.convertSingleJoinSelect(`${join.fromTable}.${col.name}`)}"`
+                ).join(', ');
+            })
+        );
+
+        return [mainTableSelect, ...joinedSelects].join(', ');
+    }
+
+    public static convertSingleJoinSelect(select: string): string {
+        return select.replace(/\./g, '__');
+    }
+
+    /**
+     * Build JOIN clause(s) recursively (helper method)
+     * 
+     * Processes single or multiple join definitions and handles nested joins.
+     * Each join includes the JOIN clause (INNER, LEFT, RIGHT, FULL) and ON conditions.
+     * 
+     * @param fromTable - The table being joined from (for ON clause context)
+     * @param joins - Single Join object or array of Join objects
+     * @returns JOIN clause(s) as a string
+     * 
+     * @example
+     * ```typescript
+     * // Single INNER JOIN
+     * const joinClause = QueryStatementBuilder.BuildJoinPart(
+     *   usersTable,
+     *   { fromTable: ordersTable, joinType: 'INNER', on: { user_id: 'id' } }
+     * );
+     * // "INNER JOIN orders ON users.id = orders.user_id"
+     * 
+     * // LEFT JOIN
+     * const joinClause = QueryStatementBuilder.BuildJoinPart(
+     *   usersTable,
+     *   { fromTable: profilesTable, joinType: 'LEFT', on: { profile_id: 'id' } }
+     * );
+     * // "LEFT JOIN profiles ON users.id = profiles.profile_id"
+     * 
+     * // Nested join
+     * const joinClause = QueryStatementBuilder.BuildJoinPart(
+     *   usersTable,
+     *   {
+     *     fromTable: ordersTable,
+     *     joinType: 'INNER',
+     *     on: { user_id: 'id' },
+     *     join: { fromTable: productsTable, joinType: 'INNER', on: { product_id: 'id' } }
+     *   }
+     * );
+     * // "INNER JOIN orders ON users.id = orders.user_id INNER JOIN products ON orders.id = products.product_id"
+     * ```
+     */
+    public static BuildJoinPart(
+        fromTableName: string,
+        joins: Join | Join[]
+    ): string {
+        const queryParts: string[] = [];
+        joins = Array.isArray(joins) ? joins : [joins];
+
+        for (const join of joins) {
+            const baseTable = join.baseTable || fromTableName;  // Use explicit base or default
+            queryParts.push(`${join.joinType} JOIN "${join.fromTable}"`);
+            queryParts.push(this.BuildJoinOnPart(baseTable, join.fromTable, join.on));
+        }
+
+        return queryParts.join(" ");
+    }
+
+    /**
+     * Build ON clause for JOIN operations (helper method)
+     * 
+     * Creates ON conditions for join operations.
+     * Compares the foreign key column in the joined table with the primary key in the source table.
+     * Multiple conditions are joined with AND operator.
+     * 
+     * @param table - The source table (left side of the join)
+     * @param joinTable - The table being joined (right side of the join)
+     * @param on - QueryCondition object where key is the foreign key in joinTable and value is the primary key in table
+     * @returns ON clause string for JOIN operations
+     * 
+     * @example
+     * ```typescript
+     * // Single ON condition
+     * // Key: column in joinTable (orders), Value: column in table (users)
+     * const onClause = QueryStatementBuilder.BuildJoinOnPart(
+     *   usersTable,
+     *   ordersTable,
+     *   { user_id: 'id' }
+     * );
+     * // "ON users.id = orders.user_id"
+     * 
+     * // Multiple ON conditions
+     * const onClause = QueryStatementBuilder.BuildJoinOnPart(
+     *   usersTable,
+     *   ordersTable,
+     *   [{ user_id: 'id' }, { company_id: 'company_id' }]
+     * );
+     * // "ON users.id = orders.user_id AND users.company_id = orders.company_id"
+     * ```
+     */
+    public static BuildJoinOnPart(
+        tableName: string,
+        joinTableName: string,
+        on: QueryIsEqualParameter | QueryIsEqualParameter[],
+    ): string {
+        const queryParts: string[] = [];
+        const onArray = Array.isArray(on) ? on : [on];
+
+        for (const onPart of onArray) {
+            queryParts.push(`ON ${tableName}.${Object.values(onPart)[0]} = ${joinTableName}.${Object.keys(onPart)[0]}`);
+        }
+
+        return queryParts.join(" AND ");
+    }
+
+    /**
+     * Build query options clause (ORDER BY, LIMIT, OFFSET) (helper method)
+     * 
+     * Processes query options and builds the corresponding SQL clauses.
+     * Returns empty string if no options are provided.
+     * 
+     * @param options - Object containing orderBy, limit, and/or offset options
+     * @returns Query options clause as a string
+     * 
+     * @example
+     * ```typescript
+     * // All options
+     * const optionsClause = QueryStatementBuilder.BuildQueryOptions({
+     *   orderBy: 'created_at DESC',
+     *   limit: 10,
+     *   offset: 20
+     * });
+     * // "ORDER BY created_at DESC LIMIT 10 OFFSET 20"
+     * 
+     * // Just ordering
+     * const optionsClause = QueryStatementBuilder.BuildQueryOptions({
+     *   orderBy: 'name ASC'
+     * });
+     * // "ORDER BY name ASC"
+     * 
+     * // Pagination only
+     * const optionsClause = QueryStatementBuilder.BuildQueryOptions({
+     *   limit: 25,
+     *   offset: 50
+     * });
+     * // "LIMIT 25 OFFSET 50"
+     * ```
+     */
+    public static BuildQueryOptions(options: ExtraQueryParameters): string {
+        const queryParts: string[] = [];
+        if (options?.orderBy) {
+            queryParts.push(`ORDER BY ${options.orderBy}`);
+        }
+
+        if (options?.limit) {
+            queryParts.push(`LIMIT ${options.limit}`);
+
+            if (options?.offset) {
+                queryParts.push(`OFFSET ${options.offset}`);
+            }
+        }
+
+
+        return queryParts.join(" ");
+    }
+}

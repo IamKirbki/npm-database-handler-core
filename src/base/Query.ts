@@ -37,9 +37,10 @@ export default class Query {
     this.TableName = tableName;
     this._query = query;
 
-    // eslint-disable-next-line no-undef
-    if (Container.getInstance().logging) this._query ? console.info(this._query) : console.info("No query found, probably checking if a table exists or getting the table column information.");
+    console.log("Query Constructor Params:", parameters);
     if (parameters) this._parameters = this.ConvertParamsToObject(parameters);
+    // eslint-disable-next-line no-undef
+    if (Container.getInstance().logging) this._query ? console.info(this._query, "\n", this._parameters) : console.info("No query found, probably checking if a table exists or getting the table column information.");
 
     this._adapter = Container.getInstance().getAdapter(adapterName);
     this._queryCache = QueryCache.getInstance();

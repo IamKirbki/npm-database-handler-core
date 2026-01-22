@@ -1,5 +1,5 @@
 import IQueryBuilder from "@core/interfaces/IQueryBuilder.js";
-import { Join, Query, DefaultQueryParameters, ExtraQueryParameters } from "@core/index.js";
+import { Join, Query, DefaultQueryParameters, ExtraQueryParameters, QueryLayers } from "@core/index.js";
 import QueryDecorator from "./QueryDecorator.js";
 
 export default class JoinDecorator extends QueryDecorator {
@@ -8,18 +8,23 @@ export default class JoinDecorator extends QueryDecorator {
     private query: Query;
     private options?: DefaultQueryParameters & ExtraQueryParameters;
 
-    constructor(
-        component: IQueryBuilder,
-        fromTableName: string,
-        joins: Join | Join[],
-        query: Query,
-        options?: DefaultQueryParameters & ExtraQueryParameters
-    ) {
-        super(component);
-        this.fromTableName = fromTableName;
-        this.joins = joins;
-        this.query = query;
-        this.options = options;
+    constructor(builder: IQueryBuilder, layer: QueryLayers, Query: Query) {
+        if (!layer.base.from) {
+            throw new Error("Base layer must specify 'from' table name for JoinDecorator.");
+        }
+
+        super(builder);
+        this.fromTableName = layer.base.from;
+        this.joins = layer.base.joins || [];
+        this.query = Query;
+        this.options = {
+            select: layer.base.select,
+            orderBy: layer.final?.orderBy,
+            limit: layer.final?.limit,
+            offset: layer.final?.offset,
+            groupBy: layer.pretty?.groupBy,
+            blacklistTables: layer.final?.blacklistTables,
+        };
     }
 
     async build(): Promise<string> {

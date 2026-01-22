@@ -5,16 +5,15 @@ import {
     QueryWhereCondition,
     QueryValues,
     ModelConfig,
-    ExtraQueryParameters,
     SpatialPoint,
     SpatialPointColumns,
     SpatialQueryExpression,
     TextRelevanceQueryExpression,
     QueryComparisonParameters,
     JsonAggregateQueryExpression,
-    JsonAggregateDefinition,
     NestedJsonAggregateDefinition,
     QueryEvaluationPhase,
+    QueryLayers,
 } from '@core/types/index.js';
 
 /** Abstract Model class for ORM-style database interactions */
@@ -58,8 +57,15 @@ export default abstract class Model<
     protected attributes: Partial<ModelType> = {};
     protected exists: boolean = false;
     protected dirty: boolean = false;
-    protected queryScopes?: QueryWhereCondition;
-    protected queryOptions: ExtraQueryParameters = {};
+    protected queryLayers: QueryLayers = {
+        base: {
+            from: this.Configuration.table,
+        },
+        pretty: {
+        },
+        final: {
+        }
+    };
 
     public get primaryKeyColumn(): string {
         return this.configuration.primaryKey;
@@ -82,7 +88,8 @@ export default abstract class Model<
     }
 
     public limit(value: number): this {
-        this.queryOptions.limit = value;
+        this.queryLayers.final ??= {};
+        this.queryLayers.final.limit = value;
         return this;
     }
 
@@ -95,11 +102,11 @@ export default abstract class Model<
     }
 
     public offset(value: number): this {
-        if (!this.queryOptions.limit) {
+        if (!this.queryLayers.final?.limit) {
             throw new Error('Offset cannot be set without a limit.');
         }
 
-        this.queryOptions.offset = value;
+        this.queryLayers.final.offset = value;
         return this;
     }
 
@@ -113,7 +120,8 @@ export default abstract class Model<
     }
 
     public orderBy(column: string, direction: 'ASC' | 'DESC' = 'ASC'): this {
-        this.queryOptions.orderBy = column + ' ' + direction;
+        this.queryLayers.final ??= {};
+        this.queryLayers.final.orderBy = column + ' ' + direction;
         return this;
     }
 
@@ -142,11 +150,11 @@ export default abstract class Model<
     public where(conditions: QueryWhereCondition): this {
         const normalized = this.normalizeConditions(conditions);
 
-        if (!this.queryScopes) {
-            this.queryScopes = normalized;
+        if (!this.queryLayers.base.where) {
+            this.queryLayers.base.where = normalized;
         } else {
-            const existing = this.normalizeConditions(this.queryScopes);
-            this.queryScopes = [...existing, ...normalized];
+            const existing = this.normalizeConditions(this.queryLayers.base.where);
+            this.queryLayers.base.where = [...existing, ...normalized];
         }
 
         return this;
@@ -161,7 +169,7 @@ export default abstract class Model<
     }
 
     public whereId(id: QueryValues): this {
-        this.queryScopes = { id: id };
+        this.queryLayers.base.where = [{ column: this.primaryKeyColumn, operator: '=', value: id }];
         return this;
     }
 
@@ -174,7 +182,7 @@ export default abstract class Model<
     }
 
     public find(primaryKeyValue: QueryValues): this {
-        this.queryScopes = { [this.primaryKeyColumn]: primaryKeyValue };
+        this.queryLayers.base.where = [{ column: this.primaryKeyColumn, operator: '=', value: primaryKeyValue }];
         return this;
     }
 
@@ -188,10 +196,10 @@ export default abstract class Model<
 
     public async findOrFail(primaryKeyValue?: QueryValues): Promise<this> {
         if (primaryKeyValue) {
-            this.queryScopes = { [this.primaryKeyColumn]: primaryKeyValue };
+            this.queryLayers.base.where = [{ column: this.primaryKeyColumn, operator: '=', value: primaryKeyValue }];
         }
 
-        const query = this.queryScopes || {};
+        const query = this.queryLayers;
 
         const record = await this.repository?.first(query, this);
         if (!record) {
@@ -213,10 +221,18 @@ export default abstract class Model<
     }
 
     public async first(primaryKeyValue?: string | number): Promise<this> {
+        if (primaryKeyValue !== undefined) {
+            this.queryLayers.base.where = [{ column: this.primaryKeyColumn, operator: '=', value: primaryKeyValue }, ...this.normalizeConditions(this.queryLayers.base.where || [])];
+        }
         const attributes = (await this.repository?.first(
-            primaryKeyValue
-                ? { [this.configuration.primaryKey]: primaryKeyValue }
-                : this.queryScopes || {},
+            {
+                ...this.queryLayers,
+                base: {
+                    ...this.queryLayers.base,
+                    from: this.Configuration.table,
+                    where: this.normalizeConditions(this.queryLayers.base.where || []),
+                }
+            },
             this,
         )) as Partial<ModelType>;
         if (attributes) {
@@ -230,8 +246,13 @@ export default abstract class Model<
 
     public async get(): Promise<this[]> {
         const records = await this.repository.get(
-            this.queryScopes || {},
-            this.queryOptions,
+            {
+                ...this.queryLayers,
+                base: {
+                    ...this.queryLayers.base,
+                    from: this.Configuration.table,
+                }
+            },
             this,
         );
         return records.map((record) => {
@@ -255,8 +276,13 @@ export default abstract class Model<
     public async all(): Promise<this[]> {
         const records = await this.repository.all(
             this,
-            this.queryScopes,
-            this.queryOptions,
+            {
+                ...this.queryLayers,
+                base: {
+                    ...this.queryLayers.base,
+                    from: this.Configuration.table,
+                }
+            }
         );
         return records.map((record) => {
             const instance = new (this.constructor as new () => this)();
@@ -322,14 +348,16 @@ export default abstract class Model<
         return this;
     }
 
-    public near(
+    public near(params: {
         referencePoint: SpatialPoint,
         targetColumns: SpatialPointColumns,
         maxDistance: number,
         unit: 'km' | 'miles',
         orderByDistance: 'ASC' | 'DESC',
-        alias: string = 'distance',
-    ): this {
+        alias?: string,
+    }): this {
+        const { referencePoint, targetColumns, maxDistance, unit, orderByDistance, alias = 'distance' } = params;
+
         const expression: SpatialQueryExpression = {
             type: 'spatialDistance',
             requirements: {
@@ -348,19 +376,33 @@ export default abstract class Model<
             },
         };
 
-        this.queryOptions.expressions ??= [];
-        this.queryOptions.expressions.push(expression);
+        this.queryLayers.base.expressions ??= [];
+        this.queryLayers.base.expressions.push(expression);
+
+        this.queryLayers.pretty ??= {};
+        if (!Array.isArray(this.queryLayers.pretty.where)) {
+            this.queryLayers.pretty.where = [];
+        }
+
+        if (maxDistance) {
+            this.queryLayers.pretty.where.push({
+                column: "BASE_QUERY." + alias || "distance",
+                operator: '<=',
+                value: maxDistance,
+            });
+        }
 
         return this;
     }
 
-    public isTextRelevant(
+    public isTextRelevant(params: {
         targetColumns: string[],
         searchTerm: string,
         minimumRelevance?: number,
-        alias: string = 'relevance',
-        orderByRelevance: 'ASC' | 'DESC' = 'ASC',
-    ): this {
+        alias?: string,
+        orderByRelevance?: 'ASC' | 'DESC',
+    }): this {
+        const { targetColumns, searchTerm, minimumRelevance, alias = 'relevance', orderByRelevance = "ASC" } = params;
         const whereClauseKeyword = `${alias}_searchTerm`;
         const expression: TextRelevanceQueryExpression = {
             type: 'textRelevance',
@@ -380,8 +422,8 @@ export default abstract class Model<
             },
         };
 
-        this.queryOptions.expressions ??= [];
-        this.queryOptions.expressions.push(expression);
+        this.queryLayers.base.expressions ??= [];
+        this.queryLayers.base.expressions.push(expression);
 
         this.where({
             [whereClauseKeyword]: searchTerm,
@@ -390,13 +432,23 @@ export default abstract class Model<
         return this;
     }
 
-    public JsonAggregate(
-        table: JsonAggregateDefinition['table'],
-        columns: JsonAggregateDefinition['columns'],
-        groupByColumns: JsonAggregateDefinition['groupByColumns'] = [],
-        alias: JsonAggregateDefinition['alias'] = table[0],
-        nested?: JsonAggregateDefinition['nested']
-    ): this {
+    public JsonAggregate(params: {
+        table: string,
+        columns: string[],
+        groupByColumns?: string[],
+        alias?: string,
+        nested?: NestedJsonAggregateDefinition<string>[],
+        having?: string,
+    }): this {
+        const {
+            table,
+            columns,
+            groupByColumns = [],
+            alias = table,
+            nested,
+            having,
+        } = params;
+
         const expression: JsonAggregateQueryExpression = {
             type: 'jsonAggregate',
             requirements: {
@@ -411,16 +463,40 @@ export default abstract class Model<
                 groupByColumns: groupByColumns,
                 alias: alias,
                 nested: nested,
+                having: having,
             },
         };
 
-        this.queryOptions.expressions ??= [];
-        this.queryOptions.expressions.push(expression);
+        this.queryLayers.base.select ??= '';
+        const selectAliases = this.collectSelectAliases({
+            table,
+            columns,
+            nested: nested || [],
+        });
 
-        this.queryOptions.blacklistTables ??= [];
-        this.queryOptions.blacklistTables.push(...Array.from(new Set(this.collectTables({ table, nested: nested || [] }))));
+        this.queryLayers.base.select += ', ' + selectAliases.join(', ');
+
+        this.queryLayers.pretty ??= {};
+        this.queryLayers.pretty.expressions ??= [];
+        this.queryLayers.pretty.expressions.push(expression);
+
+        this.queryLayers.final ??= {};
+        this.queryLayers.final.blacklistTables ??= [];
+        this.queryLayers.final.blacklistTables.push(...Array.from(new Set(this.collectTables({ table, nested: nested || [] }))));
 
         return this;
+    }
+
+    private collectSelectAliases(def: { table: string; columns: string[]; nested?: NestedJsonAggregateDefinition<string>[] }): string[] {
+        const columnAliases = def.columns.map(col => `${def.table}.${col} AS ${def.table}_${col}`);
+
+        if (def.nested) {
+            for (const child of def.nested) {
+                columnAliases.push(...this.collectSelectAliases(child));
+            }
+        }
+
+        return columnAliases;
     }
 
     private collectTables(def: { table: string; nested?: NestedJsonAggregateDefinition<string>[] }): string[] {
