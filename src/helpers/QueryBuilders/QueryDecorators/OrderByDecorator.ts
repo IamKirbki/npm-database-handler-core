@@ -17,7 +17,7 @@ export default class OrderByDecorator extends QueryDecorator {
         // Extract extra clauses from ExpressionDecorator if present in the chain
         const expressionDecorator = this.findDecoratorInChain(ExpressionDecorator);
         if (expressionDecorator) {
-            this._extraOrderByClauses = expressionDecorator.extraOrderByClauses;
+            this._extraOrderByClauses = expressionDecorator.orderByClauses;
         }
     }
 
@@ -28,7 +28,7 @@ export default class OrderByDecorator extends QueryDecorator {
         // Find ExpressionDecorator in the chain to get extra ORDER BY clauses
         const expressionDecorator = this.findDecoratorInChain(ExpressionDecorator);
         if (expressionDecorator) {
-            const extraClauses = expressionDecorator.extraOrderByClauses.filter(clause => clause !== "");
+            const extraClauses = expressionDecorator.orderByClauses.filter(clause => clause !== "");
             if (extraClauses.length > 0) {
                 extraOrderBy = extraClauses.join(", ");
             }

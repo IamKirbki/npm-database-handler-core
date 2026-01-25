@@ -25,11 +25,6 @@ export default class TextRelevanceExpression implements IExpressionBuilder {
             END
         ) AS ${expression.parameters.alias}`;
 
-
-        const whereClause = expression.parameters.minimumRelevance !== undefined
-            ? `${expression.parameters.alias} >= ${Number(expression.parameters.minimumRelevance)}`
-            : undefined;
-
         const orderByClause = expression.parameters.orderByRelevance
             ? `${expression.parameters.alias} ${expression.parameters.orderByRelevance}`
             : undefined;
@@ -39,9 +34,8 @@ export default class TextRelevanceExpression implements IExpressionBuilder {
             phase: expression.requirements.phase,
             requiresWrapping:
                 expression.requirements.requiresSelectWrapping || false,
-            whereClause,
+            whereClause: expression.parameters.where,
             orderByClause,
-            whereClauseKeyword: expression.parameters.whereClauseKeyword
         };
     }
 

@@ -1,3 +1,5 @@
+import { QueryWhereCondition } from "@core/types/index.js";
+
 export type expressionClause = {
     /**
      * SQL fragment that produces the expression value.
@@ -27,16 +29,6 @@ export type expressionClause = {
     selectClause?: string;
 
     /**
-     * A WHERE condition that depends on the expression alias.
-     *
-     * Example:
-     *   distance <= 10
-     *
-     * This MUST be applied in the outer query if the expression is projected.
-     */
-    whereClause?: string;
-
-    /**
      * ORDER BY fragment derived from the expression.
      *
      * Example:
@@ -44,15 +36,7 @@ export type expressionClause = {
      */
     orderByClause?: string;
 
-    /**
-     * The keyword used in WHERE conditions to reference this expression.
-     *
-     * Example:
-     *   relevance_searchTerm
-     *
-     * This is used to match incoming WHERE parameters with expressions.
-     */
-    whereClauseKeyword?: string;
+    whereClause?: QueryWhereCondition;
 
     groupByClause?: string;
 
@@ -97,7 +81,7 @@ export type QueryExpressionRequirements = {
     cardinality: 'row' | 'aggregate';
 
     select?: string;
-    where?: string;
+    where?: QueryWhereCondition;
     having?: string;
     orderBy?: string;
 
@@ -146,7 +130,8 @@ export type TextRelevanceDefinition = {
     searchTerm: string;
 
     alias: string;
-    whereClauseKeyword?: string;
+    where?: QueryWhereCondition;
+    whereClauseKeyword: string;
 
     minimumRelevance?: number;
     orderByRelevance?: 'ASC' | 'DESC';

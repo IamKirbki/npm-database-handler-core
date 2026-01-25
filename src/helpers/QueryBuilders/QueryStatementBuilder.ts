@@ -58,7 +58,7 @@ export default class QueryStatementBuilder {
             builder = new ExpressionDecorator(builder, expressions || []);
 
             if (this.base.where) {
-                builder = new WhereDecorator(builder, this.base.joins ? QueryStatementBuilder.normalizeAndQualifyConditions(this.base.where, this.base.from) : this.base.where, expressions || []);
+                builder = new WhereDecorator(builder, this.base.joins ? QueryStatementBuilder.normalizeAndQualifyConditions(this.base.where, this.base.from) : this.base.where);
             }
         } else if (this.base.where) {
             builder = new WhereDecorator(builder, this.base.joins ? QueryStatementBuilder.normalizeAndQualifyConditions(this.base.where, this.base.from) : this.base.where);
@@ -82,7 +82,6 @@ export default class QueryStatementBuilder {
                     builder = new WhereDecorator(
                         builder,
                         QueryStatementBuilder.normalizeAndQualifyConditions(this.pretty.where, "BASE_QUERY"),
-                        expressions,
                     );
                 }
             } else if (this.pretty.where) {
@@ -100,8 +99,6 @@ export default class QueryStatementBuilder {
                 builder = new WhereDecorator(
                     builder,
                     QueryStatementBuilder.normalizeAndQualifyConditions(this.pretty.having, "BASE_QUERY"),
-                    expressions,
-                    true,
                 );
             }
         }

@@ -1,6 +1,4 @@
 import {
-    DefaultQueryParameters,
-    ExtraQueryParameters,
     PossibleExpressions,
     SpatialQueryExpression,
     ExpressionBuilderFunction,
@@ -350,34 +348,5 @@ export default class QueryExpressionBuilder {
         return (
             projectionExpressions.length > 0
         );
-    }
-
-    /**
-     * Synchronizes query options with expression-derived clauses.
-     *
-     * This is where expressions quietly inject:
-     * - WHERE conditions
-     * - without breaking parameter binding
-     */
-    public static SyncQueryOptionsWithExpressions(
-        expressions: expressionClause[],
-        options: DefaultQueryParameters & ExtraQueryParameters
-    ): DefaultQueryParameters &
-        ExtraQueryParameters & { literalWhere?: string[] } {
-
-        const syncedOptions: DefaultQueryParameters &
-            ExtraQueryParameters & { literalWhere?: string[] } = { ...options };
-
-        expressions.forEach(expression => {
-            if (expression.whereClause) {
-                if (!syncedOptions.literalWhere) {
-                    syncedOptions.literalWhere = [];
-                }
-
-                syncedOptions.literalWhere.push(expression.whereClause);
-            }
-        });
-
-        return syncedOptions;
     }
 }

@@ -384,14 +384,6 @@ export default abstract class Model<
             this.queryLayers.pretty.where = [];
         }
 
-        if (maxDistance) {
-            this.queryLayers.pretty.where.push({
-                column: "BASE_QUERY." + alias || "distance",
-                operator: '<=',
-                value: maxDistance,
-            });
-        }
-
         return this;
     }
 
@@ -404,6 +396,7 @@ export default abstract class Model<
     }): this {
         const { targetColumns, searchTerm, minimumRelevance, alias = 'relevance', orderByRelevance = "ASC" } = params;
         const whereClauseKeyword = `${alias}_searchTerm`;
+
         const expression: TextRelevanceQueryExpression = {
             type: 'textRelevance',
             requirements: {
@@ -419,15 +412,14 @@ export default abstract class Model<
                 minimumRelevance: minimumRelevance,
                 orderByRelevance: orderByRelevance,
                 whereClauseKeyword: whereClauseKeyword,
+                where: {
+                    [whereClauseKeyword]: searchTerm,
+                }
             },
         };
 
         this.queryLayers.base.expressions ??= [];
         this.queryLayers.base.expressions.push(expression);
-
-        this.where({
-            [whereClauseKeyword]: searchTerm,
-        });
 
         return this;
     }

@@ -29,10 +29,6 @@ export default class SpatialDistanceExpression implements IExpressionBuilder {
             ) AS ${expression.parameters.alias}
         `.trim();
 
-        const whereClause = expression.parameters.maxDistance
-            ? `${expression.parameters.alias} <= ${expression.parameters.maxDistance}`
-            : undefined;
-
         const orderByClause = expression.parameters.orderByDistance
             ? `${expression.parameters.alias} ${expression.parameters.orderByDistance}`
             : undefined;
@@ -42,7 +38,11 @@ export default class SpatialDistanceExpression implements IExpressionBuilder {
             phase: expression.requirements.phase,
             requiresWrapping:
                 expression.requirements.requiresSelectWrapping || false,
-            whereClause,
+            whereClause: [{
+                column: expression.parameters.alias,
+                operator: '<=',
+                value: expression.parameters.maxDistance
+            }],
             orderByClause
         };
     }

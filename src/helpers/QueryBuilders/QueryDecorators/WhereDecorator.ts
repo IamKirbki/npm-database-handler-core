@@ -1,95 +1,74 @@
 import IQueryBuilder from "@core/interfaces/IQueryBuilder.js";
 import { QueryComparisonParameters, QueryWhereCondition } from "@core/types/query.js";
 import QueryDecorator from "./QueryDecorator.js";
-import { expressionClause } from "@core/index";
-import { QueryIsEqualParameter } from "@core/types/index.js";
 import ExpressionDecorator from "./ExpressionDecorator.js";
 
 export default class WhereDecorator extends QueryDecorator {
     private conditions: QueryWhereCondition;
-    private expressions?: expressionClause[];
     private skipExpressionConditions: boolean = false;
     private _extraOrderByClauses?: string[];
+    private _expressionWhereClauses?: QueryWhereCondition[];
+
+    public get expressionWhereClauses(): QueryWhereCondition[] {
+        return this._expressionWhereClauses || [];
+    }
 
     public get extraOrderByClauses(): string[] {
         return this._extraOrderByClauses || [];
     }
 
-
     constructor(
         component: IQueryBuilder,
         conditions: QueryWhereCondition,
-        expressions?: expressionClause[],
         skipExpressionConditions?: boolean
     ) {
         super(component);
         this.conditions = conditions;
-        this.expressions = expressions;
         this.skipExpressionConditions = skipExpressionConditions ?? false;
 
         const expressionDecorator = this.findDecoratorInChain(ExpressionDecorator);
         if (expressionDecorator) {
-            this._extraOrderByClauses = expressionDecorator.extraOrderByClauses;
+            this._extraOrderByClauses = expressionDecorator.orderByClauses;
+            this._expressionWhereClauses = expressionDecorator.whereClauses;
         }
     }
 
     async build(): Promise<string> {
         const baseQuery = await this.component.build();
-        const whereClause = this.processWhere(this.conditions);
-        let extraWhereClause = "";
+        const expressionWhereClauses = this.expressionWhereClauses.flatMap(exprWhere => {
+            const normalized: (QueryComparisonParameters & { fromOperator?: boolean })[] = this.normalizeConditions(exprWhere);
+            normalized.map(norm => norm.fromOperator = true)
+            return normalized;
+        });
 
-        const expressionDecorator = this.findDecoratorInChain(ExpressionDecorator);
-        if (expressionDecorator) {
-            const extraWheres = expressionDecorator.extraWhereClauses.filter(clause => clause !== "");
-            if (extraWheres.length > 0) {
-                extraWhereClause = extraWheres.join(" AND ");
-            }
+        const combinedConditions = [...this.normalizeConditions(this.conditions), ...expressionWhereClauses];
+        const whereClause = this.processWhere(combinedConditions);
+
+        if (whereClause) {
+            return `${baseQuery} ${whereClause}`;
         }
 
-        let combinedWhereClause = "";
-        if (whereClause && extraWhereClause) {
-            combinedWhereClause = baseQuery.includes("GROUP BY") ? `${baseQuery.replace("GROUP BY", `${whereClause} AND ${extraWhereClause} GROUP BY`)}` : `${baseQuery} ${whereClause} AND ${extraWhereClause}`;
-        } else if (whereClause) {
-            combinedWhereClause = baseQuery.includes("GROUP BY") ? `${baseQuery.replace("GROUP BY", `${whereClause} GROUP BY`)}` : `${baseQuery} ${whereClause}`;
-        } else if (extraWhereClause) {
-            combinedWhereClause = baseQuery.includes("GROUP BY") ? `${baseQuery.replace("GROUP BY", `WHERE ${extraWhereClause} GROUP BY`)}` : `${baseQuery} WHERE ${extraWhereClause}`;
-        } else {
-            combinedWhereClause = baseQuery;
-        }
-
-        return combinedWhereClause;
+        return baseQuery;
     }
 
-    private processWhere(conditions: QueryWhereCondition): string {
+    private processWhere(conditions: (QueryComparisonParameters & { fromOperator?: boolean })[]): string {
         if (
             !conditions ||
-            (Array.isArray(conditions) && conditions.length === 0) ||
             Object.keys(conditions).length === 0 ||
             conditions instanceof Date
         ) {
             return "";
         }
 
-        const isSimpleObject =
-            !Array.isArray(conditions) && typeof conditions === "object";
-
-        return [
-            "WHERE",
-            isSimpleObject
-                ? this.buildWhereSimple(conditions)
-                : this.buildWhereWithOperators(conditions),
-        ].join(" ");
+        return `WHERE ${this.buildWhereWithOperators(conditions)}`;
     }
 
-    private buildWhereWithOperators(where: QueryComparisonParameters[]): string {
+    private buildWhereWithOperators(where: (QueryComparisonParameters & { fromOperator?: boolean })[]): string {
         return where
             .map((condition) => {
                 const colName = condition.column.trim();
-                const matchedExpression = this.expressions?.find(
-                    (expr) => expr.whereClauseKeyword === colName,
-                );
 
-                if (matchedExpression) {
+                if (condition.fromOperator) {
                     if (this.skipExpressionConditions) return null;
 
                     const alias = colName.split("_")[0];
@@ -104,25 +83,17 @@ export default class WhereDecorator extends QueryDecorator {
             .join(" AND ");
     }
 
-    private buildWhereSimple(where: QueryIsEqualParameter): string {
-        return Object.keys(where)
-            .map((col) => {
-                const matchedExpression = this.expressions?.find(
-                    (expr) => expr.whereClauseKeyword === col,
-                );
+    private normalizeConditions(
+        conditions: QueryWhereCondition,
+    ): QueryComparisonParameters[] {
+        if (Array.isArray(conditions)) {
+            return conditions;
+        }
 
-                if (matchedExpression) {
-                    if (this.skipExpressionConditions) return null;
-
-                    const alias = col.split("_")[0];
-                    return `${alias} = @${col}`;
-                }
-
-                // Extract column name for parameter (remove table prefix if present)
-                const paramName = col.includes(".") ? col.split(".").pop() : col;
-                return `${col} = @${paramName}`;
-            })
-            .filter(Boolean)
-            .join(" AND ");
+        return Object.entries(conditions).map(([column, value]) => ({
+            column,
+            operator: '=' as const,
+            value,
+        }));
     }
 }

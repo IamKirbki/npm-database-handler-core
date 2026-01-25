@@ -2,18 +2,19 @@ import { expressionClause, QueryEvaluationPhase } from "@core/types/index.js";
 import QueryDecorator from "./QueryDecorator.js";
 import IQueryBuilder from "@core/interfaces/IQueryBuilder.js";
 import QueryExpressionBuilder from "../QueryExpressionBuilder.js";
+import { QueryWhereCondition } from "@core/types/index.js";
 
 export default class ExpressionDecorator extends QueryDecorator {
     private parsedExpressions: expressionClause[];
-    private _extraWhereClauses?: string[];
-    private _extraOrderByClauses?: string[];
+    private _whereClauses?: QueryWhereCondition[];
+    private _orderByClauses?: string[];
 
-    public get extraWhereClauses(): string[] {
-        return this._extraWhereClauses || [];
+    public get whereClauses(): QueryWhereCondition[] {
+        return this._whereClauses || [];
     }
 
-    public get extraOrderByClauses(): string[] {
-        return this._extraOrderByClauses || [];
+    public get orderByClauses(): string[] {
+        return this._orderByClauses || [];
     }
 
     constructor(
@@ -73,13 +74,13 @@ export default class ExpressionDecorator extends QueryDecorator {
             .map(expr => expr.whereClause);
 
         if (expressionWheres.length > 0) {
-            this._extraWhereClauses ??= [];
-            this._extraWhereClauses.push(...expressionWheres.filter(w => w !== undefined));
+            this._whereClauses ??= [];
+            this._whereClauses.push(...expressionWheres.filter(w => w !== undefined));
         }
 
         if (orderBy) {
-            this._extraOrderByClauses ??= [];
-            this._extraOrderByClauses.push(orderBy);
+            this._orderByClauses ??= [];
+            this._orderByClauses.push(orderBy);
         }
     }
 }

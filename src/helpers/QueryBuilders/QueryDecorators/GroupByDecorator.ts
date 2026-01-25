@@ -16,7 +16,7 @@ export default class GroupByDecorator extends QueryDecorator {
 
         const expressionDecorator = this.findDecoratorInChain(ExpressionDecorator);
         if (expressionDecorator) {
-            this._extraOrderByClauses = expressionDecorator.extraOrderByClauses;
+            this._extraOrderByClauses = expressionDecorator.orderByClauses;
         }
     }
 
