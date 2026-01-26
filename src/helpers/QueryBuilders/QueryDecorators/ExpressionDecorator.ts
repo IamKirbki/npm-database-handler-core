@@ -9,6 +9,7 @@ export default class ExpressionDecorator extends QueryDecorator {
     public orderByClauses?: OrderByDefinition[];
     public groupByClauses?: string[];
     public havingClauses?: QueryComparisonParameters[];
+    public valueClauseKeywords: Set<string> = new Set();
 
     constructor(
         component: IQueryBuilder,
@@ -20,6 +21,7 @@ export default class ExpressionDecorator extends QueryDecorator {
         this.setOrderByClauses();
         this.setGroupByClauses();
         this.setHavingClauses();
+        this.setValueClauseKeywords();
     }
 
     async build(): Promise<QueryContext> {
@@ -56,5 +58,13 @@ export default class ExpressionDecorator extends QueryDecorator {
                     ? QueryStatementBuilder.normalizeQueryConditions(expr.havingClause)
                     : []
             );
+    }
+
+    public setValueClauseKeywords(): void {
+        this.parsedExpressions.forEach(expr => {
+            if (expr.valueClauseKeyword) {
+                this.valueClauseKeywords.add(expr.valueClauseKeyword);
+            }
+        });
     }
 }

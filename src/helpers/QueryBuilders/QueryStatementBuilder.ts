@@ -22,11 +22,11 @@ export default class QueryStatementBuilder {
         base?: QueryContext;
         pretty?: QueryContext;
         final?: QueryContext;
-    }
+    } = {};
+    private valueClauseKeywords: Set<string> = new Set();
 
     constructor(queryLayers: QueryLayers) {
         this.layers = queryLayers;
-        this.contexts = {};
     }
 
     public async build(): Promise<string> {
@@ -58,23 +58,15 @@ export default class QueryStatementBuilder {
             const expressions = QueryExpressionBuilder.buildExpressionsPart(this.layers.base.expressions || []);
             builder = new ExpressionDecorator(builder, expressions || []);
             if (builder instanceof ExpressionDecorator) {
-                const addUnique = <T>(target: T[] | undefined, values: T[] | undefined): T[] => {
-                    if (!values?.length) return target ?? [];
-                    const set = new Set((target ?? []).map(v => JSON.stringify(v)));
-                    for (const v of values) {
-                        const key = JSON.stringify(v);
-                        if (!set.has(key)) set.add(key);
-                    }
-                    return Array.from(set).map(s => JSON.parse(s));
-                };
+                this.valueClauseKeywords = new Set([...this.valueClauseKeywords, ...builder.valueClauseKeywords]);
 
                 this.layers.pretty ??= {};
                 this.layers.final ??= {};
 
-                this.layers.pretty.where = addUnique(this.layers.pretty.where, builder.whereClauses);
-                this.layers.pretty.groupBy = addUnique(this.layers.pretty.groupBy, builder.groupByClauses);
-                this.layers.pretty.having = addUnique(this.layers.pretty.having, builder.havingClauses);
-                // this.layers.final.orderBy = addUnique(this.layers.final.orderBy?.map(ob => ({ column: `BASE_QUERY.${ob.column}`, direction: ob.direction })), builder.orderByClauses);
+                this.layers.pretty.where = this.addUnique(this.layers.pretty.where, builder.whereClauses);
+                this.layers.pretty.groupBy = this.addUnique(this.layers.pretty.groupBy, builder.groupByClauses);
+                this.layers.pretty.having = this.addUnique(this.layers.pretty.having, builder.havingClauses);
+                // this.layers.final.orderBy = this.addUnique(this.layers.final.orderBy?.map(ob => ({ column: `BASE_QUERY.${ob.column}`, direction: ob.direction })), builder.orderByClauses);
             }
 
             if (this.layers.base.where) {
@@ -90,7 +82,7 @@ export default class QueryStatementBuilder {
     }
 
     private async buildPrettyLayer(sql: string): Promise<string> {
-        let builder: IQueryBuilder = new BaseSelectQueryBuilder(`( ${sql} ) AS BASE_QUERY`, this.contexts.base?.select || [], this.contexts.base?.joinsSelect?.map(j => j.split("AS")[1].trim()) || []);
+        let builder: IQueryBuilder = new BaseSelectQueryBuilder(`( ${sql} ) AS BASE_QUERY`, [...this.contexts.base?.select || [], ...this.layers.pretty?.select || []], this.contexts.base?.joinsSelect?.map(j => j.split("AS")[1].trim()) || []);
 
         if (this.layers.pretty) {
             const expressions = this.layers.pretty.expressions?.length
@@ -100,32 +92,23 @@ export default class QueryStatementBuilder {
             if (expressions.length > 0) {
                 builder = new ExpressionDecorator(builder, expressions);
                 if (builder instanceof ExpressionDecorator) {
-                    const addUnique = <T>(target: T[] | undefined, values: T[] | undefined): T[] => {
-                        if (!values?.length) return target ?? [];
-                        const set = new Set((target ?? []).map(v => JSON.stringify(v)));
-                        for (const v of values) {
-                            const key = JSON.stringify(v);
-                            if (!set.has(key)) set.add(key);
-                        }
-                        return Array.from(set).map(s => JSON.parse(s));
-                    }
-                    this.layers.pretty.where = addUnique(this.layers.pretty.where, builder.whereClauses);
-                    this.layers.pretty.groupBy = addUnique(this.layers.pretty.groupBy, builder.groupByClauses);
-                    this.layers.pretty.having = addUnique(this.layers.pretty.having, builder.havingClauses);
+                    this.layers.pretty.where = this.addUnique(this.layers.pretty.where, builder.whereClauses);
+                    this.layers.pretty.groupBy = this.addUnique(this.layers.pretty.groupBy, builder.groupByClauses);
+                    this.layers.pretty.having = this.addUnique(this.layers.pretty.having, builder.havingClauses);
                     this.layers.final ??= {};
-                    // this.layers.final.orderBy = addUnique(this.layers.final.orderBy?.map(ob => ({ column: `BASE_QUERY.${ob.column}`, direction: ob.direction })), builder.orderByClauses);
+                    // this.layers.final.orderBy = this.addUnique(this.layers.final.orderBy?.map(ob => ({ column: `BASE_QUERY.${ob.column}`, direction: ob.direction })), builder.orderByClauses);
                 }
 
                 if (this.layers.pretty.where) {
                     builder = new WhereDecorator(
                         builder,
-                        QueryStatementBuilder.normalizeAndQualifyConditions(this.layers.pretty.where, "BASE_QUERY"),
+                        QueryStatementBuilder.normalizeAndQualifyConditions(this.layers.pretty.where, "BASE_QUERY", [], this.valueClauseKeywords),
                     );
                 }
             } else if (this.layers.pretty.where) {
                 builder = new WhereDecorator(
                     builder,
-                    QueryStatementBuilder.normalizeAndQualifyConditions(this.layers.pretty.where, "BASE_QUERY"),
+                    QueryStatementBuilder.normalizeAndQualifyConditions(this.layers.pretty.where, "BASE_QUERY", [], this.valueClauseKeywords),
                 );
             }
 
@@ -167,6 +150,7 @@ export default class QueryStatementBuilder {
         where: QueryWhereCondition,
         tableName: string,
         normalizeBlacklist: string[] = [],
+        valueClauseKeywords: Set<string> = new Set(),
     ): QueryComparisonParameters[] {
         const conditions = this.normalizeQueryConditions(where);
 
@@ -179,13 +163,18 @@ export default class QueryStatementBuilder {
                 normalizeBlacklist.some((blk) => condition.column.includes(blk)) ||
                 condition.column.includes(".");
 
+            const isValueClauseKeyword = valueClauseKeywords.has(condition.column);
+            if (isValueClauseKeyword) {
+                return;
+            }
+
             return {
                 ...condition,
                 column: shouldSkipQualification
                     ? condition.column
                     : `${tableName}.${condition.column}`,
             };
-        });
+        }).filter(cond => cond !== undefined);
     }
 
     public static normalizeQueryConditions(
@@ -201,4 +190,14 @@ export default class QueryStatementBuilder {
             }));
         }
     }
+
+    private addUnique<T>(target: T[] | undefined, values: T[] | undefined): T[] {
+        if (!values?.length) return target ?? [];
+        const set = new Set((target ?? []).map(v => JSON.stringify(v)));
+        for (const v of values) {
+            const key = JSON.stringify(v);
+            if (!set.has(key)) set.add(key);
+        }
+        return Array.from(set).map(s => JSON.parse(s));
+    };
 }

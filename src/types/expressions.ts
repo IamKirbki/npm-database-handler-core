@@ -38,6 +38,8 @@ export type expressionClause = {
 
     whereClause?: QueryWhereCondition;
 
+    valueClauseKeyword?: string;
+
     groupByClause?: string;
 
     havingClause?: QueryWhereCondition;
@@ -131,7 +133,7 @@ export type TextRelevanceDefinition = {
 
     alias: string;
     where?: QueryWhereCondition;
-    whereClauseKeyword: string;
+    valueClauseKeyword: string;
 
     minimumRelevance?: number;
     orderByRelevance?: 'ASC' | 'DESC';

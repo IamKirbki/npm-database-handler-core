@@ -396,7 +396,7 @@ export default abstract class Model<
         orderByRelevance?: 'ASC' | 'DESC',
     }): this {
         const { targetColumns, searchTerm, minimumRelevance, alias = 'relevance', orderByRelevance = "ASC" } = params;
-        const whereClauseKeyword = `${alias}_searchTerm`;
+        const valueClauseKeyword = `${alias}_searchTerm`;
 
         const expression: TextRelevanceQueryExpression = {
             type: 'textRelevance',
@@ -412,15 +412,27 @@ export default abstract class Model<
                 alias: alias,
                 minimumRelevance: minimumRelevance,
                 orderByRelevance: orderByRelevance,
-                whereClauseKeyword: whereClauseKeyword,
+                valueClauseKeyword: valueClauseKeyword,
                 where: {
-                    [whereClauseKeyword]: searchTerm,
+                    [valueClauseKeyword]: searchTerm,
+                    // [alias]: minimumRelevance || 1
                 }
             },
         };
 
         this.queryLayers.base.expressions ??= [];
         this.queryLayers.base.expressions.push(expression);
+
+        this.queryLayers.pretty ??= {};
+        this.queryLayers.pretty.where ??= [];
+        this.queryLayers.pretty.where.push({
+            column: alias,
+            operator: '>=',
+            value: minimumRelevance || 1,
+        });
+
+        this.queryLayers.pretty.select ??= [];
+        this.queryLayers.pretty.select.push(alias);
 
         return this;
     }

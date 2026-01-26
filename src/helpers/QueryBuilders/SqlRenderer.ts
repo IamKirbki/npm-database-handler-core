@@ -5,7 +5,6 @@ export default class SqlRenderer {
 
     constructor(context: QueryContext) {
         this._context = context;
-        console.log("SQL Renderer context:", this._context);
     }
 
     public build(): string {
