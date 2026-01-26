@@ -62,8 +62,10 @@ export default class ExpressionDecorator extends QueryDecorator {
 
     public setValueClauseKeywords(): void {
         this.parsedExpressions.forEach(expr => {
-            if (expr.valueClauseKeyword) {
-                this.valueClauseKeywords.add(expr.valueClauseKeyword);
+            if (expr.valueClauseKeywords && expr.valueClauseKeywords.length > 0) {
+                for (const keyword of expr.valueClauseKeywords) {
+                    this.valueClauseKeywords.add(keyword);
+                }
             }
         });
     }

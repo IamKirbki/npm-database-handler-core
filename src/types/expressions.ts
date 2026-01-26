@@ -38,7 +38,7 @@ export type expressionClause = {
 
     whereClause?: QueryWhereCondition;
 
-    valueClauseKeyword?: string;
+    valueClauseKeywords?: string[];
 
     groupByClause?: string;
 
@@ -104,6 +104,9 @@ export type SpatialDistanceDefinition = {
     earthRadius?: number;
     alias: string;
 
+    valueClauseKeywords: string[];
+    where?: QueryWhereCondition;
+
     maxDistance: number;
     orderByDistance?: 'ASC' | 'DESC';
     isComputed?: boolean;
@@ -133,7 +136,7 @@ export type TextRelevanceDefinition = {
 
     alias: string;
     where?: QueryWhereCondition;
-    valueClauseKeyword: string;
+    valueClauseKeywords: string[];
 
     minimumRelevance?: number;
     orderByRelevance?: 'ASC' | 'DESC';

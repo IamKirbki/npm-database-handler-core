@@ -358,6 +358,7 @@ export default abstract class Model<
         alias?: string,
     }): this {
         const { referencePoint, targetColumns, maxDistance, unit, orderByDistance, alias = 'distance' } = params;
+        const valueClauseKeywords = [`${alias}_lat`, `${alias}_lon`];
 
         const expression: SpatialQueryExpression = {
             type: 'spatialDistance',
@@ -373,17 +374,17 @@ export default abstract class Model<
                 alias: alias,
                 maxDistance: maxDistance,
                 orderByDistance: orderByDistance,
+                valueClauseKeywords: valueClauseKeywords,
                 unit: unit,
+                where: {
+                    [valueClauseKeywords[0]]: referencePoint.lat,
+                    [valueClauseKeywords[1]]: referencePoint.lon,
+                }
             },
         };
 
         this.queryLayers.base.expressions ??= [];
         this.queryLayers.base.expressions.push(expression);
-
-        this.queryLayers.pretty ??= {};
-        if (!Array.isArray(this.queryLayers.pretty.where)) {
-            this.queryLayers.pretty.where = [];
-        }
 
         return this;
     }
@@ -412,7 +413,7 @@ export default abstract class Model<
                 alias: alias,
                 minimumRelevance: minimumRelevance,
                 orderByRelevance: orderByRelevance,
-                valueClauseKeyword: valueClauseKeyword,
+                valueClauseKeywords: [valueClauseKeyword],
                 where: {
                     [valueClauseKeyword]: searchTerm,
                     // [alias]: minimumRelevance || 1

@@ -44,6 +44,8 @@ export default class SpatialDistanceExpression implements IExpressionBuilder {
                 operator: '<=',
                 value: expression.parameters.maxDistance
             }],
+
+            valueClauseKeywords: expression.parameters.valueClauseKeywords,
             orderByClause
         };
     }
