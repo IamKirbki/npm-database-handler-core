@@ -153,11 +153,6 @@ export default class QueryStatementBuilder {
         valueClauseKeywords: Set<string> = new Set(),
     ): QueryComparisonParameters[] {
         const conditions = this.normalizeQueryConditions(where);
-
-        // Step 2: Qualify column names with the base table.
-        // Skip qualification if:
-        // - Column is in the blacklist (e.g., expression aliases like "Relevance")
-        // - Column already contains a dot (already qualified)
         return conditions.map((condition) => {
             const shouldSkipQualification =
                 normalizeBlacklist.some((blk) => condition.column.includes(blk)) ||
