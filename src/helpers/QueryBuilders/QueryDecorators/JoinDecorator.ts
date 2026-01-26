@@ -1,6 +1,6 @@
-import IQueryBuilder from "@core/interfaces/IQueryBuilder.js";
-import { Join, Query, DefaultQueryParameters, ExtraQueryParameters, QueryLayers } from "@core/index.js";
+import { Join, Query, DefaultQueryParameters, ExtraQueryParameters, QueryLayers, QueryContext } from "@core/index.js";
 import QueryDecorator from "./QueryDecorator.js";
+import IQueryBuilder from "@core/interfaces/IQueryBuilder.js";
 
 export default class JoinDecorator extends QueryDecorator {
     private fromTableName: string;
@@ -14,11 +14,11 @@ export default class JoinDecorator extends QueryDecorator {
         }
 
         super(builder);
+
         this.fromTableName = layer.base.from;
         this.joins = layer.base.joins || [];
         this.query = Query;
         this.options = {
-            select: layer.base.select,
             orderBy: layer.final?.orderBy,
             limit: layer.final?.limit,
             offset: layer.final?.offset,
@@ -27,33 +27,28 @@ export default class JoinDecorator extends QueryDecorator {
         };
     }
 
-    async build(): Promise<string> {
-        const baseQuery = await this.component.build();
+    async build(): Promise<QueryContext> {
+        const context = await this.component.build();
 
         const selectExtensions = await this.buildJoinSelect();
         const joinPart = this.buildJoinPart();
 
-        let sql = baseQuery.replace(/SELECT\s+/i, `SELECT ${selectExtensions}`);
-        sql = sql.replace("*", "")
+        context.joinsSelect = selectExtensions;
 
-        if (sql.includes("WHERE")) {
-            sql = sql.replace(/\s+WHERE/i, ` ${joinPart} WHERE`);
-        } else {
-            sql = `${sql} ${joinPart}`;
-        }
+        context.joins ??= [];
+        context.joins.push(...joinPart);
 
-        return sql;
+        return context;
     }
 
-    private async buildJoinSelect(): Promise<string> {
+    private async buildJoinSelect(): Promise<string[]> {
         const blacklist = this.options?.blacklistTables ?? [];
         const joinArray = Array.isArray(this.joins) ? this.joins : [this.joins];
 
         const mainCols = await this.query.TableColumnInformation(this.fromTableName);
         const mainSelect = mainCols
             .filter(() => !blacklist.includes(this.fromTableName))
-            .map(col => `"${this.fromTableName}"."${col.name}" AS "${this.fromTableName}__${col.name}"`)
-            .join(", ");
+            .map(col => `"${this.fromTableName}"."${col.name}" AS "${this.fromTableName}__${col.name}"`);
 
         const joinedSelects = await Promise.all(
             joinArray.map(async (join) => {
@@ -63,14 +58,13 @@ export default class JoinDecorator extends QueryDecorator {
                 return cols
                     .map(col => `"${join.fromTable}"."${col.name}" AS "${join.fromTable}__${col.name}"`)
                     .filter(col => col.trim() !== "")
-                    .join(", ");
             })
         );
 
-        return [mainSelect, ...joinedSelects].filter(s => s !== "").filter(Boolean).join(", ");
+        return [...mainSelect, ...joinedSelects.flat()].filter(s => s !== "").filter(Boolean);
     }
 
-    private buildJoinPart(): string {
+    private buildJoinPart(): string[] {
         const joinArray = Array.isArray(this.joins) ? this.joins : [this.joins];
 
         return joinArray.map(join => {
@@ -84,6 +78,6 @@ export default class JoinDecorator extends QueryDecorator {
             }).join(" AND ");
 
             return `${join.joinType} JOIN "${join.fromTable}" ON ${onClause}`;
-        }).join(" ");
+        });
     }
 }

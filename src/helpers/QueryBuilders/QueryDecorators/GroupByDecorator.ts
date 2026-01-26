@@ -1,40 +1,22 @@
 import IQueryBuilder from "@core/interfaces/IQueryBuilder.js";
 import QueryDecorator from "./QueryDecorator.js";
-import ExpressionDecorator from "./ExpressionDecorator.js";
+import { QueryContext } from "@core/types/query.js";
 
 export default class GroupByDecorator extends QueryDecorator {
-    private groupByColumns?: string;
-    private _extraOrderByClauses?: string[];
+    private groupByColumns?: string[];
 
-    public get extraOrderByClauses(): string[] {
-        return this._extraOrderByClauses || [];
-    }
-
-    constructor(component: IQueryBuilder, groupByColumns?: string) {
+    constructor(component: IQueryBuilder, groupByColumns?: string[]) {
         super(component);
         this.groupByColumns = groupByColumns;
-
-        const expressionDecorator = this.findDecoratorInChain(ExpressionDecorator);
-        if (expressionDecorator) {
-            this._extraOrderByClauses = expressionDecorator.orderByClauses;
-        }
     }
 
-    async build(): Promise<string> {
-        const baseQuery = await this.component.build();
-        const groupByClause = this.processGroupBy(this.groupByColumns);
-        if (!groupByClause) return baseQuery;
-
-        return `${baseQuery} ${groupByClause}`;
-    }
-
-    processGroupBy(groupBy?: string): string {
-        const allGroupBys = [groupBy].filter(g => g && g.trim() !== "");
-
-        if (allGroupBys.length === 0) {
-            return "";
+    async build(): Promise<QueryContext> {
+        const context = await this.component.build();
+        if (this.groupByColumns) {
+            context.groupBy = context.groupBy || [];
+            context.groupBy.push(...this.groupByColumns);
         }
 
-        return `GROUP BY ${allGroupBys.join(", ")}`;
+        return context;
     }
 }

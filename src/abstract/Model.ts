@@ -121,7 +121,8 @@ export default abstract class Model<
 
     public orderBy(column: string, direction: 'ASC' | 'DESC' = 'ASC'): this {
         this.queryLayers.final ??= {};
-        this.queryLayers.final.orderBy = column + ' ' + direction;
+        this.queryLayers.final.orderBy ??= [];
+        this.queryLayers.final.orderBy.push({ column, direction });
         return this;
     }
 
@@ -430,7 +431,7 @@ export default abstract class Model<
         groupByColumns?: string[],
         alias?: string,
         nested?: NestedJsonAggregateDefinition<string>[],
-        having?: string,
+        having?: QueryWhereCondition,
     }): this {
         const {
             table,
@@ -459,14 +460,14 @@ export default abstract class Model<
             },
         };
 
-        this.queryLayers.base.select ??= '';
+        this.queryLayers.base.expressionsSelect ??= [];
         const selectAliases = this.collectSelectAliases({
             table,
             columns,
             nested: nested || [],
         });
 
-        this.queryLayers.base.select += ', ' + selectAliases.join(', ');
+        this.queryLayers.base.expressionsSelect.push(...selectAliases);
 
         this.queryLayers.pretty ??= {};
         this.queryLayers.pretty.expressions ??= [];

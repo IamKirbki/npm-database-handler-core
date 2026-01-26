@@ -1,4 +1,4 @@
-import { Join, PossibleBaseExpressions, PossibleExpressions, PossiblePrettyExpressions, RecordFactory } from "@core/index.js";
+import { expressionClause, Join, PossibleBaseExpressions, PossibleExpressions, PossiblePrettyExpressions, RecordFactory } from "@core/index.js";
 
 export type QueryIsEqualParameter = {
     [key: string]: QueryValues;
@@ -20,10 +20,10 @@ export type DefaultQueryParameters = {
 };
 
 export type ExtraQueryParameters = {
-    orderBy?: string;
+    orderBy?: OrderByDefinition[];
     limit?: number;
     offset?: number;
-    groupBy?: string;
+    groupBy?: string[];
 
     expressions?: PossibleExpressions[];
     blacklistTables?: string[];
@@ -50,26 +50,58 @@ export type BaseQueryOptions = {
 
     expressions?: PossibleBaseExpressions[];
 
-    select?: string;
+    select?: string[];
+    joinsSelect?: string[];
+    expressionsSelect?: string[];
 }
 
 export type PrettyQueryOptions = {
     expressions?: PossiblePrettyExpressions[];
 
-    groupBy?: string;
-    having?: QueryWhereCondition;
-    where?: QueryWhereCondition;
+    groupBy?: string[];
+    having?: QueryComparisonParameters[];
+    where?: QueryComparisonParameters[];
 
-    select?: string;
+    select?: string[];
 }
 
 export type FinalQueryOptions = {
-    orderBy?: string;
+    orderBy?: OrderByDefinition[];
 
     limit?: number;
     offset?: number;
 
     blacklistTables?: string[];
 
-    select?: string;
+    select?: string[];
+    groupBy?: string[];
+}
+
+export type OrderByDirection = 'ASC' | 'DESC';
+
+export type OrderByDefinition = {
+    column: string;
+    direction: OrderByDirection;
+}
+
+export type QueryContext = {
+    from?: string;
+    select?: string[];
+    joinsSelect?: string[];
+    expressionSelect?: string[];
+
+    joins?: string[];
+
+    conditions?: {
+        where?: QueryComparisonParameters[];
+        having?: QueryComparisonParameters[];
+    }
+
+    expressions?: expressionClause[];
+
+    groupBy?: string[];
+    orderBy?: OrderByDefinition[];
+
+    limit?: number;
+    offset?: number;
 }

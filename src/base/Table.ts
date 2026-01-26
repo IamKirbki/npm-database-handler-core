@@ -170,7 +170,7 @@ export default class Table {
 
         const joinedTables = queryLayers.base.joins.map(j => j.fromTable);
         if (queryLayers) {
-            queryLayers.base.select = joinedTables.map(table => `${table}.*`).join(', ');
+            queryLayers.base.select = joinedTables
         }
         const records = await query.All<Type>();
         const splitTables = await this.splitJoinValues<Type>(records, joinedTables);

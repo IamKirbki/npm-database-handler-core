@@ -1,3 +1,5 @@
+import { QueryContext } from "@core/types/query";
+
 export default interface IQueryBuilder {
-    build(): Promise<string>;
+    build(): Promise<QueryContext>;
 }

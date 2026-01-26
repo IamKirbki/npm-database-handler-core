@@ -1,5 +1,6 @@
 import IQueryBuilder from "@core/interfaces/IQueryBuilder.js";
 import QueryDecorator from "./QueryDecorator.js";
+import { QueryContext } from "@core/types/query.js";
 
 export default class LimitDecorator extends QueryDecorator {
     private limitCount: number;
@@ -11,11 +12,16 @@ export default class LimitDecorator extends QueryDecorator {
         this.offsetCount = offsetCount;
     }
 
-    async build(): Promise<string> {
-        const baseQuery = await this.component.build();
-        let sql = `${baseQuery} LIMIT ${this.limitCount}`;
-        this.offsetCount ? sql += ` OFFSET ${this.offsetCount}` : null;
+    async build(): Promise<QueryContext> {
+        const context = await this.component.build();
+        if (this.limitCount) {
+            context.limit = this.limitCount;
+        }
 
-        return sql;
+        if (this.offsetCount) {
+            context.offset = this.offsetCount;
+        }
+
+        return context;
     }
 }

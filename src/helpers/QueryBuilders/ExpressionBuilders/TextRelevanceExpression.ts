@@ -25,9 +25,10 @@ export default class TextRelevanceExpression implements IExpressionBuilder {
             END
         ) AS ${expression.parameters.alias}`;
 
-        const orderByClause = expression.parameters.orderByRelevance
-            ? `${expression.parameters.alias} ${expression.parameters.orderByRelevance}`
-            : undefined;
+        const orderByClause = {
+            column: expression.parameters.alias,
+            direction: expression.parameters.orderByRelevance || 'ASC'
+        }
 
         return {
             baseExpressionClause,

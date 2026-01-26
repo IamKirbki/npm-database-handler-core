@@ -144,7 +144,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
     }
 
     public async update(primaryKey: QueryIsEqualParameter, newAttributes: Partial<Type>): Promise<Record<Type> | undefined> {
-        const record = await this.Table.Record<Type>({ base: { where: primaryKey as QueryWhereCondition } });
+        const record = await this.Table.Record<Type>({ base: { where: primaryKey } });
         if (record) {
             return await record.Update(newAttributes, primaryKey);
         }

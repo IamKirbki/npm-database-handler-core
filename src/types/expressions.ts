@@ -1,4 +1,4 @@
-import { QueryWhereCondition } from "@core/types/index.js";
+import { OrderByDefinition, QueryWhereCondition } from "@core/types/index.js";
 
 export type expressionClause = {
     /**
@@ -8,7 +8,7 @@ export type expressionClause = {
      * Example:
      *   6371 * acos(...) AS distance
      */
-    baseExpressionClause?: string;
+    baseExpressionClause: string;
 
     /**
      * Determines *where* in the query lifecycle this expression is evaluated.
@@ -34,13 +34,13 @@ export type expressionClause = {
      * Example:
      *   distance ASC
      */
-    orderByClause?: string;
+    orderByClause?: OrderByDefinition;
 
     whereClause?: QueryWhereCondition;
 
     groupByClause?: string;
 
-    havingClause?: string;
+    havingClause?: QueryWhereCondition;
 };
 
 /**
@@ -82,7 +82,7 @@ export type QueryExpressionRequirements = {
 
     select?: string;
     where?: QueryWhereCondition;
-    having?: string;
+    having?: QueryWhereCondition;
     orderBy?: string;
 
     requiresAlias: boolean;
@@ -164,7 +164,7 @@ export type JsonAggregateDefinition<Tables extends string = string> = {
     computed?: PossibleComputedExpressions[];
 
     /** Having clause */
-    having?: string;
+    having?: QueryWhereCondition;
 
     /** Nested JSON objects or arrays */
     nested?: NestedJsonAggregateDefinition<Tables>[];
@@ -186,7 +186,7 @@ export type NestedJsonAggregateDefinition<Tables extends string = string> = {
     computed?: PossibleComputedExpressions[];
 
     /** Having clause */
-    having?: string;
+    having?: QueryWhereCondition;
 
     /** Nested JSON objects or arrays */
     nested?: NestedJsonAggregateDefinition<Tables>[];

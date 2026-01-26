@@ -29,9 +29,10 @@ export default class SpatialDistanceExpression implements IExpressionBuilder {
             ) AS ${expression.parameters.alias}
         `.trim();
 
-        const orderByClause = expression.parameters.orderByDistance
-            ? `${expression.parameters.alias} ${expression.parameters.orderByDistance}`
-            : undefined;
+        const orderByClause = {
+            column: expression.parameters.alias,
+            direction: expression.parameters.orderByDistance || 'ASC'
+        }
 
         return {
             baseExpressionClause,
