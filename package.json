@@ -1,6 +1,6 @@
 {
   "name": "@iamkirbki/database-handler-core",
-  "version": "4.3.1",
+  "version": "4.4.0",
   "author": "iamkirbki",
   "description": "Core database abstractions and interfaces",
   "license": "ISC",
@@ -23,11 +23,19 @@
     "directory": "packages/core"
   },
   "scripts": {
-    "build": "tsc --build && tsc-alias"
+    "build": "tsc --build && tsc-alias",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
+    "tsc-alias": "^1.8.16",
     "typescript": "^5.9.3",
-    "tsc-alias": "^1.8.16"
+    "vitest": "^4.0.15"
+  },
+  "dependencies": {
+    "ts-node": "^10.9.2"
   }
 }
