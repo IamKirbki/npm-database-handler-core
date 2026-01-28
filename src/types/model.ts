@@ -20,7 +20,7 @@ export type ModelEventType =
 
 export type ModelEventHandler<T> = (model: T) => void | Promise<void>;
 
-export interface ModelObserver<T> {
+export type ModelObserver<T> = {
     retrieved?(model: T): void | Promise<void>;
     creating?(model: T): void | Promise<void>;
     created?(model: T): void | Promise<void>;
@@ -36,11 +36,11 @@ export interface ModelObserver<T> {
     forceDeleted?(model: T): void | Promise<void>;
 }
 
-export interface ModelScope {
+export type ModelScope = {
     (query: any): void;
 }
 
-export interface ModelConfig {
+export type ModelConfig = {
     /** Table name - defaults to lowercase class name */
     table: string;
 
@@ -103,7 +103,7 @@ export type relation = {
     pivotLocalKey?: string;
 }
 
-export interface SoftDeletable {
+export type SoftDeletable = {
     deleted_at?: string | Date | null;
 }
 
