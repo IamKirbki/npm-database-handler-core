@@ -1,6 +1,7 @@
 import InvalidExpressionParametersError from "@core/helpers/Errors/ExpressionErrors/InvalidExpressionParametersError.js";
 import IExpressionBuilder from "@core/interfaces/IExpressionBuilder.js";
 import { expressionClause, QueryEvaluationPhase, SpatialQueryExpression } from "@core/types/index.js";
+import QueryStatementBuilder from "../QueryStatementBuilder.js";
 
 export default class SpatialDistanceExpression implements IExpressionBuilder {
     build(expression: SpatialQueryExpression): expressionClause {
@@ -18,13 +19,13 @@ export default class SpatialDistanceExpression implements IExpressionBuilder {
 
         const baseExpressionClause = `
             ${earthRadius} * acos(
-                cos(radians(${expression.parameters.referencePoint.lat}))
+                cos(radians(@${expression.parameters.valueClauseKeywords[0]}))
                 * cos(radians(${isComputed ? expression.parameters.targetColumns.lat.replace(".", "_") : `${expression.parameters.targetColumns.lat}`}))
                 * cos(
                     radians(${isComputed ? expression.parameters.targetColumns.lon.replace(".", "_") : `${expression.parameters.targetColumns.lon}`})
-                    - radians(${expression.parameters.referencePoint.lon})
+                    - radians(@${expression.parameters.valueClauseKeywords[1]})
                 )
-                + sin(radians(${expression.parameters.referencePoint.lat}))
+                + sin(radians(@${expression.parameters.valueClauseKeywords[0]}))
                 * sin(radians(${isComputed ? expression.parameters.targetColumns.lat.replace(".", "_") : `${expression.parameters.targetColumns.lat}`}))
             ) AS ${expression.parameters.alias}
         `.trim();
@@ -39,12 +40,15 @@ export default class SpatialDistanceExpression implements IExpressionBuilder {
             phase: expression.requirements.phase,
             requiresWrapping:
                 expression.requirements.requiresSelectWrapping || false,
-            whereClause: [{
-                column: expression.parameters.alias,
-                operator: '<=',
-                value: expression.parameters.maxDistance
-            }],
+            whereClause: [
+                {
+                    column: expression.parameters.alias,
+                    operator: '<=',
+                    value: expression.parameters.maxDistance
+                },
+                ...QueryStatementBuilder.normalizeQueryConditions(expression.parameters.where || [])
 
+            ],
             valueClauseKeywords: expression.parameters.valueClauseKeywords,
             orderByClause
         };

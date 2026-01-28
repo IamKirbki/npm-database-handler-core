@@ -1,7 +1,14 @@
 import InvalidExpressionParametersError from "@core/helpers/Errors/ExpressionErrors/InvalidExpressionParametersError.js";
-import { expressionClause, JsonAggregateQueryExpression, PossibleExpressions, QueryEvaluationPhase } from "@core/index.js";
+import { expressionClause, JsonAggregateQueryExpression, PossibleExpressions, QueryEvaluationPhase, QueryIsEqualParameter, QueryWhereCondition } from "@core/index.js";
 import IExpressionBuilder from "@core/interfaces/IExpressionBuilder.js";
 import QueryExpressionBuilder from "../QueryExpressionBuilder.js";
+import QueryStatementBuilder from "../QueryStatementBuilder.js";
+
+type JsonBuildObject = {
+    sql: string;
+    whereClause?: QueryIsEqualParameter[];
+    valueClauseKeywords?: string[];
+}
 
 export default class JsonAggregateExpression implements IExpressionBuilder {
     build(expression: JsonAggregateQueryExpression): expressionClause {
@@ -11,10 +18,10 @@ export default class JsonAggregateExpression implements IExpressionBuilder {
             );
         }
 
-        const jsonBuildObjects: string = this.buildJsonBuildObject(expression);
+        const jsonBuildObjects: JsonBuildObject = this.buildJsonBuildObject(expression);
 
         const baseExpressionClause = `JSON_AGG(
-            ${jsonBuildObjects}
+            ${jsonBuildObjects.sql}
         ) AS ${expression.parameters.alias}`;
 
         const groupByClause = expression.parameters.groupByColumns.length > 0
@@ -28,11 +35,13 @@ export default class JsonAggregateExpression implements IExpressionBuilder {
             phase: expression.requirements.phase,
             requiresWrapping: expression.requirements.requiresSelectWrapping || false,
             groupByClause,
+            whereClause: jsonBuildObjects.whereClause as QueryWhereCondition,
+            valueClauseKeywords: jsonBuildObjects.valueClauseKeywords,
             havingClause: expression.parameters.having
         };
     }
 
-    private buildJsonBuildObject(expression: JsonAggregateQueryExpression): string {
+    private buildJsonBuildObject(expression: JsonAggregateQueryExpression): JsonBuildObject {
         const columnPart = expression.parameters.columns
             .map(col => `'${col}', "${expression.parameters.table}_${col}"`)
             .join(",\n  ");
@@ -40,10 +49,13 @@ export default class JsonAggregateExpression implements IExpressionBuilder {
         const computedPart = expression.parameters.computed?.length
             ? expression.parameters.computed
                 .map(comp => {
+                    const valueClauseKeywords = [`${comp.parameters.alias}_lat`, `${comp.parameters.alias}_lon`];
+                    
                     const expr = {
                         type: comp.type,
                         parameters: {
                             ...comp.parameters,
+                            valueClauseKeywords: comp.type === 'spatialDistance' ? valueClauseKeywords : comp.parameters.valueClauseKeywords,
                             isComputed: true
                         },
                         requirements: QueryExpressionBuilder.getExpressionDefaultRequirements(comp.type)!
@@ -51,10 +63,22 @@ export default class JsonAggregateExpression implements IExpressionBuilder {
 
                     const builder = QueryExpressionBuilder.buildExpressionsPart([expr as PossibleExpressions])[0];
 
-                    return `'${comp.parameters.alias}', ${builder.baseExpressionClause?.split(" AS ")[0]}`;
-                })
-                .join(",\n  ")
+                    return {
+                        sql: `'${comp.parameters.alias}', ${builder.baseExpressionClause?.split(" AS ")[0]}`,
+                        whereClause: builder.whereClause,
+                        valueClauseKeywords: builder.valueClauseKeywords
+                    };
+                }) : [];
+
+        const computedSqlPart = computedPart.length
+            ? computedPart.map(c => c.sql).join(",\n  ")
             : "";
+
+        const whereClauses = computedPart
+            .flatMap(c => c.whereClause ? QueryStatementBuilder.normalizeQueryConditions(c.whereClause) : []);
+
+        const valueClauseKeywords = computedPart
+            .flatMap(c => c.valueClauseKeywords || []);
 
         const nestedPart = expression.parameters.nested?.length
             ? expression.parameters.nested
@@ -70,16 +94,20 @@ export default class JsonAggregateExpression implements IExpressionBuilder {
                             groupByColumns: []
                         },
                         requirements: this.defaultRequirements
-                    })}`;
+                    }).sql}`;
                 })
                 .join(",\n  ")
             : "";
 
-        const parts = [columnPart, computedPart, nestedPart].filter(Boolean).join(",\n  ");
+        const parts = [columnPart, computedSqlPart, nestedPart].filter(Boolean).join(",\n  ");
 
-        return `JSON_BUILD_OBJECT(
+        return {
+            sql: `JSON_BUILD_OBJECT(
                 ${parts}
-            )`;
+            )`,
+            whereClause: whereClauses,
+            valueClauseKeywords: valueClauseKeywords
+        };
     }
 
     validate(expression: JsonAggregateQueryExpression): boolean {
