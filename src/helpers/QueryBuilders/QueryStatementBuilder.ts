@@ -72,7 +72,7 @@ export default class QueryStatementBuilder {
                 this._layers.pretty.where = this.addUnique(this._layers.pretty.where, builder.whereClauses);
                 this._layers.pretty.groupBy = this.addUnique(this._layers.pretty.groupBy, builder.groupByClauses);
                 this._layers.pretty.having = this.addUnique(this._layers.pretty.having, builder.havingClauses);
-                // this.layers.final.orderBy = this.addUnique(this.layers.final.orderBy?.map(ob => ({ column: `BASE_QUERY.${ob.column}`, direction: ob.direction })), builder.orderByClauses);
+                this._layers.base.orderBy = this.addUnique(this._layers.base.orderBy?.map(ob => ({ column: `${ob.column}`, direction: ob.direction })), builder.orderByClauses);
             }
 
             if (this._layers.base.where) {
@@ -82,7 +82,12 @@ export default class QueryStatementBuilder {
             builder = new WhereDecorator(builder, this._layers.base.joins ? QueryStatementBuilder.normalizeAndQualifyConditions(this._layers.base.where, this._layers.base.from) : this._layers.base.where);
         }
 
+        if (this._layers.base.orderBy) {
+            builder = new OrderByDecorator(builder, this._layers.base.orderBy);
+        }
+
         this._contexts.base = await builder.build();
+
         const renderer = new SqlRenderer(this._contexts.base);
         return renderer.build();
     }
@@ -102,7 +107,7 @@ export default class QueryStatementBuilder {
                     this._layers.pretty.groupBy = this.addUnique(this._layers.pretty.groupBy, builder.groupByClauses);
                     this._layers.pretty.having = this.addUnique(this._layers.pretty.having, builder.havingClauses);
                     this._layers.final ??= {};
-                    // this.layers.final.orderBy = this.addUnique(this.layers.final.orderBy?.map(ob => ({ column: `BASE_QUERY.${ob.column}`, direction: ob.direction })), builder.orderByClauses);
+                    this._layers.final.orderBy = this.addUnique(this._layers.final.orderBy?.map(ob => ({ column: `BASE_QUERY.${ob.column}`, direction: ob.direction })), builder.orderByClauses);
                 }
 
                 if (this._layers.pretty.where) {

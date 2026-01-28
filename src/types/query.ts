@@ -47,6 +47,7 @@ export type BaseQueryOptions = {
     from?: string;
     joins?: Join[];
     where?: QueryWhereCondition;
+    orderBy?: OrderByDefinition[];
 
     expressions?: PossibleBaseExpressions[];
 
