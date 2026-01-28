@@ -150,27 +150,86 @@ export default class Repository<Type extends columnType, ModelType extends Model
         }
     }
 
-    private async join(Model: Model<Type>, queryLayers: QueryLayers): Promise<Type[]> {
-        const Joins: Join[] = Model.JoinedEntities.flatMap(join => {
-            const relation: relation | undefined = Model.Relations.find(rel => rel.model.Configuration.table.replace("_", "").toLowerCase() === join.relation.toLowerCase());
-            if (join.queryScopes) {
-                queryLayers.base.where = this.mergeQueryWhereConditions(queryLayers.base.where || {}, join.queryScopes);
-            }
+    private async join(
+        Model: Model<Type>,
+        queryLayers: QueryLayers
+    ): Promise<Type[]> {
+
+        const { joins, queryLayers: nextLayers } =
+            this.buildJoinObject(Model, queryLayers);
+
+        nextLayers.base.joins = joins;
+
+        const records = await this.Table.Join<Type>(nextLayers);
+        return records.map(record => record.values);
+    }
+
+    public async toSql(
+        queryLayers: QueryLayers,
+        Model: Model<Type>
+    ): Promise<string> {
+
+        let nextLayers = queryLayers;
+
+        if (Model.JoinedEntities.length > 0) {
+            const result = this.buildJoinObject(Model, queryLayers);
+            nextLayers = result.queryLayers;
+            nextLayers.base.joins = result.joins;
+        }
+
+        return this.Table.toSql(nextLayers);
+    }
+
+    private buildJoinObject(
+        Model: Model<Type>,
+        inputLayers: QueryLayers
+    ): { joins: Join[]; queryLayers: QueryLayers } {
+        const queryLayers: QueryLayers = {
+            ...inputLayers,
+            base: {
+                ...inputLayers.base,
+                where: { ...(inputLayers.base.where ?? {}) }
+            },
+            final: inputLayers.final
+                ? { ...inputLayers.final }
+                : undefined
+        };
+
+        const joins: Join[] = Model.JoinedEntities.flatMap(join => {
+            const relation = Model.Relations.find(
+                rel =>
+                    rel.model.Configuration.table
+                        .replace("_", "")
+                        .toLowerCase() === join.relation.toLowerCase()
+            );
 
             if (!relation) {
-                throw new Error(`Relation for joined entity ${join} not found.`);
+                throw new Error(
+                    `Relation for joined entity ${join.relation} not found.`
+                );
+            }
+
+            if (join.queryScopes && queryLayers.base.where) {
+                queryLayers.base.where = this.mergeQueryWhereConditions(
+                    queryLayers.base.where,
+                    join.queryScopes
+                );
+            } else {
+                queryLayers.base.where = join.queryScopes;
             }
 
             if (relation.type === 'manyToMany') {
-
                 queryLayers.final ??= {};
                 queryLayers.final.blacklistTables ??= [];
 
-                queryLayers.final.blacklistTables.push(relation.pivotTable!);
+                queryLayers.final.blacklistTables = [
+                    ...queryLayers.final.blacklistTables,
+                    relation.pivotTable!
+                ];
 
                 return [
                     {
-                        fromTable: relation.pivotTable,
+                        fromTable: relation.pivotTable!,
                         baseTable: Model.Configuration.table,
                         joinType: 'INNER',
                         on: [
@@ -179,88 +238,39 @@ export default class Repository<Type extends columnType, ModelType extends Model
                     },
                     {
                         fromTable: relation.model.Configuration.table,
-                        baseTable: relation.pivotTable,
+                        baseTable: relation.pivotTable!,
                         joinType: 'INNER',
                         on: [
                             { [relation.foreignKey!]: relation.pivotLocalKey! }
                         ]
                     }
-                ] as Join[];
+                ];
             }
 
-            const JoinType = relation.type === 'hasOne' || relation.type === 'belongsTo' ? 'INNER' : 'LEFT';
+            const joinType =
+                relation.type === 'hasOne' || relation.type === 'belongsTo'
+                    ? 'INNER'
+                    : 'LEFT';
 
-            return [{
-                fromTable: relation.model.Configuration.table,
-                baseTable: relation.localKey.includes('.') ? relation.localKey.split('.')[0] : Model.Configuration.table,
-                joinType: JoinType,
-                on: [
-                    { [relation.foreignKey!]: relation.localKey.includes('.') ? relation.localKey.split('.')[1] : relation.localKey! }
-                ]
-            }]
+            const [baseTable, baseKey] = relation.localKey.includes('.')
+                ? relation.localKey.split('.')
+                : [Model.Configuration.table, relation.localKey];
+
+            return [
+                {
+                    fromTable: relation.model.Configuration.table,
+                    baseTable,
+                    joinType,
+                    on: [
+                        { [relation.foreignKey!]: baseKey! }
+                    ]
+                }
+            ];
         });
 
-        queryLayers.base.joins = Joins;
-        const records = await this.Table.Join<Type>(queryLayers);
-        return records.map(record => record.values);
+        return { joins, queryLayers };
     }
 
-    public async toSql(queryLayers: QueryLayers, Model: Model<Type>): Promise<string> {
-        if (Model.JoinedEntities.length > 0) {
-            const Joins: Join[] = Model.JoinedEntities.flatMap(join => {
-                const relation: relation | undefined = Model.Relations.find(rel => rel.model.Configuration.table.replace("_", "").toLowerCase() === join.relation.toLowerCase());
-                if (join.queryScopes) {
-                    queryLayers.base.where = this.mergeQueryWhereConditions(queryLayers.base.where || {}, join.queryScopes);
-                }
-
-                if (!relation) {
-                    throw new Error(`Relation for joined entity ${join} not found.`);
-                }
-
-                if (relation.type === 'manyToMany') {
-
-                    queryLayers.final ??= {};
-                    queryLayers.final.blacklistTables ??= [];
-
-                    queryLayers.final.blacklistTables.push(relation.pivotTable!);
-
-                    return [
-                        {
-                            fromTable: relation.pivotTable,
-                            baseTable: Model.Configuration.table,
-                            joinType: 'INNER',
-                            on: [
-                                { [relation.pivotForeignKey!]: relation.localKey }
-                            ]
-                        },
-                        {
-                            fromTable: relation.model.Configuration.table,
-                            baseTable: relation.pivotTable,
-                            joinType: 'INNER',
-                            on: [
-                                { [relation.foreignKey!]: relation.pivotLocalKey! }
-                            ]
-                        }
-                    ] as Join[];
-                }
-
-                const JoinType = relation.type === 'hasOne' || relation.type === 'belongsTo' ? 'INNER' : 'LEFT';
-
-                return [{
-                    fromTable: relation.model.Configuration.table,
-                    baseTable: relation.localKey.includes('.') ? relation.localKey.split('.')[0] : Model.Configuration.table,
-                    joinType: JoinType,
-                    on: [
-                        { [relation.foreignKey!]: relation.localKey.includes('.') ? relation.localKey.split('.')[1] : relation.localKey! }
-                    ]
-                }]
-            });
-
-            queryLayers.base.joins = Joins;
-        }
-
-        return await this.Table.toSql(queryLayers);
-    }
 
     public mergeQueryWhereConditions(base: QueryWhereCondition, additional: QueryWhereCondition): QueryComparisonParameters[] {
         const query = this.Table.QueryHelperObject;

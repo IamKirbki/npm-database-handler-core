@@ -215,7 +215,23 @@ export default class Table {
     }
 
     public async toSql(queryLayers: QueryLayers): Promise<string> {
-        const builder = new QueryStatementBuilder(queryLayers);
-        return await builder.build();
+        if (queryLayers.base.joins && queryLayers.base.joins.length > 0) {
+            const joinedTables = queryLayers.base.joins.map(j => j.fromTable);
+            const tableColumnCache = new Map<string, TableColumnInfo[]>();
+
+            const columnInfo = await this._query.TableColumnInformation(this._name);
+            tableColumnCache.set(this._name, columnInfo);
+
+            for (const tableName of joinedTables) {
+                const columnInfo = await this._query.TableColumnInformation(tableName);
+                tableColumnCache.set(tableName, columnInfo);
+            }
+
+            const builder = new QueryStatementBuilder(queryLayers, tableColumnCache);
+            return await builder.build();
+        } else {
+            const builder = new QueryStatementBuilder(queryLayers);
+            return await builder.build();
+        }
     }
 }
