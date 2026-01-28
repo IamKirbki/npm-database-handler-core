@@ -19,7 +19,7 @@ export default class Query {
   private readonly _adapter: IDatabaseAdapter;
   private readonly _recordFactory: RecordFactory;
   private readonly _queryCache: QueryCache;
-  private _query?: string = '';
+  private _query?: string;
   private _parameters: QueryWhereCondition = {};
 
   public get Parameters(): QueryWhereCondition {
