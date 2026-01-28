@@ -5,16 +5,6 @@ import QueryStatementBuilder from "../QueryStatementBuilder.js";
 
 export default class WhereDecorator extends QueryDecorator {
     private conditions: QueryWhereCondition;
-    private _extraOrderByClauses?: string[];
-    private _expressionWhereClauses?: QueryWhereCondition[];
-
-    public get expressionWhereClauses(): QueryWhereCondition[] {
-        return this._expressionWhereClauses || [];
-    }
-
-    public get extraOrderByClauses(): string[] {
-        return this._extraOrderByClauses || [];
-    }
 
     constructor(
         component: IQueryBuilder,

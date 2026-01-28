@@ -1,12 +1,12 @@
 import InvalidExpressionParametersError from "@core/helpers/Errors/ExpressionErrors/InvalidExpressionParametersError.js";
-import { expressionClause, JsonAggregateQueryExpression, PossibleExpressions, QueryEvaluationPhase, QueryIsEqualParameter, QueryWhereCondition } from "@core/index.js";
+import { expressionClause, JsonAggregateQueryExpression, PossibleExpressions, QueryComparisonParameters, QueryEvaluationPhase } from "@core/index.js";
 import IExpressionBuilder from "@core/interfaces/IExpressionBuilder.js";
 import QueryExpressionBuilder from "../QueryExpressionBuilder.js";
 import QueryStatementBuilder from "../QueryStatementBuilder.js";
 
 type JsonBuildObject = {
     sql: string;
-    whereClause?: QueryIsEqualParameter[];
+    whereClause?: QueryComparisonParameters[];
     valueClauseKeywords?: string[];
 }
 
@@ -35,7 +35,7 @@ export default class JsonAggregateExpression implements IExpressionBuilder {
             phase: expression.requirements.phase,
             requiresWrapping: expression.requirements.requiresSelectWrapping || false,
             groupByClause,
-            whereClause: jsonBuildObjects.whereClause as QueryWhereCondition,
+            whereClause: jsonBuildObjects.whereClause,
             valueClauseKeywords: jsonBuildObjects.valueClauseKeywords,
             havingClause: expression.parameters.having
         };

@@ -195,9 +195,7 @@ export default class Table {
                         mainTableData[columnName] = value;
                     }
                     else if (joinedTables.includes(tableName)) {
-                        if (!joinedTableData[tableName]) {
-                            joinedTableData[tableName] = {};
-                        }
+                        joinedTableData[tableName] ??= {};
                         joinedTableData[tableName][columnName] = value;
                     }
                 } else {
