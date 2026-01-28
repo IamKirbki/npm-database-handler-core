@@ -10,7 +10,6 @@ export default class TextRelevanceExpression implements IExpressionBuilder {
             );
         }
 
-        // Build universal LIKE-based relevance scoring
         // Score: 3 = exact match, 2 = starts with, 1 = contains, 0 = no match
         const columnConcat = expression.parameters.targetColumns
             .map(col => `COALESCE(${col}, '')`)
@@ -42,7 +41,6 @@ export default class TextRelevanceExpression implements IExpressionBuilder {
     }
 
     validate(expression: TextRelevanceQueryExpression): boolean {
-        // Basic validation for text relevance expression
         return (
             expression.type === 'textRelevance' &&
             typeof expression.parameters.searchTerm === 'string' &&

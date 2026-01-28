@@ -5,11 +5,9 @@ import {
     expressionClause,
     TextRelevanceQueryExpression,
     JsonAggregateQueryExpression,
-    QueryEvaluationPhase,
 } from "@core/types/index.js";
 import SpatialDistanceExpression from "./ExpressionBuilders/SpatialDistanceExpression.js";
 import { UnknownExpressionTypeError } from "../Errors/ExpressionErrors/UnknownExpressionTypeError.js";
-import UnsupportedQueryPhaseError from "../Errors/ExpressionErrors/UnsupportedQueryPhaseError.js";
 import TextRelevanceExpression from "./ExpressionBuilders/TextRelevanceExpression.js";
 import JsonAggregateExpression from "./ExpressionBuilders/JsonAggregateExpression.js";
 
@@ -133,145 +131,5 @@ export default class QueryExpressionBuilder {
         });
 
         return queryParts;
-    }
-
-    /**
-     * Filters expressions by evaluation phase.
-     *
-     * This is the core mechanism behind:
-     * - base SELECT expressions
-     * - projection (subquery) expressions
-     */
-    public static filterExpressionsByPhase(
-        expressions: expressionClause[],
-        phase: QueryEvaluationPhase
-    ): expressionClause[] {
-
-        const unsupportedPhases = expressions.filter(
-            expr => expr.phase !== QueryEvaluationPhase.BASE &&
-                expr.phase !== QueryEvaluationPhase.PROJECTION
-        );
-
-        if (unsupportedPhases.length > 0) {
-            unsupportedPhases.forEach(expr => {
-                throw new UnsupportedQueryPhaseError(expr.phase);
-            });
-        }
-
-        return expressions.filter(expr => expr.phase === phase);
-    }
-
-    /**
-     * Builds the SELECT clause for non-join queries.
-     *
-     * Rules:
-     * - User-selected columns go first
-     * - Base-phase expressions are appended
-     * - Projection expressions are NOT included here
-     */
-    public static buildSelectClause(
-        selectOption: string | undefined,
-        expressions: expressionClause[]
-    ): string {
-        const flatExpressions = this.filterExpressionsByPhase(expressions, QueryEvaluationPhase.BASE);
-        const selectColumns: string[] = [];
-
-        if (selectOption && selectOption !== '*') {
-            selectColumns.push(selectOption);
-        }
-
-        if (flatExpressions.length > 0) {
-            selectColumns.push(
-                flatExpressions
-                    .map(expr => expr.baseExpressionClause)
-                    .join(", ")
-            );
-        }
-
-        return selectColumns.length > 0 ? selectColumns.join(", ") : '*';
-    }
-
-    /**
-     * Builds the FROM clause.
-     *
-     * If projection expressions exist, the query MUST be wrapped,
-     * because SQL does not allow filtering on aliases in the same SELECT.
-     *
-     * This is not optional. This is SQL being a gremlin.
-     */
-    public static buildFromClause(
-        tableName: string,
-        expressions: expressionClause[],
-        // where?: QueryWhereCondition,
-    ): { fromClause: string; hasWrapping: boolean } {
-        const projectionExpressions =
-            this.filterExpressionsByPhase(expressions, QueryEvaluationPhase.PROJECTION);
-
-        if (projectionExpressions.length > 0) {
-            const projectionClauses =
-                projectionExpressions
-                    .map(expr => expr.baseExpressionClause)
-                    .join(", ");
-
-            return {
-                fromClause: `
-                FROM (
-                    SELECT *, ${projectionClauses}
-                    FROM "${tableName}"
-                ) AS subquery
-            `.trim(),
-                hasWrapping: true,
-            };
-        }
-
-        return {
-            fromClause: `FROM "${tableName}"`,
-            hasWrapping: false,
-        };
-    }
-
-    /**
-     * Builds the SELECT clause for the OUTER query of a wrapped JOIN.
-     *
-     * This ensures:
-     * - original column aliases are preserved
-     * - projection expression aliases are exposed
-     */
-    public static buildJoinOuterSelectClause(
-        columnAliases: string[],
-        expressions: expressionClause[]
-    ): string {
-        const projectionExpressions =
-            this.filterExpressionsByPhase(expressions, QueryEvaluationPhase.PROJECTION);
-
-        const expressionAliases = projectionExpressions
-            .map(expr => {
-                const baseClause = expr.baseExpressionClause?.trim();
-                const match = baseClause
-                    ? baseClause.match(/AS\s+(.+)$/i)
-                    : null;
-                return match ? match[1] : null;
-            })
-            .filter(alias => alias !== null) as string[];
-
-        return [...columnAliases, ...expressionAliases].join(',\n    ');
-    }
-
-    /**
-     * Determines whether a JOIN query MUST be wrapped.
-     *
-     * Wrapping is required when:
-     * - projection expressions exist
-     * - AND those expressions are filtered or ordered on
-     */
-    public static shouldWrapJoinQuery(
-        expressions: expressionClause[]
-    ): boolean {
-        const projectionExpressions =
-            this.filterExpressionsByPhase(expressions, QueryEvaluationPhase.PROJECTION);
-
-        return (
-            projectionExpressions.length > 0
-        );
     }
 }

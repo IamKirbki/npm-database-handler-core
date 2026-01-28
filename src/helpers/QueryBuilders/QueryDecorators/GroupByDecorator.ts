@@ -13,7 +13,7 @@ export default class GroupByDecorator extends QueryDecorator {
     async build(): Promise<QueryContext> {
         const context = await this.component.build();
         if (this.groupByColumns) {
-            context.groupBy = context.groupBy || [];
+            context.groupBy ??= [];
             context.groupBy.push(...this.groupByColumns);
         }
 

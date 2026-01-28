@@ -43,7 +43,7 @@ export default class JoinDecorator extends QueryDecorator {
     }
 
     private async buildJoinSelect(): Promise<string[]> {
-        const blacklist = this.options?.blacklistTables ?? [];
+        const blacklist = this.options?.blacklistTables || [];
         const joinArray = Array.isArray(this.joins) ? this.joins : [this.joins];
 
         const mainCols = this.tableColumnsCache.get(this.fromTableName) || [];
