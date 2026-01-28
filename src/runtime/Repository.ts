@@ -197,12 +197,69 @@ export default class Repository<Type extends columnType, ModelType extends Model
                 on: [
                     { [relation.foreignKey!]: relation.localKey.includes('.') ? relation.localKey.split('.')[1] : relation.localKey! }
                 ]
-            }] as Join[];
+            }]
         });
 
         queryLayers.base.joins = Joins;
         const records = await this.Table.Join<Type>(queryLayers);
         return records.map(record => record.values);
+    }
+
+    public async toSql(queryLayers: QueryLayers, Model: Model<Type>): Promise<string> {
+        if (Model.JoinedEntities.length > 0) {
+            const Joins: Join[] = Model.JoinedEntities.flatMap(join => {
+                const relation: relation | undefined = Model.Relations.find(rel => rel.model.Configuration.table.replace("_", "").toLowerCase() === join.relation.toLowerCase());
+                if (join.queryScopes) {
+                    queryLayers.base.where = this.mergeQueryWhereConditions(queryLayers.base.where || {}, join.queryScopes);
+                }
+
+                if (!relation) {
+                    throw new Error(`Relation for joined entity ${join} not found.`);
+                }
+
+                if (relation.type === 'manyToMany') {
+
+                    queryLayers.final ??= {};
+                    queryLayers.final.blacklistTables ??= [];
+
+                    queryLayers.final.blacklistTables.push(relation.pivotTable!);
+
+                    return [
+                        {
+                            fromTable: relation.pivotTable,
+                            baseTable: Model.Configuration.table,
+                            joinType: 'INNER',
+                            on: [
+                                { [relation.pivotForeignKey!]: relation.localKey }
+                            ]
+                        },
+                        {
+                            fromTable: relation.model.Configuration.table,
+                            baseTable: relation.pivotTable,
+                            joinType: 'INNER',
+                            on: [
+                                { [relation.foreignKey!]: relation.pivotLocalKey! }
+                            ]
+                        }
+                    ] as Join[];
+                }
+
+                const JoinType = relation.type === 'hasOne' || relation.type === 'belongsTo' ? 'INNER' : 'LEFT';
+
+                return [{
+                    fromTable: relation.model.Configuration.table,
+                    baseTable: relation.localKey.includes('.') ? relation.localKey.split('.')[0] : Model.Configuration.table,
+                    joinType: JoinType,
+                    on: [
+                        { [relation.foreignKey!]: relation.localKey.includes('.') ? relation.localKey.split('.')[1] : relation.localKey! }
+                    ]
+                }]
+            });
+
+            queryLayers.base.joins = Joins;
+        }
+
+        return await this.Table.toSql(queryLayers);
     }
 
     public mergeQueryWhereConditions(base: QueryWhereCondition, additional: QueryWhereCondition): QueryComparisonParameters[] {

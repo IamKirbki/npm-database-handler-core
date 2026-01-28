@@ -493,6 +493,21 @@ export default abstract class Model<
         return this;
     }
 
+    public async toSql(): Promise<string> {
+        const sql = await this.repository?.toSql(
+            {
+                ...this.queryLayers,
+                base: {
+                    ...this.queryLayers.base,
+                    from: this.Configuration.table,
+                }
+            },
+            this
+        );
+
+        return sql?.replace(/[ \t\r\f\v]+/g, ' ').replace(/\n/g, '');
+    }
+
     private collectSelectAliases(def: { table: string; columns: string[]; nested?: NestedJsonAggregateDefinition<string>[] }): string[] {
         const columnAliases = def.columns.map(col => `${def.table}.${col} AS ${def.table}_${col}`);
 

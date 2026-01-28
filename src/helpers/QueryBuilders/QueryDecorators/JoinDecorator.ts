@@ -1,14 +1,15 @@
-import { Join, Query, DefaultQueryParameters, ExtraQueryParameters, QueryLayers, QueryContext } from "@core/index.js";
+import { Join, DefaultQueryParameters, ExtraQueryParameters, QueryLayers, QueryContext } from "@core/index.js";
 import QueryDecorator from "./QueryDecorator.js";
 import IQueryBuilder from "@core/interfaces/IQueryBuilder.js";
+import { TableColumnInfo } from "@core/types/index.js";
 
 export default class JoinDecorator extends QueryDecorator {
     private fromTableName: string;
     private joins: Join | Join[];
-    private query: Query;
+    private tableColumnsCache: Map<string, TableColumnInfo[]>;
     private options?: DefaultQueryParameters & ExtraQueryParameters;
 
-    constructor(builder: IQueryBuilder, layer: QueryLayers, Query: Query) {
+    constructor(builder: IQueryBuilder, layer: QueryLayers, tableColumnInformation: Map<string, TableColumnInfo[]>) {
         if (!layer.base.from) {
             throw new Error("Base layer must specify 'from' table name for JoinDecorator.");
         }
@@ -17,7 +18,7 @@ export default class JoinDecorator extends QueryDecorator {
 
         this.fromTableName = layer.base.from;
         this.joins = layer.base.joins || [];
-        this.query = Query;
+        this.tableColumnsCache = tableColumnInformation;
         this.options = {
             orderBy: layer.final?.orderBy,
             limit: layer.final?.limit,
@@ -45,7 +46,7 @@ export default class JoinDecorator extends QueryDecorator {
         const blacklist = this.options?.blacklistTables ?? [];
         const joinArray = Array.isArray(this.joins) ? this.joins : [this.joins];
 
-        const mainCols = await this.query.TableColumnInformation(this.fromTableName);
+        const mainCols = this.tableColumnsCache.get(this.fromTableName) || [];
         const mainSelect = mainCols
             .filter(() => !blacklist.includes(this.fromTableName))
             .map(col => `"${this.fromTableName}"."${col.name}" AS "${this.fromTableName}__${col.name}"`);
@@ -54,7 +55,7 @@ export default class JoinDecorator extends QueryDecorator {
             joinArray.map(async (join) => {
                 if (blacklist.includes(join.fromTable)) return "";
 
-                const cols = await this.query.TableColumnInformation(join.fromTable);
+                const cols = this.tableColumnsCache.get(join.fromTable) || [];
                 return cols
                     .map(col => `"${join.fromTable}"."${col.name}" AS "${join.fromTable}__${col.name}"`)
                     .filter(col => col.trim() !== "")

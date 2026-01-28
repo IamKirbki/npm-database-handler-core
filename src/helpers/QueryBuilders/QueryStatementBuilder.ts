@@ -3,6 +3,7 @@ import {
     QueryComparisonParameters,
     QueryLayers,
     QueryContext,
+    TableColumnInfo,
 } from "@core/types/index.js";
 import BaseSelectQueryBuilder from "./BaseQueryBuilders/BaseSelectQueryBuilder.js";
 import ExpressionDecorator from "./QueryDecorators/ExpressionDecorator.js";
@@ -13,30 +14,35 @@ import IQueryBuilder from "@core/interfaces/IQueryBuilder.js";
 import GroupByDecorator from "./QueryDecorators/GroupByDecorator.js";
 import OrderByDecorator from "./QueryDecorators/OrderByDecorator.js";
 import LimitDecorator from "./QueryDecorators/LimitDecorator.js";
-import { Query } from "@core/index.js";
 import SqlRenderer from "./SqlRenderer.js";
 
 export default class QueryStatementBuilder {
-    private layers: QueryLayers;
-    private contexts: {
+    private _layers: QueryLayers;
+    private _contexts: {
         base?: QueryContext;
         pretty?: QueryContext;
         final?: QueryContext;
     } = {};
-    private valueClauseKeywords: Set<string> = new Set();
 
-    constructor(queryLayers: QueryLayers) {
-        this.layers = queryLayers;
+    private _tableColumnsCache: Map<string, TableColumnInfo[]> = new Map();
+    private _valueClauseKeywords: Set<string> = new Set();
+
+    constructor(queryLayers: QueryLayers, tableColumnInformation?: Map<string, TableColumnInfo[]>) {
+        this._layers = queryLayers;
+
+        if (tableColumnInformation) {
+            this._tableColumnsCache = tableColumnInformation;
+        }
     }
 
     public async build(): Promise<string> {
         let sql = await this.buildBaseLayer();
 
-        if (this.layers.pretty) {
+        if (this._layers.pretty) {
             sql = await this.buildPrettyLayer(sql);
         }
 
-        if (this.layers.final) {
+        if (this._layers.final) {
             sql = await this.buildFinalLayer(sql);
         }
 
@@ -44,105 +50,105 @@ export default class QueryStatementBuilder {
     }
 
     private async buildBaseLayer(): Promise<string> {
-        if (!this.layers.base.from) {
+        if (!this._layers.base.from) {
             throw new Error("Base layer must specify 'from' table name.");
         }
 
-        let builder: IQueryBuilder = new BaseSelectQueryBuilder(this.layers.base.from, this.layers.base.select || [], this.layers.base.joinsSelect || [], this.layers.base.expressionsSelect || []);
+        let builder: IQueryBuilder = new BaseSelectQueryBuilder(this._layers.base.from, this._layers.base.select || [], this._layers.base.joinsSelect || [], this._layers.base.expressionsSelect || []);
 
-        if (this.layers.base.joins && this.layers.base.joins.length > 0) {
-            builder = new JoinDecorator(builder, { base: this.layers.base, pretty: this.layers.pretty, final: this.layers.final }, new Query({ tableName: this.layers.base.from }));
+        if (this._layers.base.joins && this._layers.base.joins.length > 0) {
+            builder = new JoinDecorator(builder, { base: this._layers.base, pretty: this._layers.pretty, final: this._layers.final }, this._tableColumnsCache);
         }
 
-        if (this.layers.base.expressions && this.layers.base.expressions.length > 0) {
-            const expressions = QueryExpressionBuilder.buildExpressionsPart(this.layers.base.expressions || []);
+        if (this._layers.base.expressions && this._layers.base.expressions.length > 0) {
+            const expressions = QueryExpressionBuilder.buildExpressionsPart(this._layers.base.expressions || []);
             builder = new ExpressionDecorator(builder, expressions || []);
             if (builder instanceof ExpressionDecorator) {
-                this.valueClauseKeywords = new Set([...this.valueClauseKeywords, ...builder.valueClauseKeywords]);
+                this._valueClauseKeywords = new Set([...this._valueClauseKeywords, ...builder.valueClauseKeywords]);
 
-                this.layers.pretty ??= {};
-                this.layers.final ??= {};
+                this._layers.pretty ??= {};
+                this._layers.final ??= {};
 
-                this.layers.pretty.where = this.addUnique(this.layers.pretty.where, builder.whereClauses);
-                this.layers.pretty.groupBy = this.addUnique(this.layers.pretty.groupBy, builder.groupByClauses);
-                this.layers.pretty.having = this.addUnique(this.layers.pretty.having, builder.havingClauses);
+                this._layers.pretty.where = this.addUnique(this._layers.pretty.where, builder.whereClauses);
+                this._layers.pretty.groupBy = this.addUnique(this._layers.pretty.groupBy, builder.groupByClauses);
+                this._layers.pretty.having = this.addUnique(this._layers.pretty.having, builder.havingClauses);
                 // this.layers.final.orderBy = this.addUnique(this.layers.final.orderBy?.map(ob => ({ column: `BASE_QUERY.${ob.column}`, direction: ob.direction })), builder.orderByClauses);
             }
 
-            if (this.layers.base.where) {
-                builder = new WhereDecorator(builder, this.layers.base.joins ? QueryStatementBuilder.normalizeAndQualifyConditions(this.layers.base.where, this.layers.base.from) : this.layers.base.where);
+            if (this._layers.base.where) {
+                builder = new WhereDecorator(builder, this._layers.base.joins ? QueryStatementBuilder.normalizeAndQualifyConditions(this._layers.base.where, this._layers.base.from) : this._layers.base.where);
             }
-        } else if (this.layers.base.where) {
-            builder = new WhereDecorator(builder, this.layers.base.joins ? QueryStatementBuilder.normalizeAndQualifyConditions(this.layers.base.where, this.layers.base.from) : this.layers.base.where);
+        } else if (this._layers.base.where) {
+            builder = new WhereDecorator(builder, this._layers.base.joins ? QueryStatementBuilder.normalizeAndQualifyConditions(this._layers.base.where, this._layers.base.from) : this._layers.base.where);
         }
 
-        this.contexts.base = await builder.build();
-        const renderer = new SqlRenderer(this.contexts.base);
+        this._contexts.base = await builder.build();
+        const renderer = new SqlRenderer(this._contexts.base);
         return renderer.build();
     }
 
     private async buildPrettyLayer(sql: string): Promise<string> {
-        let builder: IQueryBuilder = new BaseSelectQueryBuilder(`( ${sql} ) AS BASE_QUERY`, [...this.contexts.base?.select || [], ...this.layers.pretty?.select || []], this.contexts.base?.joinsSelect?.map(j => j.split("AS")[1].trim()) || []);
+        let builder: IQueryBuilder = new BaseSelectQueryBuilder(`( ${sql} ) AS BASE_QUERY`, [...this._contexts.base?.select || [], ...this._layers.pretty?.select || []], this._contexts.base?.joinsSelect?.map(j => j.split("AS")[1].trim()) || []);
 
-        if (this.layers.pretty) {
-            const expressions = this.layers.pretty.expressions?.length
-                ? QueryExpressionBuilder.buildExpressionsPart(this.layers.pretty.expressions)
+        if (this._layers.pretty) {
+            const expressions = this._layers.pretty.expressions?.length
+                ? QueryExpressionBuilder.buildExpressionsPart(this._layers.pretty.expressions)
                 : [];
 
             if (expressions.length > 0) {
                 builder = new ExpressionDecorator(builder, expressions);
                 if (builder instanceof ExpressionDecorator) {
-                    this.layers.pretty.where = this.addUnique(this.layers.pretty.where, builder.whereClauses);
-                    this.layers.pretty.groupBy = this.addUnique(this.layers.pretty.groupBy, builder.groupByClauses);
-                    this.layers.pretty.having = this.addUnique(this.layers.pretty.having, builder.havingClauses);
-                    this.layers.final ??= {};
+                    this._layers.pretty.where = this.addUnique(this._layers.pretty.where, builder.whereClauses);
+                    this._layers.pretty.groupBy = this.addUnique(this._layers.pretty.groupBy, builder.groupByClauses);
+                    this._layers.pretty.having = this.addUnique(this._layers.pretty.having, builder.havingClauses);
+                    this._layers.final ??= {};
                     // this.layers.final.orderBy = this.addUnique(this.layers.final.orderBy?.map(ob => ({ column: `BASE_QUERY.${ob.column}`, direction: ob.direction })), builder.orderByClauses);
                 }
 
-                if (this.layers.pretty.where) {
+                if (this._layers.pretty.where) {
                     builder = new WhereDecorator(
                         builder,
-                        QueryStatementBuilder.normalizeAndQualifyConditions(this.layers.pretty.where, "BASE_QUERY", [], this.valueClauseKeywords),
+                        QueryStatementBuilder.normalizeAndQualifyConditions(this._layers.pretty.where, "BASE_QUERY", [], this._valueClauseKeywords),
                     );
                 }
-            } else if (this.layers.pretty.where) {
+            } else if (this._layers.pretty.where) {
                 builder = new WhereDecorator(
                     builder,
-                    QueryStatementBuilder.normalizeAndQualifyConditions(this.layers.pretty.where, "BASE_QUERY", [], this.valueClauseKeywords),
+                    QueryStatementBuilder.normalizeAndQualifyConditions(this._layers.pretty.where, "BASE_QUERY", [], this._valueClauseKeywords),
                 );
             }
 
-            if (this.layers.pretty.groupBy) {
-                builder = new GroupByDecorator(builder, this.layers.pretty.groupBy);
+            if (this._layers.pretty.groupBy) {
+                builder = new GroupByDecorator(builder, this._layers.pretty.groupBy);
             }
 
-            if (this.layers.pretty.having) {
+            if (this._layers.pretty.having) {
                 builder = new WhereDecorator(
                     builder,
-                    QueryStatementBuilder.normalizeAndQualifyConditions(this.layers.pretty.having, "BASE_QUERY"),
+                    QueryStatementBuilder.normalizeAndQualifyConditions(this._layers.pretty.having, "BASE_QUERY"),
                 );
             }
         }
 
-        this.contexts.pretty = await builder.build();
-        const renderer = new SqlRenderer(this.contexts.pretty);
+        this._contexts.pretty = await builder.build();
+        const renderer = new SqlRenderer(this._contexts.pretty);
         return renderer.build();
     }
 
     private async buildFinalLayer(sql: string): Promise<string> {
-        let builder: IQueryBuilder = new BaseSelectQueryBuilder(`( ${sql} ) AS PRETTY_QUERY`, this.layers.final?.select || []);
-        if (this.layers.final) {
-            if (this.layers.final.orderBy) {
-                builder = new OrderByDecorator(builder, this.layers.final.orderBy);
+        let builder: IQueryBuilder = new BaseSelectQueryBuilder(`( ${sql} ) AS PRETTY_QUERY`, this._layers.final?.select || []);
+        if (this._layers.final) {
+            if (this._layers.final.orderBy) {
+                builder = new OrderByDecorator(builder, this._layers.final.orderBy);
             }
 
-            if (this.layers.final.limit) {
-                builder = new LimitDecorator(builder, this.layers.final.limit, this.layers.final.offset);
+            if (this._layers.final.limit) {
+                builder = new LimitDecorator(builder, this._layers.final.limit, this._layers.final.offset);
             }
         }
 
-        this.contexts.final = await builder.build();
-        const renderer = new SqlRenderer(this.contexts.final);
+        this._contexts.final = await builder.build();
+        const renderer = new SqlRenderer(this._contexts.final);
         return renderer.build();
     }
 

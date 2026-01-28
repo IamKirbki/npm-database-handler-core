@@ -151,7 +151,18 @@ export default class Table {
             throw new Error("No joins defined for the Join operation.");
         }
 
-        const builder = new QueryStatementBuilder(queryLayers);
+        const joinedTables = queryLayers.base.joins.map(j => j.fromTable);
+        const tableColumnCache = new Map<string, TableColumnInfo[]>();
+
+        const columnInfo = await this._query.TableColumnInformation(this._name);
+        tableColumnCache.set(this._name, columnInfo);
+
+        for (const tableName of joinedTables) {
+            const columnInfo = await this._query.TableColumnInformation(tableName);
+            tableColumnCache.set(tableName, columnInfo);
+        }
+
+        const builder = new QueryStatementBuilder(queryLayers, tableColumnCache);
         const queryString = await builder.build();
 
         let params = {}
@@ -168,10 +179,10 @@ export default class Table {
             recordFactory: this._recordFactory
         });
 
-        const joinedTables = queryLayers.base.joins.map(j => j.fromTable);
         if (queryLayers) {
             queryLayers.base.select = joinedTables
         }
+
         const records = await query.All<Type>();
         const splitTables = await this.splitJoinValues<Type>(records, joinedTables);
         return splitTables;
@@ -211,5 +222,10 @@ export default class Table {
 
             return this._recordFactory<Type>(this._name, combinedData, this._customAdapter);
         });
+    }
+
+    public async toSql(queryLayers: QueryLayers): Promise<string> {
+        const builder = new QueryStatementBuilder(queryLayers);
+        return await builder.build();
     }
 }

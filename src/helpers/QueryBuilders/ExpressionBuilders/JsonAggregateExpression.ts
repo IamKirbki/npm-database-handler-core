@@ -19,7 +19,7 @@ export default class JsonAggregateExpression implements IExpressionBuilder {
 
         const groupByClause = expression.parameters.groupByColumns.length > 0
             ? expression.parameters.groupByColumns
-                .map(col => `"${col}"`)
+                .map(col => col.includes(".") ? `"${col.replace(".", "__")}"` : `"${col}"`)
                 .join(", ")
             : undefined;
 
