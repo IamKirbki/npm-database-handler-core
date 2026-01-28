@@ -70,11 +70,7 @@ export default class Table {
 
     /** Fetch records with optional filtering, ordering, and pagination */
     public async Records<Type extends columnType>(
-        queryLayers: QueryLayers = {
-            base: {
-                from: this._name
-            },
-        }
+        queryLayers: QueryLayers
     ): Promise<Record<Type>[]> {
         const builder = new QueryStatementBuilder(queryLayers);
         const queryStr = await builder.build();
@@ -98,11 +94,7 @@ export default class Table {
 
     /** Fetch a single record from the table */
     public async Record<Type extends columnType>(
-        queryLayers: QueryLayers = {
-            base: {
-                from: this._name
-            },
-        }
+        queryLayers: QueryLayers
     ): Promise<Record<Type> | undefined> {
         const results = await this.Records<Type>({
             ...queryLayers,
