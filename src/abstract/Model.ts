@@ -1,8 +1,25 @@
-import Repository from "@core/runtime/Repository.js";
-import { columnType, QueryWhereCondition, QueryValues, ModelConfig, relation, ExtraQueryParameters, joinedEntity, QueryComparisonParameters } from "@core/types/index.js";
+import Repository from '@core/runtime/Repository.js';
+import ModelRelations from '@core/abstract/model/ModelRelation.js';
+import {
+    columnType,
+    QueryWhereCondition,
+    QueryValues,
+    ModelConfig,
+    SpatialPoint,
+    SpatialPointColumns,
+    SpatialQueryExpression,
+    TextRelevanceQueryExpression,
+    QueryComparisonParameters,
+    JsonAggregateQueryExpression,
+    NestedJsonAggregateDefinition,
+    QueryEvaluationPhase,
+    QueryLayers,
+} from '@core/types/index.js';
 
 /** Abstract Model class for ORM-style database interactions */
-export default abstract class Model<ModelType extends columnType> {
+export default abstract class Model<
+    ModelType extends columnType,
+> extends ModelRelations<ModelType> {
     private _repository?: Repository<ModelType, Model<ModelType>>;
 
     protected get repository(): Repository<ModelType, Model<ModelType>> {
@@ -10,14 +27,19 @@ export default abstract class Model<ModelType extends columnType> {
             this._repository = Repository.getInstance<ModelType>(
                 this.constructor as new () => Model<ModelType>,
                 this.Configuration.table,
-                this.Configuration.customAdapter
+                this.Configuration.customAdapter,
             );
         }
+
         return this._repository;
     }
 
+    protected get self(): Model<ModelType> {
+        return this;
+    }
+
     protected configuration: ModelConfig = {
-        table: '',  // Must be set by subclass
+        table: '', // Must be set by subclass
         primaryKey: 'id',
         incrementing: true,
         keyType: 'number',
@@ -35,8 +57,15 @@ export default abstract class Model<ModelType extends columnType> {
     protected attributes: Partial<ModelType> = {};
     protected exists: boolean = false;
     protected dirty: boolean = false;
-    protected queryScopes?: QueryWhereCondition;
-    protected queryOptions: ExtraQueryParameters = {};
+    protected queryLayers: QueryLayers = {
+        base: {
+            from: this.Configuration.table,
+        },
+        pretty: {
+        },
+        final: {
+        }
+    };
 
     public get primaryKeyColumn(): string {
         return this.configuration.primaryKey;
@@ -52,107 +81,130 @@ export default abstract class Model<ModelType extends columnType> {
 
     public static limit<ParamterModelType extends Model<columnType>>(
         this: new () => ParamterModelType,
-        value: number
+        value: number,
     ): ParamterModelType {
         const instance = new this();
         return instance.limit(value);
     }
 
     public limit(value: number): this {
-        this.queryOptions.limit = value;
+        this.queryLayers.final ??= {};
+        this.queryLayers.final.limit = value;
         return this;
     }
 
     public static offset<ParamterModelType extends Model<columnType>>(
         this: new () => ParamterModelType,
-        value: number
+        value: number,
     ): ParamterModelType {
         const instance = new this();
         return instance.offset(value);
     }
 
     public offset(value: number): this {
-        if (!this.queryOptions.limit) {
-            throw new Error("Offset cannot be set without a limit.");
+        if (!this.queryLayers.final?.limit) {
+            throw new Error('Offset cannot be set without a limit.');
         }
 
-        this.queryOptions.offset = value;
+        this.queryLayers.final.offset = value;
         return this;
     }
 
     public static orderBy<ParamterModelType extends Model<columnType>>(
         this: new () => ParamterModelType,
         column: string,
-        direction: 'ASC' | 'DESC' = 'ASC'
+        direction: 'ASC' | 'DESC' = 'ASC',
     ): ParamterModelType {
         const instance = new this();
         return instance.orderBy(column, direction);
     }
 
     public orderBy(column: string, direction: 'ASC' | 'DESC' = 'ASC'): this {
-        this.queryOptions.orderBy = column + " " + direction;
+        this.queryLayers.final ??= {};
+        this.queryLayers.final.orderBy ??= [];
+        this.queryLayers.final.orderBy.push({ column, direction });
         return this;
     }
 
     public static where<ParamterModelType extends Model<columnType>>(
         this: new () => ParamterModelType,
-        conditions: QueryWhereCondition
+        conditions: QueryWhereCondition,
     ): ParamterModelType {
         const instance = new this();
         return instance.where(conditions);
     }
 
+    private normalizeConditions(
+        conditions: QueryWhereCondition,
+    ): QueryComparisonParameters[] {
+        if (Array.isArray(conditions)) {
+            return conditions;
+        }
+
+        return Object.entries(conditions).map(([column, value]) => ({
+            column,
+            operator: '=' as const,
+            value,
+        }));
+    }
+
     public where(conditions: QueryWhereCondition): this {
-        this.queryScopes = conditions;
+        const normalized = this.normalizeConditions(conditions);
+
+        if (!this.queryLayers.base.where) {
+            this.queryLayers.base.where = normalized;
+        } else {
+            const existing = this.normalizeConditions(this.queryLayers.base.where);
+            this.queryLayers.base.where = [...existing, ...normalized];
+        }
+
         return this;
     }
 
     public static whereId<ParamterModelType extends Model<columnType>>(
         this: new () => ParamterModelType,
-        id: QueryValues
+        id: QueryValues,
     ): ParamterModelType {
         const instance = new this();
         return instance.whereId(id);
     }
 
     public whereId(id: QueryValues): this {
-        this.queryScopes = { id: id };
+        this.queryLayers.base.where = [{ column: this.primaryKeyColumn, operator: '=', value: id }];
         return this;
     }
 
     public static find<ParamterModelType extends Model<columnType>>(
         this: new () => ParamterModelType,
-        primaryKeyValue: QueryValues
+        primaryKeyValue: QueryValues,
     ): ParamterModelType {
         const instance = new this();
         return instance.find(primaryKeyValue);
     }
 
     public find(primaryKeyValue: QueryValues): this {
-        this.queryScopes = { [this.primaryKeyColumn]: primaryKeyValue };
+        this.queryLayers.base.where = [{ column: this.primaryKeyColumn, operator: '=', value: primaryKeyValue }];
         return this;
     }
 
     public static async findOrFail<ParamterModelType extends Model<columnType>>(
         this: new () => ParamterModelType,
-        primaryKeyValue: QueryValues
+        primaryKeyValue: QueryValues,
     ): Promise<ParamterModelType> {
         const instance = new this();
-        return await instance.findOrFail(primaryKeyValue) as ParamterModelType;
+        return (await instance.findOrFail(primaryKeyValue)) as ParamterModelType;
     }
 
     public async findOrFail(primaryKeyValue?: QueryValues): Promise<this> {
         if (primaryKeyValue) {
-            this.queryScopes = { [this.primaryKeyColumn]: primaryKeyValue };
+            this.queryLayers.base.where = [{ column: this.primaryKeyColumn, operator: '=', value: primaryKeyValue }];
         }
 
-        const query = this.queryScopes || {};
+        const query = this.queryLayers;
 
         const record = await this.repository?.first(query, this);
         if (!record) {
-            throw new Error(
-                `Record with primary key ${primaryKeyValue} not found.`
-            );
+            throw new Error(`Record with primary key ${primaryKeyValue} not found.`);
         }
 
         this.attributes = record as Partial<ModelType>;
@@ -163,14 +215,27 @@ export default abstract class Model<ModelType extends columnType> {
 
     public static async first<ParamterModelType extends Model<columnType>>(
         this: new () => ParamterModelType,
-        primaryKeyValue?: string | number
+        primaryKeyValue?: string | number,
     ): Promise<ParamterModelType> {
         const instance = new this();
         return instance.first(primaryKeyValue) as Promise<ParamterModelType>;
     }
 
     public async first(primaryKeyValue?: string | number): Promise<this> {
-        const attributes = await this.repository?.first(primaryKeyValue ? { [this.configuration.primaryKey]: primaryKeyValue } : this.queryScopes || {}, this) as Partial<ModelType>;
+        if (primaryKeyValue !== undefined) {
+            this.queryLayers.base.where = [{ column: this.primaryKeyColumn, operator: '=', value: primaryKeyValue }, ...this.normalizeConditions(this.queryLayers.base.where || [])];
+        }
+        const attributes = (await this.repository?.first(
+            {
+                ...this.queryLayers,
+                base: {
+                    ...this.queryLayers.base,
+                    from: this.Configuration.table,
+                    where: this.normalizeConditions(this.queryLayers.base.where || []),
+                }
+            },
+            this,
+        )) as Partial<ModelType>;
         if (attributes) {
             this.attributes = attributes;
             this.originalAttributes = { ...attributes };
@@ -181,8 +246,17 @@ export default abstract class Model<ModelType extends columnType> {
     }
 
     public async get(): Promise<this[]> {
-        const records = await this.repository.get(this.queryScopes || {}, this.queryOptions, this);
-        return records.map(record => {
+        const records = await this.repository.get(
+            {
+                ...this.queryLayers,
+                base: {
+                    ...this.queryLayers.base,
+                    from: this.Configuration.table,
+                }
+            },
+            this,
+        );
+        return records.map((record) => {
             const instance = new (this.constructor as new () => this)();
             instance.set(record);
             instance.exists = true;
@@ -194,15 +268,24 @@ export default abstract class Model<ModelType extends columnType> {
 
     public static all<ParamterModelType extends Model<columnType>>(
         // eslint-disable-next-line no-unused-vars
-        this: new () => ParamterModelType
+        this: new () => ParamterModelType,
     ): Promise<ParamterModelType[]> {
         const instance = new this();
         return instance.all() as Promise<ParamterModelType[]>;
     }
 
     public async all(): Promise<this[]> {
-        const records = await this.repository.all(this, this.queryScopes, this.queryOptions);
-        return records.map(record => {
+        const records = await this.repository.all(
+            this,
+            {
+                ...this.queryLayers,
+                base: {
+                    ...this.queryLayers.base,
+                    from: this.Configuration.table,
+                }
+            }
+        );
+        return records.map((record) => {
             const instance = new (this.constructor as new () => this)();
             instance.set(record);
             instance.exists = true;
@@ -214,7 +297,7 @@ export default abstract class Model<ModelType extends columnType> {
 
     public static set<ParamterModelType extends Model<columnType>>(
         this: new () => ParamterModelType,
-        attributes: Partial<columnType>
+        attributes: Partial<columnType>,
     ): ParamterModelType {
         const instance = new this();
         return instance.set(attributes);
@@ -222,7 +305,7 @@ export default abstract class Model<ModelType extends columnType> {
 
     public set(attributes: Partial<ModelType>): this {
         if (attributes[this.primaryKeyColumn] !== undefined && !this.exists) {
-            this.repository.syncModel(this)
+            this.repository.syncModel(this);
         }
         this.attributes = { ...this.attributes, ...attributes };
         this.dirty = true;
@@ -230,7 +313,10 @@ export default abstract class Model<ModelType extends columnType> {
     }
 
     public async save(): Promise<this> {
-        this.originalAttributes = { ...this.originalAttributes, ...this.attributes };
+        this.originalAttributes = {
+            ...this.originalAttributes,
+            ...this.attributes,
+        };
         await this.repository.save(this.originalAttributes as ModelType);
         this.exists = true;
         this.dirty = false;
@@ -239,191 +325,212 @@ export default abstract class Model<ModelType extends columnType> {
 
     public async update(attributes: Partial<ModelType>): Promise<this> {
         if (!this.exists) {
-            throw new Error("Cannot update a model that does not exist in the database.");
+            throw new Error(
+                'Cannot update a model that does not exist in the database.',
+            );
         }
 
         if (this.primaryKey === undefined) {
-            throw new Error("Primary key value is undefined. Cannot update record without a valid primary key.");
+            throw new Error(
+                'Primary key value is undefined. Cannot update record without a valid primary key.',
+            );
         }
 
-        const newRecord = await this.repository?.update({ [this.primaryKeyColumn]: this.primaryKey }, attributes);
+        const newRecord = await this.repository?.update(
+            { [this.primaryKeyColumn]: this.primaryKey },
+            attributes,
+        );
+
         if (newRecord) {
             this.originalAttributes = newRecord.values;
             this.exists = true;
         }
+
         return this;
     }
 
-    protected joinedEntities: joinedEntity[] = [];
-    protected relations: relation[] = [];
+    public near(params: {
+        referencePoint: SpatialPoint,
+        targetColumns: SpatialPointColumns,
+        maxDistance: number,
+        unit: 'km' | 'miles',
+        orderByDistance: 'ASC' | 'DESC',
+        alias?: string,
+    }): this {
+        const { referencePoint, targetColumns, maxDistance, unit, orderByDistance, alias = 'distance' } = params;
+        const valueClauseKeywords = [`${alias}_lat`, `${alias}_lon`];
 
-    public get JoinedEntities(): joinedEntity[] {
-        return this.joinedEntities;
+        const expression: SpatialQueryExpression = {
+            type: 'spatialDistance',
+            requirements: {
+                phase: QueryEvaluationPhase.PROJECTION,
+                cardinality: 'row',
+                requiresAlias: true,
+                requiresSelectWrapping: true,
+            },
+            parameters: {
+                referencePoint: referencePoint,
+                targetColumns: targetColumns,
+                alias: alias,
+                maxDistance: maxDistance,
+                orderByDistance: orderByDistance,
+                valueClauseKeywords: valueClauseKeywords,
+                unit: unit,
+                where: {
+                    [valueClauseKeywords[0]]: referencePoint.lat,
+                    [valueClauseKeywords[1]]: referencePoint.lon,
+                }
+            },
+        };
+
+        this.queryLayers.base.expressions ??= [];
+        this.queryLayers.base.expressions.push(expression);
+
+        return this;
     }
 
-    public get Relations(): relation[] {
-        return this.relations;
-    }
+    public isTextRelevant(params: {
+        targetColumns: string[],
+        searchTerm: string,
+        minimumRelevance?: number,
+        alias?: string,
+        orderByRelevance?: 'ASC' | 'DESC',
+    }): this {
+        const { targetColumns, searchTerm, minimumRelevance, alias = 'relevance', orderByRelevance = "ASC" } = params;
+        const valueClauseKeyword = `${alias}_searchTerm`;
 
-    public async insertRecordIntoPivotTable(
-        otherTable: string,
-        foreignKey: string
-    ): Promise<void> {
-        await this.callRelationMethod(otherTable);
+        const expression: TextRelevanceQueryExpression = {
+            type: 'textRelevance',
+            requirements: {
+                phase: QueryEvaluationPhase.PROJECTION,
+                cardinality: 'row',
+                requiresAlias: true,
+                requiresSelectWrapping: true,
+            },
+            parameters: {
+                targetColumns: targetColumns,
+                searchTerm: searchTerm,
+                alias: alias,
+                minimumRelevance: minimumRelevance,
+                orderByRelevance: orderByRelevance,
+                valueClauseKeywords: [valueClauseKeyword],
+                where: {
+                    [valueClauseKeyword]: searchTerm,
+                }
+            },
+        };
 
-        const relation = this.relations[this.relations.length - 1];
-        this.relations.pop();
+        this.queryLayers.base.expressions ??= [];
+        this.queryLayers.base.expressions.push(expression);
 
-        await this.repository.insertRecordIntoPivotTable(foreignKey, this, relation);
-    }
-
-    protected async ManyToMany<modelType extends Model<columnType>>(
-        model: modelType,
-        pivotTable: string = [this.Configuration.table, model.Configuration.table].sort().join('_'),
-        localKey: string = this.Configuration.primaryKey,
-        foreignKey: string = model.Configuration.primaryKey,
-        pivotForeignKey: string = `${this.Configuration.table}_${localKey}`,
-        pivotLocalKey: string = `${model.Configuration.table}_${foreignKey}`,
-    ): Promise<this> {
-        const relation = await this.repository.getManyToManyRelation({
-            type: 'manyToMany',
-            model: model,
-            pivotTable: pivotTable,
-            foreignKey: foreignKey,
-            pivotForeignKey: pivotForeignKey,
-            localKey: localKey,
-            pivotLocalKey: pivotLocalKey,
+        this.queryLayers.pretty ??= {};
+        this.queryLayers.pretty.where ??= [];
+        this.queryLayers.pretty.where.push({
+            column: alias,
+            operator: '>=',
+            value: minimumRelevance || 1,
         });
 
-        this.relations.push(relation!);
+        this.queryLayers.pretty.select ??= [];
+        this.queryLayers.pretty.select.push(alias);
 
         return this;
     }
 
-    protected hasMany<modelType extends Model<columnType>>(
-        model: modelType,
-        foreignKey: string = `${this.Configuration.table}_${this.Configuration.primaryKey}`,
-        localKey: string = this.Configuration.primaryKey
-    ): this {
-        this.relations.push({
-            type: 'hasMany',
-            model: model,
-            foreignKey: foreignKey,
-            localKey: localKey,
+    public JsonAggregate(params: {
+        table: string,
+        columns: string[],
+        groupByColumns?: string[],
+        alias?: string,
+        nested?: NestedJsonAggregateDefinition<string>[],
+        having?: QueryWhereCondition,
+    }): this {
+        const {
+            table,
+            columns,
+            groupByColumns = [],
+            alias = table,
+            nested,
+            having,
+        } = params;
+
+        const expression: JsonAggregateQueryExpression = {
+            type: 'jsonAggregate',
+            requirements: {
+                phase: QueryEvaluationPhase.PROJECTION,
+                cardinality: 'row',
+                requiresAlias: true,
+                requiresSelectWrapping: true,
+            },
+            parameters: {
+                columns: columns,
+                table: table,
+                groupByColumns: groupByColumns,
+                alias: alias,
+                nested: nested,
+                having: having,
+            },
+        };
+
+        this.queryLayers.base.expressionsSelect ??= [];
+        const selectAliases = this.collectSelectAliases({
+            table,
+            columns,
+            nested: nested || [],
         });
+
+        this.queryLayers.base.expressionsSelect.push(...selectAliases);
+
+        this.queryLayers.pretty ??= {};
+        this.queryLayers.pretty.expressions ??= [];
+        this.queryLayers.pretty.expressions.push(expression);
+
+        this.queryLayers.final ??= {};
+        this.queryLayers.final.blacklistTables ??= [];
+        this.queryLayers.final.blacklistTables.push(...Array.from(new Set(this.collectTables({ table, nested: nested || [] }))));
+
         return this;
     }
 
-    protected hasOne<modelType extends Model<columnType>>(
-        model: modelType,
-        foreignKey: string = `${model.Configuration.primaryKey}`,
-        localKey: string = `${model.Configuration.table}_${model.Configuration.primaryKey}`
-    ): this {
-        this.relations.push({
-            type: 'hasOne',
-            model: model,
-            foreignKey: foreignKey,
-            localKey: localKey,
-        });
-        return this;
+    public async toSql(): Promise<string> {
+        const sql = await this.repository?.toSql(
+            {
+                ...this.queryLayers,
+                base: {
+                    ...this.queryLayers.base,
+                    from: this.Configuration.table,
+                }
+            },
+            this
+        );
+
+        return sql?.replace(/\s+/g, ' ').replace(/\n/g, '');
     }
 
-    protected belongsTo<modelType extends Model<columnType>>(
-        model: modelType,
-        foreignKey: string = `${model.Configuration.table}_${model.Configuration.primaryKey}`,
-        localKey: string = model.Configuration.primaryKey
-    ): this {
-        this.relations.push({
-            type: 'belongsTo',
-            model: model,
-            foreignKey: foreignKey,
-            localKey: localKey,
-        });
-        return this;
-    }
+    private collectSelectAliases(def: { table: string; columns: string[]; nested?: NestedJsonAggregateDefinition<string>[] }): string[] {
+        const columnAliases = def.columns.map(col => `${def.table}.${col} AS ${def.table}_${col}`);
 
-    public static with<ParamterModelType extends Model<columnType>>(
-        this: new () => ParamterModelType,
-        relation: string,
-        queryScopes?: QueryWhereCondition
-    ): ParamterModelType {
-        const instance = new this();
-        return instance.with(relation, queryScopes);
-    }
-
-    public with(relation: string, queryScopes?: QueryWhereCondition): this {
-        const result = this.callRelationMethod(relation);
-        
-        if (result instanceof Promise) {
-            throw new Error(
-                `Relation method '${relation}' is asynchronous. Use asyncWith() instead of with().`
-            );
+        if (def.nested) {
+            for (const child of def.nested) {
+                columnAliases.push(...this.collectSelectAliases(child));
+            }
         }
 
-        const lastRelation = this.relations[this.relations.length - 1];
-        const tableName = lastRelation.model.Configuration.table;
-
-        const normalizedScopes = this.normalizeQueryScopes(queryScopes, tableName);
-
-        this.joinedEntities.push({
-            relation: relation,
-            queryScopes: normalizedScopes
-        });
-
-        return this;
+        return columnAliases;
     }
 
-    public async asyncWith(relation: string, queryScopes?: QueryWhereCondition): Promise<this> {
-        await this.callRelationMethod(relation);
+    private collectTables(def: { table: string; nested?: NestedJsonAggregateDefinition<string>[] }): string[] {
+        const result = [def.table];
 
-        const lastRelation = this.relations[this.relations.length - 1];
-        const tableName = lastRelation.model.Configuration.table;
-
-        const normalizedScopes = this.normalizeQueryScopes(queryScopes, tableName);
-
-        this.joinedEntities.push({
-            relation: relation,
-            queryScopes: normalizedScopes
-        });
-
-        return this;
-    }
-
-    public callRelationMethod(relation: string): void | Promise<void> {
-        const method = Reflect.get(this, relation);
-        if (typeof method !== 'function') {
-            throw new Error(`Relation method '${relation}' does not exist`);
-        }
-        const result = method.call(this);
-        
-        //@TODO: check if method is not static 
-        // Only return promise if the method is actually async
-        return result instanceof Promise ? result : undefined;
-    }
-
-    private normalizeQueryScopes(
-        queryScopes: QueryWhereCondition | undefined,
-        tableName: string
-    ): QueryComparisonParameters[] | undefined {
-        if (!queryScopes) {
-            return undefined;
+        if (def.nested) {
+            for (const child of def.nested) {
+                result.push(...this.collectTables(child));
+            }
         }
 
-        const isSingleParameter =
-            Object.keys(queryScopes).length === 3 &&
-            'column' in queryScopes &&
-            'operator' in queryScopes &&
-            'value' in queryScopes;
-
-        const scopesArray = isSingleParameter
-            ? [queryScopes as QueryComparisonParameters]
-            : this.repository.ConvertParamsToArray(queryScopes);
-
-        return scopesArray.map(scope => ({
-            ...scope,
-            column: `${tableName}.${scope.column}`
-        }));
+        return result;
     }
+
 
     public toJSON(): Partial<ModelType> | ModelType {
         return this.attributes;

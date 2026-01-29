@@ -1,14 +1,12 @@
 import {
-    DefaultQueryParameters,
-    Join,
-    ExtraQueryParameters,
     ReadableTableColumnInfo,
     TableColumnInfo,
     columnType,
     QueryFactory,
     RecordFactory,
+    QueryLayers,
 } from "@core/types/index.js";
-import QueryStatementBuilder from "@core/helpers/QueryStatementBuilder.js";
+import QueryStatementBuilder from "@core/helpers/QueryBuilders/QueryStatementBuilder.js";
 import { Record, Query } from "@core/index.js";
 
 /** Table class for interacting with a database table */
@@ -21,7 +19,7 @@ export default class Table {
 
     /** Private constructor - use Table.create() */
     constructor(
-        name: string, 
+        name: string,
         customAdapter?: string,
         queryFactory: QueryFactory = (config) => new Query(config),
         recordFactory: RecordFactory = (table, values, adapter) => new Record(table, values, adapter)
@@ -30,7 +28,7 @@ export default class Table {
         this._customAdapter = customAdapter;
         this._queryFactory = queryFactory;
         this._recordFactory = recordFactory;
-        
+
         this._query = this._queryFactory({
             tableName: this._name,
             adapterName: this._customAdapter,
@@ -72,19 +70,17 @@ export default class Table {
 
     /** Fetch records with optional filtering, ordering, and pagination */
     public async Records<Type extends columnType>(
-        options?: DefaultQueryParameters & ExtraQueryParameters
+        queryLayers: QueryLayers
     ): Promise<Record<Type>[]> {
-        const queryStr = QueryStatementBuilder.BuildSelect(this._name, {
-            select: options?.select,
-            where: options?.where,
-            orderBy: options?.orderBy,
-            limit: options?.limit,
-            offset: options?.offset,
-        });
+        const builder = new QueryStatementBuilder(queryLayers);
+        const queryStr = await builder.build();
 
         let params = {}
-        if (options?.where && Object.keys(options.where).length > 0)
-            params = options.where;
+        if (queryLayers?.base?.where && Object.keys(queryLayers.base.where).length > 0)
+            params = queryLayers.base.where;
+
+        if (queryLayers?.pretty?.where && Object.keys(queryLayers.pretty.where).length > 0)
+            params = { ...params, ...queryLayers.pretty.where };
 
         const query = this._queryFactory({
             tableName: this._name,
@@ -98,13 +94,14 @@ export default class Table {
 
     /** Fetch a single record from the table */
     public async Record<Type extends columnType>(
-        options?: DefaultQueryParameters & ExtraQueryParameters
+        queryLayers: QueryLayers
     ): Promise<Record<Type> | undefined> {
         const results = await this.Records<Type>({
-            select: options?.select,
-            where: options?.where,
-            orderBy: options?.orderBy,
-            limit: 1
+            ...queryLayers,
+            final: {
+                ...queryLayers?.final,
+                limit: 1,
+            },
         });
 
         return results[0];
@@ -140,14 +137,32 @@ export default class Table {
 
     /** Perform JOIN operations with other tables */
     public async Join<Type extends columnType>(
-        Joins: Join | Join[],
-        options?: DefaultQueryParameters & ExtraQueryParameters
+        queryLayers: QueryLayers
     ): Promise<Record<Type>[]> {
-        const queryString = await QueryStatementBuilder.BuildJoin(this._name, Joins, this.QueryHelperObject, options);
+        if (queryLayers.base.joins === undefined || (Array.isArray(queryLayers.base.joins) && queryLayers.base.joins.length === 0)) {
+            throw new Error("No joins defined for the Join operation.");
+        }
+
+        const joinedTables = queryLayers.base.joins.map(j => j.fromTable);
+        const tableColumnCache = new Map<string, TableColumnInfo[]>();
+
+        const columnInfo = await this._query.TableColumnInformation(this._name);
+        tableColumnCache.set(this._name, columnInfo);
+
+        for (const tableName of joinedTables) {
+            const columnInfo = await this._query.TableColumnInformation(tableName);
+            tableColumnCache.set(tableName, columnInfo);
+        }
+
+        const builder = new QueryStatementBuilder(queryLayers, tableColumnCache);
+        const queryString = await builder.build();
 
         let params = {}
-        if (options?.where)
-            params = options.where
+        if (queryLayers?.base?.where)
+            params = this.QueryHelperObject.ConvertParamsToObject(queryLayers.base.where);
+
+        if (queryLayers?.pretty?.where)
+            params = { ...params, ...this.QueryHelperObject.ConvertParamsToObject(queryLayers.pretty.where) };
 
         const query = this._queryFactory({
             tableName: this._name,
@@ -156,10 +171,6 @@ export default class Table {
             recordFactory: this._recordFactory
         });
 
-        const joinedTables = Array.isArray(Joins) ? Joins.map(j => j.fromTable) : [Joins.fromTable];
-        if (options) {
-            options.select = joinedTables.map(table => `${table}.*`).join(', ');
-        }
         const records = await query.All<Type>();
         const splitTables = await this.splitJoinValues<Type>(records, joinedTables);
         return splitTables;
@@ -172,10 +183,6 @@ export default class Table {
             const mainTableData: columnType = {};
             const joinedTableData: { [tableName: string]: columnType } = {};
 
-            for (const tableName of joinedTables) {
-                joinedTableData[tableName] = {};
-            }
-
             for (const [aliasedKey, value] of Object.entries(record.values)) {
                 if (aliasedKey.includes('__')) {
                     const [tableName, columnName] = aliasedKey.split('__');
@@ -184,6 +191,7 @@ export default class Table {
                         mainTableData[columnName] = value;
                     }
                     else if (joinedTables.includes(tableName)) {
+                        joinedTableData[tableName] ??= {};
                         joinedTableData[tableName][columnName] = value;
                     }
                 } else {
@@ -191,10 +199,35 @@ export default class Table {
                 }
             }
 
-            // Combine main table data with nested joined table data
-            const combinedData: Type = { ...mainTableData, ...joinedTableData } as Type;
+            const filteredJoinedData = Object.fromEntries(
+                // eslint-disable-next-line no-unused-vars
+                Object.entries(joinedTableData).filter(([_, data]) => Object.keys(data).length > 0)
+            );
+
+            const combinedData: Type = { ...mainTableData, ...filteredJoinedData } as Type;
 
             return this._recordFactory<Type>(this._name, combinedData, this._customAdapter);
         });
+    }
+
+    public async toSql(queryLayers: QueryLayers): Promise<string> {
+        if (queryLayers.base.joins && queryLayers.base.joins.length > 0) {
+            const joinedTables = queryLayers.base.joins.map(j => j.fromTable);
+            const tableColumnCache = new Map<string, TableColumnInfo[]>();
+
+            const columnInfo = await this._query.TableColumnInformation(this._name);
+            tableColumnCache.set(this._name, columnInfo);
+
+            for (const tableName of joinedTables) {
+                const columnInfo = await this._query.TableColumnInformation(tableName);
+                tableColumnCache.set(tableName, columnInfo);
+            }
+
+            const builder = new QueryStatementBuilder(queryLayers, tableColumnCache);
+            return await builder.build();
+        } else {
+            const builder = new QueryStatementBuilder(queryLayers);
+            return await builder.build();
+        }
     }
 }
