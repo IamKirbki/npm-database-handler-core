@@ -113,16 +113,16 @@ export default class Repository<Type extends columnType, ModelType extends Model
         await this.Table.Insert<Type>(attributes);
     }
 
-    public async first(queryLayers: QueryLayers, Model: Model<Type>): Promise<Type | null> {
+    public async first(queryLayers: QueryLayers, Model: Model<Type>): Promise<Type | undefined> {
         let record;
         if (Model.JoinedEntities.length > 0) {
-            const results = await this.join(Model, { base: { from: Model.Configuration.table, where: queryLayers.base.where }, final: { limit: 1 } });
-            record = results[0] ? { values: results[0] } : undefined;
+            const result = (await this.join(Model, { ...queryLayers, final: { ...queryLayers.final, limit: 1 } }))[0];
+            record = result ? { values: result } : undefined;
         } else {
             record = await this.Table.Record<Type>(queryLayers);
         }
 
-        return record ? record.values : null;
+        return record?.values;
     }
 
     public async get(QueryLayers: QueryLayers, Model: Model<Type>): Promise<Type[]> {
@@ -135,12 +135,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
     }
 
     public async all(Model: Model<Type>, QueryLayers: QueryLayers): Promise<Type[]> {
-        if (Model.JoinedEntities.length > 0) {
-            return await this.join(Model, QueryLayers);
-        } else {
-            const records = await this.Table.Records<Type>(QueryLayers);
-            return records.map(record => record.values);
-        }
+        return this.get(QueryLayers, Model);
     }
 
     public async update(primaryKey: QueryIsEqualParameter, newAttributes: Partial<Type>): Promise<Record<Type> | undefined> {
@@ -154,7 +149,6 @@ export default class Repository<Type extends columnType, ModelType extends Model
         Model: Model<Type>,
         queryLayers: QueryLayers
     ): Promise<Type[]> {
-
         const { joins, queryLayers: nextLayers } =
             this.buildJoinObject(Model, queryLayers);
 
@@ -168,7 +162,6 @@ export default class Repository<Type extends columnType, ModelType extends Model
         queryLayers: QueryLayers,
         Model: Model<Type>
     ): Promise<string> {
-
         let nextLayers = queryLayers;
 
         if (Model.JoinedEntities.length > 0) {
@@ -218,51 +211,52 @@ export default class Repository<Type extends columnType, ModelType extends Model
                 queryLayers.base.where = join.queryScopes;
             }
 
-            if (relation.type === 'manyToMany') {
-                queryLayers.final ??= {};
-                queryLayers.final.blacklistTables ??= [];
+            if (relation.type !== 'manyToMany') {
+                const joinType =
+                    relation.type === 'hasOne' || relation.type === 'belongsTo'
+                        ? 'INNER'
+                        : 'LEFT';
 
-                queryLayers.final.blacklistTables = [
-                    ...queryLayers.final.blacklistTables,
-                    relation.pivotTable!
-                ];
+                const [baseTable, baseKey] = relation.localKey.includes('.')
+                    ? relation.localKey.split('.')
+                    : [Model.Configuration.table, relation.localKey];
 
                 return [
                     {
-                        fromTable: relation.pivotTable!,
-                        baseTable: Model.Configuration.table,
-                        joinType: 'INNER',
-                        on: [
-                            { [relation.pivotForeignKey!]: relation.localKey }
-                        ]
-                    },
-                    {
                         fromTable: relation.model.Configuration.table,
-                        baseTable: relation.pivotTable!,
-                        joinType: 'INNER',
+                        baseTable,
+                        joinType,
                         on: [
-                            { [relation.foreignKey!]: relation.pivotLocalKey! }
+                            { [relation.foreignKey!]: baseKey! }
                         ]
                     }
                 ];
             }
 
-            const joinType =
-                relation.type === 'hasOne' || relation.type === 'belongsTo'
-                    ? 'INNER'
-                    : 'LEFT';
+            // many to many
+            queryLayers.final ??= {};
+            queryLayers.final.blacklistTables ??= [];
 
-            const [baseTable, baseKey] = relation.localKey.includes('.')
-                ? relation.localKey.split('.')
-                : [Model.Configuration.table, relation.localKey];
+            queryLayers.final.blacklistTables = [
+                ...queryLayers.final.blacklistTables,
+                relation.pivotTable!
+            ];
 
             return [
                 {
-                    fromTable: relation.model.Configuration.table,
-                    baseTable,
-                    joinType,
+                    fromTable: relation.pivotTable!,
+                    baseTable: Model.Configuration.table,
+                    joinType: 'INNER',
                     on: [
-                        { [relation.foreignKey!]: baseKey! }
+                        { [relation.pivotForeignKey!]: relation.localKey }
+                    ]
+                },
+                {
+                    fromTable: relation.model.Configuration.table,
+                    baseTable: relation.pivotTable!,
+                    joinType: 'INNER',
+                    on: [
+                        { [relation.foreignKey!]: relation.pivotLocalKey! }
                     ]
                 }
             ];

@@ -27,8 +27,11 @@ export default abstract class ModelRelations<
     ): Promise<void> {
         await this.callRelationMethod(otherTable);
 
-        const relation = this.relations[this.relations.length - 1];
-        this.relations.pop();
+        const relation = this.relations.pop();
+
+        if (!relation) {
+            throw new Error(`Relation for pivot table insertion not found.`);
+        }
 
         await this.repository.insertRecordIntoPivotTable(foreignKey, this.self, relation);
     }
@@ -51,7 +54,11 @@ export default abstract class ModelRelations<
             pivotLocalKey: pivotLocalKey,
         });
 
-        this.relations.push(relation!);
+        if (!relation) {
+            throw new Error(`Failed to create many-to-many relation for model ${model.Configuration.table}`);
+        }
+
+        this.relations.push(relation);
 
         return this;
     }

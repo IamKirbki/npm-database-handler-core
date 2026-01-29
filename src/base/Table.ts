@@ -171,10 +171,6 @@ export default class Table {
             recordFactory: this._recordFactory
         });
 
-        if (queryLayers) {
-            queryLayers.base.select = joinedTables
-        }
-
         const records = await query.All<Type>();
         const splitTables = await this.splitJoinValues<Type>(records, joinedTables);
         return splitTables;

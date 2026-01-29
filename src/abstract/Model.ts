@@ -416,7 +416,6 @@ export default abstract class Model<
                 valueClauseKeywords: [valueClauseKeyword],
                 where: {
                     [valueClauseKeyword]: searchTerm,
-                    // [alias]: minimumRelevance || 1
                 }
             },
         };
@@ -505,7 +504,7 @@ export default abstract class Model<
             this
         );
 
-        return sql?.replace(/[ \t\r\f\v]+/g, ' ').replace(/\n/g, '');
+        return sql?.replace(/\s+/g, ' ').replace(/\n/g, '');
     }
 
     private collectSelectAliases(def: { table: string; columns: string[]; nested?: NestedJsonAggregateDefinition<string>[] }): string[] {

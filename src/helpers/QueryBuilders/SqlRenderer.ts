@@ -40,8 +40,7 @@ export default class SqlRenderer {
     private renderWhere(): string {
         if (
             !this._context.conditions?.where ||
-            Object.keys(this._context.conditions.where).length === 0 ||
-            this._context.conditions.where instanceof Date
+            Object.keys(this._context.conditions.where).length === 0
         ) {
             return "";
         }
@@ -53,7 +52,7 @@ export default class SqlRenderer {
         return where
             .map((condition) => {
                 const colName = condition.column.trim();
-                const paramName = colName.includes(".") ? colName.split(".")[1].trim() : colName;
+                const paramName = colName.includes(".") ? colName.split(".").pop()?.trim() : colName;
                 return `${colName} ${condition.operator} @${paramName}`;
             })
             .filter(Boolean)
@@ -81,7 +80,7 @@ export default class SqlRenderer {
     }
 
     private renderLimit(): string {
-        if (this._context.limit === undefined || this._context.limit === null) {
+        if (!this._context.limit) {
             return "";
         }
 
@@ -89,7 +88,7 @@ export default class SqlRenderer {
     }
 
     private renderOffset(): string {
-        if (this._context.offset === undefined || this._context.offset === null) {
+        if (!this._context.offset) {
             return "";
         }
 
