@@ -52,7 +52,7 @@ export default class SqlRenderer {
         return where
             .map((condition) => {
                 const colName = condition.column.trim();
-                const paramName = colName.includes(".") ? colName.split(".").pop()?.trim() : colName;
+                const paramName = colName.includes(".") ? colName.split(".")[1].trim() : colName;
                 return `${colName} ${condition.operator} @${paramName}`;
             })
             .filter(Boolean)

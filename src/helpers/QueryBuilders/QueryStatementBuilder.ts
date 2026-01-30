@@ -74,6 +74,12 @@ export default class QueryStatementBuilder {
                 this._layers.pretty.having = this.addUnique(this._layers.pretty.having, builder.havingClauses);
                 this._layers.base.orderBy = this.addUnique(this._layers.base.orderBy?.map(ob => ({ column: `${ob.column}`, direction: ob.direction })), builder.orderByClauses);
             }
+
+            if (this._layers.base.where) {
+                builder = new WhereDecorator(builder, this._layers.base.joins ? QueryStatementBuilder.normalizeAndQualifyConditions(this._layers.base.where, this._layers.base.from) : this._layers.base.where);
+            }
+        } else if (this._layers.base.where) {
+            builder = new WhereDecorator(builder, this._layers.base.joins ? QueryStatementBuilder.normalizeAndQualifyConditions(this._layers.base.where, this._layers.base.from) : this._layers.base.where);
         }
 
         if (this._layers.base.where) {
