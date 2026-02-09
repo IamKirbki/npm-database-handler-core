@@ -200,6 +200,8 @@ export default abstract class Model<
             this.queryLayers.base.where = [{ column: this.primaryKeyColumn, operator: '=', value: primaryKeyValue }];
         }
 
+        this.queryLayers.base.from = this.Configuration.table;
+
         const query = this.queryLayers;
 
         const record = await this.repository?.first(query, this);
