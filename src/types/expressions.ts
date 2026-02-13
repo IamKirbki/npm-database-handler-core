@@ -91,10 +91,6 @@ export type QueryExpressionRequirements = {
     requiresSelectWrapping: boolean;
 };
 
-export type QueryShape =
-    | { kind: 'flat' }
-    | { kind: 'wrapped'; reason: 'projection-expressions' };
-
 export type SpatialDistanceDefinition = {
     referencePoint: SpatialPoint;
 
