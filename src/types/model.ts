@@ -1,7 +1,7 @@
 /** Model configuration and types */
 
 import Model from "@core/abstract/Model";
-import { columnType, QueryWhereConditionType } from "./index";
+import { columnType, QueryWhereCondition } from "./index";
 
 export type ModelConfig = {
     /** Table name - defaults to lowercase class name */
