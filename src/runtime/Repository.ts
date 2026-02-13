@@ -1,44 +1,46 @@
 import type Model from "@core/abstract/Model.js";
 import Record from "@core/base/Record.js";
 import Table from "@core/base/Table.js";
-import { columnType, Join, QueryWhereCondition, relation, QueryComparisonParameters, QueryIsEqualParameter, TableFactory, QueryLayers } from "@core/types/index.js";
+import TableFactory from "@core/factories/TableFactory.js";
+import { columnType, Join, QueryWhereCondition, relation, QueryComparisonParameters, QueryIsEqualParameter, QueryLayers } from "@core/types/index.js";
+import { RepositoryConstructorType } from "@core/types/index";
 
 export default class Repository<Type extends columnType, ModelType extends Model<Type>> {
     private static _instances: Map<string, Repository<columnType, Model<columnType>>> = new Map();
     private models: Map<string, ModelType> = new Map();
     private manyToManyRelations: Map<string, relation> = new Map();
     private Table: Table
-    private customDatabaseAdapter?: string;
+    private adapter?: string;
     private tableFactory: TableFactory;
 
-    constructor(
-        tableName: string,
-        ModelClass: ModelType,
-        customDatabaseAdapter?: string,
-        tableFactory: TableFactory = (name, adapter) => new Table(name, adapter)
-    ) {
+    constructor({
+        tableName,
+        ModelClass,
+        adapter,
+        tableFactory = new TableFactory()
+    }: RepositoryConstructorType<ModelType>) {
         const modelPk = ModelClass.primaryKey?.toString() || ModelClass.constructor.name;
         this.models.set(modelPk, ModelClass);
         this.tableFactory = tableFactory;
-        this.Table = this.tableFactory(tableName, customDatabaseAdapter);
-        this.customDatabaseAdapter = customDatabaseAdapter;
+        this.Table = this.tableFactory.create({ name: tableName, adapter: adapter });
+        this.adapter = adapter;
     }
 
     public static getInstance<ModelType extends columnType>(
         ModelClass: new () => Model<ModelType>,
         tableName: string,
-        customDatabaseAdapter?: string,
+        adapter?: string,
         tableFactory?: TableFactory
     ): Repository<ModelType, Model<ModelType>> {
         // Use tableName as key to differentiate instances for different tables
         const key = tableName || ModelClass.name;
         if (!this._instances.has(key)) {
-            const instance = new Repository<ModelType, Model<ModelType>>(
+            const instance = new Repository<ModelType, Model<ModelType>>({
                 tableName,
-                new ModelClass(),
-                customDatabaseAdapter,
+                ModelClass: new ModelClass(),
+                adapter,
                 tableFactory
-            );
+            });
             this._instances.set(key, instance);
             return instance;
         }
@@ -68,7 +70,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
         modelOfOrigin: ModelType,
         relation: relation
     ): Promise<void> {
-        const table = this.tableFactory(relation.pivotTable!, this.customDatabaseAdapter);
+        const table = this.tableFactory.create({name: relation.pivotTable!, adapter: this.adapter});
         await table.Insert(this.generatePivotTableKeys(foreignKey, modelOfOrigin, relation));
     }
 
@@ -77,7 +79,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
         modelOfOrigin: ModelType,
         relation: relation
     ): Promise<void> {
-        const table = this.tableFactory(relation.pivotTable!, this.customDatabaseAdapter);
+        const table = this.tableFactory.create({name: relation.pivotTable!, adapter: this.adapter});
         const record = await table.Record({ base: { where: this.generatePivotTableKeys(foreignKey, modelOfOrigin, relation) } });
         await record?.Delete();
     }
@@ -96,7 +98,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
     }
 
     public async doesTableExist(name: string): Promise<boolean> {
-        const table = this.tableFactory(name, this.customDatabaseAdapter);
+        const table = this.tableFactory.create({name, adapter: this.adapter});
         return await table.exists();
     }
 

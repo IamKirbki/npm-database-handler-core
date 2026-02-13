@@ -1,4 +1,13 @@
-import { QueryValues, QueryIsEqualParameter } from "index";
+import QueryFactory from "@core/factories/QueryFactory.js";
+import RecordFactory from "@core/factories/RecordFactory.js";
+import { QueryValues, QueryIsEqualParameter } from "@core/types/index";
+
+export type TableConstructorType = {
+    name: string;
+    adapter?: string;
+    queryFactory?: QueryFactory;
+    recordFactory?: RecordFactory<columnType>;
+}
 
 export type TableColumnInfo = {
     cid: number;

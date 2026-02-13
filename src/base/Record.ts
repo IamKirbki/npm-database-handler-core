@@ -1,15 +1,15 @@
 import { inspect } from "util";
-import Query from "./Query.js";
 import {
     columnType,
     ModelWithTimestamps,
     QueryValues,
     QueryIsEqualParameter,
-    QueryFactory,
-    RecordFactory
 } from "@core/types/index.js";
 import QueryStatementBuilder from "@core/helpers/QueryBuilders/QueryStatementBuilder.js";
 import oldQueryStatementBuilder from "@core/helpers/QueryBuilders/oldQueryStatementBuilder.js";
+import QueryFactory from "@core/factories/QueryFactory";
+import RecordFactory from "@core/factories/RecordFactory";
+import { RecordConstructorType } from "@core/types/record";
 
 /** Record class represents a single database row */
 export default class Record<ColumnValuesType extends columnType> {
@@ -17,15 +17,15 @@ export default class Record<ColumnValuesType extends columnType> {
     private readonly _tableName: string;
     private readonly _customAdapter?: string;
     private readonly _queryFactory: QueryFactory;
-    private readonly _recordFactory: RecordFactory;
+    private readonly _recordFactory: RecordFactory<ColumnValuesType>;
 
-    constructor(
-        table: string,
-        values: ColumnValuesType,
-        adapter?: string,
-        queryFactory: QueryFactory = (config) => new Query(config),
-        recordFactory: RecordFactory = (table, values, adapter) => new Record(table, values, adapter)
-    ) {
+    constructor({
+        table,
+        values,
+        adapter,
+        queryFactory = new QueryFactory(),
+        recordFactory = new RecordFactory<ColumnValuesType>(),
+    }: RecordConstructorType<ColumnValuesType>) {
         this._tableName = table;
         this._values = values;
         this._customAdapter = adapter;
@@ -46,7 +46,7 @@ export default class Record<ColumnValuesType extends columnType> {
         }
 
         const queryStr = await oldQueryStatementBuilder.BuildInsert(this._tableName, this._values);
-        const query = this._queryFactory({
+        const query = this._queryFactory.create({
             tableName: this._tableName,
             query: queryStr,
             parameters: this._values,
@@ -71,7 +71,7 @@ export default class Record<ColumnValuesType extends columnType> {
 
         const builder = new QueryStatementBuilder({ base: { from: this._tableName, where: { ...this._values } } });
         const queryStrSelect = await builder.build();
-        const querySelect = this._queryFactory({
+        const querySelect = this._queryFactory.create({
             tableName: this._tableName,
             query: queryStrSelect,
             parameters: this._values,
@@ -103,7 +103,7 @@ export default class Record<ColumnValuesType extends columnType> {
             params[`where_${key}` as keyof ColumnValuesType] = value;
         });
 
-        const _query = this._queryFactory({
+        const _query = this._queryFactory.create({
             tableName: this._tableName,
             query: queryStr,
             parameters: params as QueryIsEqualParameter,
@@ -126,7 +126,7 @@ export default class Record<ColumnValuesType extends columnType> {
         }
 
         const queryStr = await oldQueryStatementBuilder.BuildDelete(this._tableName, this._values);
-        const _query = this._queryFactory({
+        const _query = this._queryFactory.create({
             tableName: this._tableName,
             query: queryStr,
             parameters: this.values,

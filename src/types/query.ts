@@ -1,4 +1,5 @@
-import { expressionClause, Join, PossibleBaseExpressions, PossibleExpressions, PossiblePrettyExpressions, RecordFactory } from "@core/index.js";
+import RecordFactory from "@core/factories/RecordFactory";
+import { columnType, expressionClause, Join, PossibleBaseExpressions, PossibleExpressions, PossiblePrettyExpressions } from "@core/index.js";
 
 export type QueryIsEqualParameter = {
     [key: string]: QueryValues;
@@ -34,7 +35,7 @@ export type QueryConstructorType = {
     query?: string;
     parameters?: QueryWhereCondition;
     adapterName?: string;
-    recordFactory?: RecordFactory;
+    recordFactory?: RecordFactory<columnType>;
 };
 
 export type QueryLayers = {

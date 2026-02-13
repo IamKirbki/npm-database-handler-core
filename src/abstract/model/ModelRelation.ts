@@ -122,23 +122,16 @@ export default abstract class ModelRelations<
                 `Relation method '${relation}' is asynchronous. Use asyncWith() instead of with().`
             );
         }
-
-        const lastRelation = this.relations[this.relations.length - 1];
-        const tableName = lastRelation.model.Configuration.table;
-
-        const normalizedScopes = this.normalizeQueryScopes(queryScopes, tableName);
-
-        this.joinedEntities.push({
-            relation: relation,
-            queryScopes: normalizedScopes
-        });
-
-        return this;
+        
+        return this.joinLastRelation(relation, queryScopes);
     }
 
     public async asyncWith(relation: string, queryScopes?: QueryWhereCondition): Promise<this> {
         await this.callRelationMethod(relation);
+        return this.joinLastRelation(relation, queryScopes);
+    }
 
+    private joinLastRelation(relation: string, queryScopes?: QueryWhereCondition): this {
         const lastRelation = this.relations[this.relations.length - 1];
         const tableName = lastRelation.model.Configuration.table;
 

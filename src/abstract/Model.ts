@@ -285,6 +285,7 @@ export default abstract class Model<
                 }
             }
         );
+
         return records.map((record) => {
             const instance = new (this.constructor as new () => this)();
             instance.set(record);
@@ -307,8 +308,10 @@ export default abstract class Model<
         if (attributes[this.primaryKeyColumn] !== undefined && !this.exists) {
             this.repository.syncModel(this);
         }
+
         this.attributes = { ...this.attributes, ...attributes };
         this.dirty = true;
+
         return this;
     }
 
@@ -317,9 +320,12 @@ export default abstract class Model<
             ...this.originalAttributes,
             ...this.attributes,
         };
+
         await this.repository.save(this.originalAttributes as ModelType);
+
         this.exists = true;
         this.dirty = false;
+
         return this;
     }
 

@@ -2,36 +2,37 @@ import {
     ReadableTableColumnInfo,
     TableColumnInfo,
     columnType,
-    QueryFactory,
-    RecordFactory,
     QueryLayers,
+    TableConstructorType,
 } from "@core/types/index.js";
 import QueryStatementBuilder from "@core/helpers/QueryBuilders/QueryStatementBuilder.js";
 import { Record, Query } from "@core/index.js";
+import QueryFactory from "@core/factories/QueryFactory.js";
+import RecordFactory from "@core/factories/RecordFactory.js";
 
 /** Table class for interacting with a database table */
 export default class Table {
     private readonly _query: Query;
-    private readonly _customAdapter?: string;
+    private readonly _adapter?: string;
     private readonly _name: string;
     private readonly _queryFactory: QueryFactory;
-    private readonly _recordFactory: RecordFactory;
+    private readonly _recordFactory: RecordFactory<columnType>;
 
     /** Private constructor - use Table.create() */
-    constructor(
-        name: string,
-        customAdapter?: string,
-        queryFactory: QueryFactory = (config) => new Query(config),
-        recordFactory: RecordFactory = (table, values, adapter) => new Record(table, values, adapter)
-    ) {
+    constructor({
+        name,
+        adapter,
+        queryFactory = new QueryFactory(),
+        recordFactory = new RecordFactory<columnType>()
+    }: TableConstructorType) {
         this._name = name;
-        this._customAdapter = customAdapter;
+        this._adapter = adapter;
         this._queryFactory = queryFactory;
         this._recordFactory = recordFactory;
 
-        this._query = this._queryFactory({
+        this._query = this._queryFactory.create({
             tableName: this._name,
-            adapterName: this._customAdapter,
+            adapterName: this._adapter,
             recordFactory: this._recordFactory
         });
     }
@@ -59,10 +60,10 @@ export default class Table {
 
     public async Drop(): Promise<void> {
         const queryStr = `DROP TABLE IF EXISTS "${this._name}";`;
-        const query = this._queryFactory({
+        const query = this._queryFactory.create({
             tableName: this._name,
             query: queryStr,
-            adapterName: this._customAdapter,
+            adapterName: this._adapter,
             recordFactory: this._recordFactory
         });
         await query.Run();
@@ -82,7 +83,7 @@ export default class Table {
         if (queryLayers?.pretty?.where && Object.keys(queryLayers.pretty.where).length > 0)
             params = { ...params, ...queryLayers.pretty.where };
 
-        const query = this._queryFactory({
+        const query = this._queryFactory.create({
             tableName: this._name,
             query: queryStr,
             parameters: params,
@@ -109,7 +110,7 @@ export default class Table {
 
     /** Get the total count of records */
     public async RecordsCount(): Promise<number> {
-        const query = this._queryFactory({
+        const query = this._queryFactory.create({
             tableName: this._name,
             query: `SELECT COUNT(*) as count FROM "${this._name}"`,
             recordFactory: this._recordFactory
@@ -119,9 +120,9 @@ export default class Table {
     }
 
     public async exists(): Promise<boolean> {
-        const query = this._queryFactory({
+        const query = this._queryFactory.create({
             tableName: this._name,
-            adapterName: this._customAdapter,
+            adapterName: this._adapter,
             recordFactory: this._recordFactory
         })
 
@@ -130,9 +131,13 @@ export default class Table {
 
     /** Insert a record into the table */
     public async Insert<Type extends columnType>(values: Type): Promise<Record<Type> | undefined> {
-        const record = this._recordFactory(this._name, values, this._customAdapter);
+        const record = this._recordFactory.create({
+            table: this._name, 
+            values, 
+            adapter: this._adapter
+        });
         await record.Insert();
-        return record;
+        return record as Record<Type>;
     }
 
     /** Perform JOIN operations with other tables */
@@ -164,7 +169,7 @@ export default class Table {
         if (queryLayers?.pretty?.where)
             params = { ...params, ...this.QueryHelperObject.ConvertParamsToObject(queryLayers.pretty.where) };
 
-        const query = this._queryFactory({
+        const query = this._queryFactory.create({
             tableName: this._name,
             query: queryString,
             parameters: params,
@@ -206,7 +211,11 @@ export default class Table {
 
             const combinedData: Type = { ...mainTableData, ...filteredJoinedData } as Type;
 
-            return this._recordFactory<Type>(this._name, combinedData, this._customAdapter);
+            return this._recordFactory.create({
+                table: this._name,
+                values: combinedData,
+                adapter: this._adapter
+            }) as Record<Type>;
         });
     }
 
