@@ -2,8 +2,9 @@ import type Model from "@core/abstract/Model.js";
 import Record from "@core/base/Record.js";
 import Table from "@core/base/Table.js";
 import TableFactory from "@core/factories/TableFactory.js";
-import { columnType, Join, QueryWhereCondition, relation, QueryComparisonParameters, QueryIsEqualParameter, QueryLayers } from "@core/types/index.js";
+import { columnType, Join, relation, QueryIsEqualParameter, QueryLayers } from "@core/types/index.js";
 import { RepositoryConstructorType } from "@core/types/index";
+import QueryWhereCondition from "@core/base/QueryWhereConditions";
 
 export default class Repository<Type extends columnType, ModelType extends Model<Type>> {
     private static _instances: Map<string, Repository<columnType, Model<columnType>>> = new Map();
@@ -70,8 +71,8 @@ export default class Repository<Type extends columnType, ModelType extends Model
         modelOfOrigin: ModelType,
         relation: relation
     ): Promise<void> {
-        const table = this.tableFactory.create({name: relation.pivotTable!, adapter: this.adapter});
-        await table.Insert(this.generatePivotTableKeys(foreignKey, modelOfOrigin, relation));
+        const table = this.tableFactory.create({ name: relation.pivotTable!, adapter: this.adapter });
+        await table.CreateRecord(this.generatePivotTableKeys(foreignKey, modelOfOrigin, relation));
     }
 
     public async deleteRecordFromPivotTable(
@@ -79,8 +80,12 @@ export default class Repository<Type extends columnType, ModelType extends Model
         modelOfOrigin: ModelType,
         relation: relation
     ): Promise<void> {
-        const table = this.tableFactory.create({name: relation.pivotTable!, adapter: this.adapter});
-        const record = await table.Record({ base: { where: this.generatePivotTableKeys(foreignKey, modelOfOrigin, relation) } });
+        const table = this.tableFactory.create({ name: relation.pivotTable!, adapter: this.adapter });
+
+        const whereCondition = new QueryWhereCondition();
+        whereCondition.push(this.generatePivotTableKeys(foreignKey, modelOfOrigin, relation));
+
+        const record = await table.FetchSingleRecord({ base: { where: whereCondition } });
         await record?.Delete();
     }
 
@@ -98,7 +103,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
     }
 
     public async doesTableExist(name: string): Promise<boolean> {
-        const table = this.tableFactory.create({name, adapter: this.adapter});
+        const table = this.tableFactory.create({ name, adapter: this.adapter });
         return await table.exists();
     }
 
@@ -112,7 +117,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
     }
 
     public async save(attributes: Type): Promise<void> {
-        await this.Table.Insert<Type>(attributes);
+        await this.Table.CreateRecord<Type>(attributes);
     }
 
     public async first(queryLayers: QueryLayers, Model: Model<Type>): Promise<Type | undefined> {
@@ -121,7 +126,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
             const result = (await this.join(Model, { ...queryLayers, final: { ...queryLayers.final, limit: 1 } }))[0];
             record = result ? { values: result } : undefined;
         } else {
-            record = await this.Table.Record<Type>(queryLayers);
+            record = await this.Table.FetchSingleRecord<Type>(queryLayers);
         }
 
         return record?.values;
@@ -131,7 +136,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
         if (Model.JoinedEntities.length > 0) {
             return await this.join(Model, QueryLayers);
         } else {
-            const records = await this.Table.Records<Type>(QueryLayers);
+            const records = await this.Table.FetchRecords<Type>(QueryLayers);
             return records.map(record => record.values);
         }
     }
@@ -141,7 +146,10 @@ export default class Repository<Type extends columnType, ModelType extends Model
     }
 
     public async update(primaryKey: QueryIsEqualParameter, newAttributes: Partial<Type>): Promise<Record<Type> | undefined> {
-        const record = await this.Table.Record<Type>({ base: { where: primaryKey } });
+        const whereCondition = new QueryWhereCondition();
+        whereCondition.push(primaryKey);
+
+        const record = await this.Table.FetchSingleRecord<Type>({ base: { where: whereCondition } });
         if (record) {
             return await record.Update(newAttributes, primaryKey);
         }
@@ -156,7 +164,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
 
         nextLayers.base.joins = joins;
 
-        const records = await this.Table.Join<Type>(nextLayers);
+        const records = await this.Table.FetchJoined<Type>(nextLayers);
         return records.map(record => record.values);
     }
 
@@ -179,11 +187,16 @@ export default class Repository<Type extends columnType, ModelType extends Model
         Model: Model<Type>,
         inputLayers: QueryLayers
     ): { joins: Join[]; queryLayers: QueryLayers } {
+        const queryWhereCondition = new QueryWhereCondition();
+        if (inputLayers.base.where) {
+            queryWhereCondition.push(inputLayers.base.where.QueryIsEqualParameter);
+        }
+
         const queryLayers: QueryLayers = {
             ...inputLayers,
             base: {
                 ...inputLayers.base,
-                where: { ...(inputLayers.base.where ?? {}) }
+                where: queryWhereCondition
             },
             final: inputLayers.final
                 ? { ...inputLayers.final }
@@ -205,12 +218,8 @@ export default class Repository<Type extends columnType, ModelType extends Model
             }
 
             if (join.queryScopes && queryLayers.base.where) {
-                queryLayers.base.where = this.mergeQueryWhereConditions(
-                    queryLayers.base.where,
-                    join.queryScopes
-                );
-            } else {
-                queryLayers.base.where = join.queryScopes;
+                queryLayers.base.where ??= new QueryWhereCondition();
+                queryLayers.base.where.push(join.queryScopes);
             }
 
             if (relation.type !== 'manyToMany') {
@@ -265,16 +274,5 @@ export default class Repository<Type extends columnType, ModelType extends Model
         });
 
         return { joins, queryLayers };
-    }
-
-
-    public mergeQueryWhereConditions(base: QueryWhereCondition, additional: QueryWhereCondition): QueryComparisonParameters[] {
-        const query = this.Table.QueryHelperObject;
-        return [...query.ConvertParamsToArray(base), ...query.ConvertParamsToArray(additional)];
-    }
-
-    public ConvertParamsToArray(params: QueryWhereCondition): QueryComparisonParameters[] {
-        const query = this.Table.QueryHelperObject;
-        return query.ConvertParamsToArray(params);
     }
 }

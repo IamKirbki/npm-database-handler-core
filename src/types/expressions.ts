@@ -1,4 +1,5 @@
-import { OrderByDefinition, QueryWhereCondition } from "@core/types/index.js";
+import QueryWhereCondition from "@core/base/QueryWhereConditions";
+import { OrderByDefinition, QueryWhereConditionType } from "@core/types/index.js";
 
 export type expressionClause = {
     /**
@@ -36,13 +37,13 @@ export type expressionClause = {
      */
     orderByClause?: OrderByDefinition;
 
-    whereClause?: QueryWhereCondition;
+    whereClause?: QueryWhereConditionType;
 
     valueClauseKeywords?: string[];
 
     groupByClause?: string;
 
-    havingClause?: QueryWhereCondition;
+    havingClause?: QueryWhereConditionType;
 };
 
 /**
@@ -83,8 +84,8 @@ export type QueryExpressionRequirements = {
     cardinality: 'row' | 'aggregate';
 
     select?: string;
-    where?: QueryWhereCondition;
-    having?: QueryWhereCondition;
+    where?: QueryWhereConditionType;
+    having?: QueryWhereConditionType;
     orderBy?: string;
 
     requiresAlias: boolean;
@@ -101,7 +102,7 @@ export type SpatialDistanceDefinition = {
     alias: string;
 
     valueClauseKeywords: string[];
-    where?: QueryWhereCondition;
+    where?: QueryWhereConditionType;
 
     maxDistance: number;
     orderByDistance?: 'ASC' | 'DESC';
@@ -131,7 +132,7 @@ export type TextRelevanceDefinition = {
     searchTerm: string;
 
     alias: string;
-    where?: QueryWhereCondition;
+    where?: QueryWhereConditionType;
     valueClauseKeywords: string[];
 
     minimumRelevance?: number;
@@ -187,7 +188,7 @@ export type NestedJsonAggregateDefinition<Tables extends string = string> = {
     computed?: PossibleComputedExpressions[];
 
     /** Having clause */
-    having?: QueryWhereCondition;
+    having?: QueryWhereConditionType;
 
     /** Nested JSON objects or arrays */
     nested?: NestedJsonAggregateDefinition<Tables>[];

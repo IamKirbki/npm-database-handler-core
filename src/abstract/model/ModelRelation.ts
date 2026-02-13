@@ -1,4 +1,4 @@
-import { columnType, joinedEntity, ModelConfig, QueryComparisonParameters, QueryWhereCondition, relation } from "@core/types/index.js";
+import { columnType, joinedEntity, ModelConfig, QueryComparisonParameters, QueryWhereConditionType, relation } from "@core/types/index.js";
 import Model from "@core/abstract/Model.js";
 import Repository from '@core/runtime/Repository.js';
 
@@ -108,13 +108,13 @@ export default abstract class ModelRelations<
     public static with<ParameterModelType extends Model<columnType>>(
         this: new () => ParameterModelType,
         relation: string,
-        queryScopes?: QueryWhereCondition
+        queryScopes?: QueryWhereConditionType
     ): ParameterModelType {
         const instance = new this();
         return instance.with(relation, queryScopes);
     }
 
-    public with(relation: string, queryScopes?: QueryWhereCondition): this {
+    public with(relation: string, queryScopes?: QueryWhereConditionType): this {
         const result = this.callRelationMethod(relation);
 
         if (result instanceof Promise) {
@@ -126,12 +126,12 @@ export default abstract class ModelRelations<
         return this.joinLastRelation(relation, queryScopes);
     }
 
-    public async asyncWith(relation: string, queryScopes?: QueryWhereCondition): Promise<this> {
+    public async asyncWith(relation: string, queryScopes?: QueryWhereConditionType): Promise<this> {
         await this.callRelationMethod(relation);
         return this.joinLastRelation(relation, queryScopes);
     }
 
-    private joinLastRelation(relation: string, queryScopes?: QueryWhereCondition): this {
+    private joinLastRelation(relation: string, queryScopes?: QueryWhereConditionType): this {
         const lastRelation = this.relations[this.relations.length - 1];
         const tableName = lastRelation.model.Configuration.table;
 
@@ -158,7 +158,7 @@ export default abstract class ModelRelations<
     }
 
     private normalizeQueryScopes(
-        queryScopes: QueryWhereCondition | undefined,
+        queryScopes: QueryWhereConditionType | undefined,
         tableName: string
     ): QueryComparisonParameters[] | undefined {
         if (!queryScopes) {

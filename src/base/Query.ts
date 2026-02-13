@@ -1,9 +1,7 @@
 import {
   columnType,
-  QueryWhereCondition,
-  QueryIsEqualParameter,
+  QueryWhereConditionType,
   TableColumnInfo,
-  QueryComparisonParameters,
   QueryConstructorType,
 } from '@core/types/index.js';
 import { Container, Record, IDatabaseAdapter } from '@core/index.js';
@@ -21,9 +19,9 @@ export default class Query {
   private readonly _queryCache: QueryCache;
 
   private _query?: string;
-  private _parameters: QueryWhereCondition = {};
+  private _parameters: QueryWhereConditionType = {};
 
-  public get Parameters(): QueryWhereCondition {
+  public get Parameters(): QueryWhereConditionType {
     return this._parameters;
   }
 
@@ -37,7 +35,7 @@ export default class Query {
     this.TableName = tableName;
     this._query = query;
 
-    if (parameters) this._parameters = this.ConvertParamsToObject(parameters);
+    if (parameters) this._parameters = parameters;
     // eslint-disable-next-line no-undef
     if (Container.getInstance().logging) this._query ? console.info(this._query, "\n", this._parameters) : console.info("No query found, probably checking if a table exists or getting the table column information.");
 
@@ -133,57 +131,5 @@ export default class Query {
     const stmt = await this._adapter.prepare(this._query);
     const result = (await stmt.get(this.Parameters)) as { count: string };
     return parseInt(result.count) || 0;
-  }
-
-  public ConvertParamsToArray(
-    params: QueryWhereCondition,
-  ): QueryComparisonParameters[] {
-    const paramArray: QueryComparisonParameters[] = [];
-
-    if (Array.isArray(params)) {
-      return params;
-    } else {
-      Object.entries(params).forEach(([key, value]) => {
-        return paramArray.push({
-          column: key,
-          operator: '=',
-          value,
-        });
-      });
-    }
-
-    return paramArray;
-  }
-
-  /** Convert various parameter formats to a consistent object format */
-  public ConvertParamsToObject(
-    params: QueryWhereCondition,
-  ): QueryIsEqualParameter {
-    const paramObject: QueryIsEqualParameter = {};
-    if (Array.isArray(params)) {
-      params.forEach((param) => {
-        paramObject[param.column] = param.value;
-      });
-    } else {
-      Object.assign(paramObject, params);
-    }
-
-    return this.ConvertValueToString(paramObject);
-  }
-
-  /** Databases don't like numeric values when inserting with a query */
-  public ConvertValueToString(
-    params: QueryIsEqualParameter,
-  ): QueryIsEqualParameter {
-    return Object.entries(params)
-      .map(([key, value]) => {
-        return {
-          [key]:
-            value !== null && !(value instanceof Date) && value !== undefined
-              ? value.toString()
-              : value,
-        };
-      })
-      .reduce((acc, curr) => ({ ...acc, ...curr }), {});
   }
 }

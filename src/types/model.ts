@@ -1,7 +1,7 @@
 /** Model configuration and types */
 
 import Model from "@core/abstract/Model";
-import { columnType, QueryWhereCondition } from "./index";
+import { columnType, QueryWhereConditionType } from "./index";
 
 export type ModelConfig = {
     /** Table name - defaults to lowercase class name */
@@ -78,5 +78,5 @@ export type ModelWithTimestamps = {
 
 export type joinedEntity = {
     relation: string;
-    queryScopes?: QueryWhereCondition;
+    queryScopes?: QueryWhereConditionType;
 }
