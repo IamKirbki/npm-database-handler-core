@@ -193,6 +193,8 @@ export default abstract class Model<
             });
         }
 
+        this.queryLayers.base.from = this.Configuration.table;
+
         const query = this.queryLayers;
 
         const record = await this.repository?.first(query, this);
@@ -328,12 +330,6 @@ export default abstract class Model<
     }
 
     public async update(attributes: Partial<ModelType>): Promise<this> {
-        if (!this.exists) {
-            throw new Error(
-                'Cannot update a model that does not exist in the database.',
-            );
-        }
-
         if (this.primaryKey === undefined) {
             throw new Error(
                 'Primary key value is undefined. Cannot update record without a valid primary key.',

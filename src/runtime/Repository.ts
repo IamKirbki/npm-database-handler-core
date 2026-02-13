@@ -196,7 +196,6 @@ export default class Repository<Type extends columnType, ModelType extends Model
             ...inputLayers,
             base: {
                 ...inputLayers.base,
-                where: queryWhereCondition
             },
             final: inputLayers.final
                 ? { ...inputLayers.final }
