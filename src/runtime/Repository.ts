@@ -181,7 +181,6 @@ export default class Repository<Type extends columnType, ModelType extends Model
             ...inputLayers,
             base: {
                 ...inputLayers.base,
-                where: { ...(inputLayers.base.where ?? {}) }
             },
             final: inputLayers.final
                 ? { ...inputLayers.final }
@@ -207,7 +206,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
                     queryLayers.base.where,
                     join.queryScopes
                 );
-            } else {
+            } else if (join.queryScopes) {
                 queryLayers.base.where = join.queryScopes;
             }
 
