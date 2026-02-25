@@ -5,6 +5,7 @@ import {
     QueryFactory,
     RecordFactory,
     QueryLayers,
+    Join,
 } from "@core/types/index.js";
 import QueryStatementBuilder from "@core/helpers/QueryBuilders/QueryStatementBuilder.js";
 import { Record, Query } from "@core/index.js";
@@ -172,11 +173,11 @@ export default class Table {
         });
 
         const records = await query.All<Type>();
-        const splitTables = await this.splitJoinValues<Type>(records, joinedTables);
+        const splitTables = await this.splitJoinValues<Type>(records, joinedTables, queryLayers.base.joins);
         return splitTables;
     }
 
-    private async splitJoinValues<Type extends columnType>(records: Record<Type>[], joinedTables: string[]): Promise<Record<Type>[]> {
+    private async splitJoinValues<Type extends columnType>(records: Record<Type>[], joinedTables: string[], joins: Join[]): Promise<Record<Type>[]> {
         return records.map(record => {
             if (!record.values) return record;
 
@@ -191,8 +192,10 @@ export default class Table {
                         mainTableData[columnName] = value;
                     }
                     else if (joinedTables.includes(tableName)) {
-                        joinedTableData[tableName] ??= {};
-                        joinedTableData[tableName][columnName] = value;
+                        const currentJoin = joins.find(j => j.fromTable === tableName);
+                        const aliasedTableName = currentJoin?.name || tableName;
+                        joinedTableData[aliasedTableName] ??= {};
+                        joinedTableData[aliasedTableName][columnName] = value;
                     }
                 } else {
                     mainTableData[aliasedKey] = value;

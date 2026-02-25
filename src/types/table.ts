@@ -32,6 +32,7 @@ export type Join = {
     joinType: 'INNER' | 'LEFT' | 'RIGHT' | 'FULL';
     on: QueryIsEqualParameter | QueryIsEqualParameter[];
     where?: QueryIsEqualParameter | QueryIsEqualParameter[];
+    name?: string;
 }
 
 // export type Join = RequireAtLeastOne<SingleJoin, 'table' | 'join'>;
