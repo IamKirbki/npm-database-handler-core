@@ -335,6 +335,7 @@ export default abstract class Model<
         const newRecord = await this.repository?.update(
             { [this.primaryKeyColumn]: this.primaryKey },
             attributes,
+            this.Configuration.table
         );
 
         if (newRecord) {

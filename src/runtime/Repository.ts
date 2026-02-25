@@ -138,8 +138,8 @@ export default class Repository<Type extends columnType, ModelType extends Model
         return this.get(QueryLayers, Model);
     }
 
-    public async update(primaryKey: QueryIsEqualParameter, newAttributes: Partial<Type>): Promise<Record<Type> | undefined> {
-        const record = await this.Table.Record<Type>({ base: { where: primaryKey } });
+    public async update(primaryKey: QueryIsEqualParameter, newAttributes: Partial<Type>, table: string): Promise<Record<Type> | undefined> {
+        const record = await this.Table.Record<Type>({ base: { from: table, where: primaryKey } });
         if (record) {
             return await record.Update(newAttributes, primaryKey);
         }
