@@ -43,11 +43,15 @@ export default abstract class ModelRelations<
         foreignKey: string = model.Configuration.primaryKey,
         pivotForeignKey: string = `${this.Configuration.table}_${localKey}`,
         pivotLocalKey: string = `${model.Configuration.table}_${foreignKey}`,
+        path: string = pivotTable,
+        name: string = path.split('.')[1]
     ): Promise<this> {
         const relation = await this.repository.getManyToManyRelation({
             type: 'manyToMany',
             model: model,
             pivotTable: pivotTable,
+            path: path,
+            name: name,
             foreignKey: foreignKey,
             pivotForeignKey: pivotForeignKey,
             localKey: localKey,
@@ -66,13 +70,17 @@ export default abstract class ModelRelations<
     protected hasMany<modelType extends Model<columnType>>(
         model: modelType,
         foreignKey: string = `${this.Configuration.table}_${this.Configuration.primaryKey}`,
-        localKey: string = this.Configuration.primaryKey
+        localKey: string = this.Configuration.primaryKey,
+        path: string = `${this.Configuration.table}.${model.Configuration.table}`,
+        name: string = path.split('.')[1]
     ): this {
         this.relations.push({
             type: 'hasMany',
             model: model,
             foreignKey: foreignKey,
             localKey: localKey,
+            path: path,
+            name: name
         });
         return this;
     }
@@ -80,13 +88,17 @@ export default abstract class ModelRelations<
     protected hasOne<modelType extends Model<columnType>>(
         model: modelType,
         foreignKey: string = `${model.Configuration.primaryKey}`,
-        localKey: string = `${model.Configuration.table}_${model.Configuration.primaryKey}`
+        localKey: string = `${model.Configuration.table}_${model.Configuration.primaryKey}`,
+        path: string = `${this.Configuration.table}.${model.Configuration.table}`,
+        name: string = path.split('.')[1]
     ): this {
         this.relations.push({
             type: 'hasOne',
             model: model,
             foreignKey: foreignKey,
             localKey: localKey,
+            path: path,
+            name: name
         });
         return this;
     }
@@ -94,13 +106,17 @@ export default abstract class ModelRelations<
     protected belongsTo<modelType extends Model<columnType>>(
         model: modelType,
         foreignKey: string = `${model.Configuration.table}_${model.Configuration.primaryKey}`,
-        localKey: string = model.Configuration.primaryKey
+        localKey: string = model.Configuration.primaryKey,
+        path: string = `${this.Configuration.table}.${model.Configuration.table}`,
+        name: string = path.split('.')[1]
     ): this {
         this.relations.push({
             type: 'belongsTo',
             model: model,
             foreignKey: foreignKey,
             localKey: localKey,
+            path: path,
+            name: name
         });
         return this;
     }
@@ -130,6 +146,7 @@ export default abstract class ModelRelations<
 
         this.joinedEntities.push({
             relation: relation,
+            path: lastRelation.path,
             queryScopes: normalizedScopes
         });
 
@@ -146,6 +163,7 @@ export default abstract class ModelRelations<
 
         this.joinedEntities.push({
             relation: relation,
+            path: lastRelation.path,
             queryScopes: normalizedScopes
         });
 

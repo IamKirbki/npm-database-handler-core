@@ -188,12 +188,16 @@ export default class Repository<Type extends columnType, ModelType extends Model
         };
 
         const joins: Join[] = Model.JoinedEntities.flatMap(join => {
-            const relation = Model.Relations.find(
+            let relation = Model.Relations.find(
                 rel =>
                     rel.model.Configuration.table
                         .replace("_", "")
                         .toLowerCase() === join.relation.toLowerCase()
             );
+
+            if (!relation) {
+                relation = Model.Relations.find(rel => rel.path.split(".")[1] === join.path.split('.')[1]); //Try a little harder
+            }
 
             if (!relation) {
                 throw new Error(
@@ -216,17 +220,34 @@ export default class Repository<Type extends columnType, ModelType extends Model
                         ? 'INNER'
                         : 'LEFT';
 
-                const [baseTable, baseKey] = relation.localKey.includes('.')
-                    ? relation.localKey.split('.')
-                    : [Model.Configuration.table, relation.localKey];
+
+                let baseTable: string | undefined;
+                let targetTable: string | undefined;
+                let baseKey: string | undefined;
+
+                const [firstPathSegment, secondPathSegment] = relation.path.split('.');
+
+                if (firstPathSegment !== Model.Configuration.table) {
+                    baseTable = firstPathSegment;
+                    targetTable = secondPathSegment;
+                } else {
+                    baseTable = Model.Configuration.table;
+
+                    if (relation.localKey.includes('.')) {
+                        [baseTable, baseKey] = relation.localKey.split('.');
+                    } else {
+                        baseKey = relation.localKey;
+                    }
+                }
 
                 return [
                     {
-                        fromTable: relation.model.Configuration.table,
-                        baseTable,
+                        fromTable: targetTable ? targetTable : relation.model.Configuration.table,
+                        baseTable: baseTable ? baseTable : Model.Configuration.table,
                         joinType,
+                        name: relation.name,
                         on: [
-                            { [relation.foreignKey!]: baseKey! }
+                            { [relation.foreignKey!]: baseKey ? baseKey : relation.localKey }
                         ]
                     }
                 ];
@@ -246,6 +267,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
                     fromTable: relation.pivotTable!,
                     baseTable: Model.Configuration.table,
                     joinType: 'INNER',
+                    name: relation.name,
                     on: [
                         { [relation.pivotForeignKey!]: relation.localKey }
                     ]
@@ -254,6 +276,7 @@ export default class Repository<Type extends columnType, ModelType extends Model
                     fromTable: relation.model.Configuration.table,
                     baseTable: relation.pivotTable!,
                     joinType: 'INNER',
+                    name: relation.name,
                     on: [
                         { [relation.foreignKey!]: relation.pivotLocalKey! }
                     ]
