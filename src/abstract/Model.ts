@@ -164,13 +164,14 @@ export default abstract class Model<
     public static whereId<ParamterModelType extends Model<columnType>>(
         this: new () => ParamterModelType,
         id: QueryValues,
-    ): ParamterModelType {
+    ): Promise<ParamterModelType> {
         const instance = new this();
         return instance.whereId(id);
     }
 
-    public whereId(id: QueryValues): this {
+    public async whereId(id: QueryValues): Promise<this> {
         this.queryLayers.base.where = [{ column: this.primaryKeyColumn, operator: '=', value: id }];
+        await this.first();
         return this;
     }
 
