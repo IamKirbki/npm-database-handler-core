@@ -12,7 +12,7 @@ export default abstract class SchemaTableBuilder {
         } else {
             const lastColumn = this.columns[this.columns.length - 1];
 
-            if (data.constraints?.includes("NULLABLE")) {
+            if (data.constraints?.includes("NULLABLE") || data.constraints?.includes("NULL")) {
                 lastColumn.constraints = lastColumn.constraints?.filter(constraint => constraint !== "NOT NULL") ?? [];
             }
 
