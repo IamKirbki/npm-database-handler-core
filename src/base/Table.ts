@@ -2,43 +2,57 @@ import {
     ReadableTableColumnInfo,
     TableColumnInfo,
     columnType,
-    QueryFactory,
-    RecordFactory,
     QueryLayers,
+    TableConstructorType,
+    QueryIsEqualParameter,
 } from "@core/types/index.js";
 import QueryStatementBuilder from "@core/helpers/QueryBuilders/QueryStatementBuilder.js";
 import { Record, Query } from "@core/index.js";
+import QueryFactory from "@core/factories/QueryFactory.js";
+import RecordFactory from "@core/factories/RecordFactory.js";
 
 /** Table class for interacting with a database table */
 export default class Table {
     private readonly _query: Query;
-    private readonly _customAdapter?: string;
+    private readonly _adapter?: string;
     private readonly _name: string;
     private readonly _queryFactory: QueryFactory;
-    private readonly _recordFactory: RecordFactory;
+    private readonly _recordFactory: RecordFactory<columnType>;
 
-    /** Private constructor - use Table.create() */
-    constructor(
-        name: string,
-        customAdapter?: string,
-        queryFactory: QueryFactory = (config) => new Query(config),
-        recordFactory: RecordFactory = (table, values, adapter) => new Record(table, values, adapter)
-    ) {
+    // ============================================================================
+    // CONSTRUCTOR & INITIALIZATION
+    // ============================================================================
+
+    /** Private constructor - use TableFactory.create() */
+    constructor({
+        name,
+        adapter,
+        queryFactory = new QueryFactory(),
+        recordFactory = new RecordFactory<columnType>()
+    }: TableConstructorType) {
         this._name = name;
-        this._customAdapter = customAdapter;
+        this._adapter = adapter;
         this._queryFactory = queryFactory;
         this._recordFactory = recordFactory;
 
-        this._query = this._queryFactory({
+        this._query = this._queryFactory.create({
             tableName: this._name,
-            adapterName: this._customAdapter,
+            adapterName: this._adapter,
             recordFactory: this._recordFactory
         });
     }
 
-    public get QueryHelperObject(): Query {
+    // ============================================================================
+    // GETTERS & ACCESSORS
+    // ============================================================================
+
+    public get ExtraQueryClient(): Query {
         return this._query;
     }
+
+    // ============================================================================
+    // SCHEMA & TABLE INFORMATION
+    // ============================================================================
 
     /** Get raw column information */
     public async TableColumnInformation(tableName?: string): Promise<TableColumnInfo[]> {
@@ -57,32 +71,28 @@ export default class Table {
         }));
     }
 
-    public async Drop(): Promise<void> {
-        const queryStr = `DROP TABLE IF EXISTS "${this._name}";`;
-        const query = this._queryFactory({
+    public async exists(): Promise<boolean> {
+        const query = this._queryFactory.create({
             tableName: this._name,
-            query: queryStr,
-            adapterName: this._customAdapter,
+            adapterName: this._adapter,
             recordFactory: this._recordFactory
-        });
-        await query.Run();
+        })
+
+        return await query.DoesTableExist();
     }
 
+    // ============================================================================
+    // READ OPERATIONS
+    // ============================================================================
+
     /** Fetch records with optional filtering, ordering, and pagination */
-    public async Records<Type extends columnType>(
+    public async FetchRecords<Type extends columnType>(
         queryLayers: QueryLayers
     ): Promise<Record<Type>[]> {
-        const builder = new QueryStatementBuilder(queryLayers);
-        const queryStr = await builder.build();
+        const queryStr = await this.buildSelectQuery(queryLayers);
+        const params = this.extractWhereParameters(queryLayers);
 
-        let params = {}
-        if (queryLayers?.base?.where && Object.keys(queryLayers.base.where).length > 0)
-            params = queryLayers.base.where;
-
-        if (queryLayers?.pretty?.where && Object.keys(queryLayers.pretty.where).length > 0)
-            params = { ...params, ...queryLayers.pretty.where };
-
-        const query = this._queryFactory({
+        const query = this._queryFactory.create({
             tableName: this._name,
             query: queryStr,
             parameters: params,
@@ -93,10 +103,10 @@ export default class Table {
     }
 
     /** Fetch a single record from the table */
-    public async Record<Type extends columnType>(
+    public async FetchSingleRecord<Type extends columnType>(
         queryLayers: QueryLayers
     ): Promise<Record<Type> | undefined> {
-        const results = await this.Records<Type>({
+        const results = await this.FetchRecords<Type>({
             ...queryLayers,
             final: {
                 ...queryLayers?.final,
@@ -109,7 +119,7 @@ export default class Table {
 
     /** Get the total count of records */
     public async RecordsCount(): Promise<number> {
-        const query = this._queryFactory({
+        const query = this._queryFactory.create({
             tableName: this._name,
             query: `SELECT COUNT(*) as count FROM "${this._name}"`,
             recordFactory: this._recordFactory
@@ -118,25 +128,38 @@ export default class Table {
         return count || 0;
     }
 
-    public async exists(): Promise<boolean> {
-        const query = this._queryFactory({
-            tableName: this._name,
-            adapterName: this._customAdapter,
-            recordFactory: this._recordFactory
-        })
-
-        return await query.DoesTableExist();
-    }
+    // ============================================================================
+    // WRITE OPERATIONS
+    // ============================================================================
 
     /** Insert a record into the table */
-    public async Insert<Type extends columnType>(values: Type): Promise<Record<Type> | undefined> {
-        const record = this._recordFactory(this._name, values, this._customAdapter);
+    public async CreateRecord<Type extends columnType>(values: Type): Promise<Record<Type> | undefined> {
+        const record = this._recordFactory.create({
+            table: this._name,
+            values,
+            adapter: this._adapter
+        });
         await record.Insert();
-        return record;
+        return record as Record<Type>;
     }
 
+    public async Drop(): Promise<void> {
+        const queryStr = `DROP TABLE IF EXISTS "${this._name}";`;
+        const query = this._queryFactory.create({
+            tableName: this._name,
+            query: queryStr,
+            adapterName: this._adapter,
+            recordFactory: this._recordFactory
+        });
+        await query.Run();
+    }
+
+    // ============================================================================
+    // JOIN OPERATIONS
+    // ============================================================================
+
     /** Perform JOIN operations with other tables */
-    public async Join<Type extends columnType>(
+    public async FetchJoined<Type extends columnType>(
         queryLayers: QueryLayers
     ): Promise<Record<Type>[]> {
         if (queryLayers.base.joins === undefined || (Array.isArray(queryLayers.base.joins) && queryLayers.base.joins.length === 0)) {
@@ -144,6 +167,59 @@ export default class Table {
         }
 
         const joinedTables = queryLayers.base.joins.map(j => j.fromTable);
+        const tableColumnCache = await this.fetchSchemaInformation(joinedTables);
+
+        const queryString = await this.buildSelectQuery(queryLayers, tableColumnCache);
+        const params = this.extractWhereParameters(queryLayers);
+
+        const query = this._queryFactory.create({
+            tableName: this._name,
+            query: queryString,
+            parameters: params,
+            recordFactory: this._recordFactory
+        });
+
+        const records = await query.All<Type>();
+        const splitTables = await this.mapJoinedResults<Type>(records, joinedTables);
+        return splitTables;
+    }
+
+    // ============================================================================
+    // UTILITY METHODS
+    // ============================================================================
+
+    public async toSql(queryLayers: QueryLayers): Promise<string> {
+        let tableColumnCache: Map<string, TableColumnInfo[]> | undefined = undefined;
+        if (queryLayers.base.joins && queryLayers.base.joins.length > 0) {
+            const joinedTables = queryLayers.base.joins.map(j => j.fromTable);
+            tableColumnCache = await this.fetchSchemaInformation(joinedTables);
+        }
+
+        return await this.buildSelectQuery(queryLayers, tableColumnCache);
+    }
+
+    // ============================================================================
+    // PRIVATE HELPERS
+    // ============================================================================
+
+    private async buildSelectQuery(queryLayers: QueryLayers, tableColumnCache?: Map<string, TableColumnInfo[]>): Promise<string> {
+        const builder = new QueryStatementBuilder(queryLayers, tableColumnCache);
+        return await builder.build();
+    }
+
+    private extractWhereParameters(queryLayers: QueryLayers): QueryIsEqualParameter {
+        let params = {};
+
+        if (queryLayers?.base?.where && Object.keys(queryLayers.base.where).length > 0)
+            params = queryLayers.base.where;
+
+        if (queryLayers?.pretty?.where && Object.keys(queryLayers.pretty.where).length > 0)
+            params = { ...params, ...queryLayers.pretty.where };
+
+        return params;
+    }
+
+    private async fetchSchemaInformation(joinedTables: string[]): Promise<Map<string, TableColumnInfo[]>> {
         const tableColumnCache = new Map<string, TableColumnInfo[]>();
 
         const columnInfo = await this._query.TableColumnInformation(this._name);
@@ -154,29 +230,10 @@ export default class Table {
             tableColumnCache.set(tableName, columnInfo);
         }
 
-        const builder = new QueryStatementBuilder(queryLayers, tableColumnCache);
-        const queryString = await builder.build();
-
-        let params = {}
-        if (queryLayers?.base?.where)
-            params = this.QueryHelperObject.ConvertParamsToObject(queryLayers.base.where);
-
-        if (queryLayers?.pretty?.where)
-            params = { ...params, ...this.QueryHelperObject.ConvertParamsToObject(queryLayers.pretty.where) };
-
-        const query = this._queryFactory({
-            tableName: this._name,
-            query: queryString,
-            parameters: params,
-            recordFactory: this._recordFactory
-        });
-
-        const records = await query.All<Type>();
-        const splitTables = await this.splitJoinValues<Type>(records, joinedTables);
-        return splitTables;
+        return tableColumnCache;
     }
 
-    private async splitJoinValues<Type extends columnType>(records: Record<Type>[], joinedTables: string[]): Promise<Record<Type>[]> {
+    private async mapJoinedResults<Type extends columnType>(records: Record<Type>[], joinedTables: string[]): Promise<Record<Type>[]> {
         return records.map(record => {
             if (!record.values) return record;
 
@@ -206,28 +263,11 @@ export default class Table {
 
             const combinedData: Type = { ...mainTableData, ...filteredJoinedData } as Type;
 
-            return this._recordFactory<Type>(this._name, combinedData, this._customAdapter);
+            return this._recordFactory.create({
+                table: this._name,
+                values: combinedData,
+                adapter: this._adapter
+            }) as Record<Type>;
         });
-    }
-
-    public async toSql(queryLayers: QueryLayers): Promise<string> {
-        if (queryLayers.base.joins && queryLayers.base.joins.length > 0) {
-            const joinedTables = queryLayers.base.joins.map(j => j.fromTable);
-            const tableColumnCache = new Map<string, TableColumnInfo[]>();
-
-            const columnInfo = await this._query.TableColumnInformation(this._name);
-            tableColumnCache.set(this._name, columnInfo);
-
-            for (const tableName of joinedTables) {
-                const columnInfo = await this._query.TableColumnInformation(tableName);
-                tableColumnCache.set(tableName, columnInfo);
-            }
-
-            const builder = new QueryStatementBuilder(queryLayers, tableColumnCache);
-            return await builder.build();
-        } else {
-            const builder = new QueryStatementBuilder(queryLayers);
-            return await builder.build();
-        }
     }
 }

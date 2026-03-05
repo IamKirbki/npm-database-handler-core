@@ -2,19 +2,19 @@ import Repository from '@core/runtime/Repository.js';
 import ModelRelations from '@core/abstract/model/ModelRelation.js';
 import {
   columnType,
-  QueryWhereCondition,
   QueryValues,
   ModelConfig,
   SpatialPoint,
   SpatialPointColumns,
   SpatialQueryExpression,
   TextRelevanceQueryExpression,
-  QueryComparisonParameters,
   JsonAggregateQueryExpression,
   NestedJsonAggregateDefinition,
   QueryEvaluationPhase,
   QueryLayers,
+  QueryWhereConditionType,
 } from '@core/types/index.js';
+import QueryWhereCondition from '@core/base/QueryWhereConditions';
 
 /** Abstract Model class for ORM-style database interactions */
 export default abstract class Model<
@@ -126,34 +126,16 @@ export default abstract class Model<
 
   public static where<ParamterModelType extends Model<columnType>>(
     this: new () => ParamterModelType,
-    conditions: QueryWhereCondition,
+    conditions: QueryWhereConditionType,
   ): ParamterModelType {
     const instance = new this();
     return instance.where(conditions);
   }
 
-  private normalizeConditions(
-    conditions: QueryWhereCondition,
-  ): QueryComparisonParameters[] {
-    if (Array.isArray(conditions)) {
-      return conditions;
-    }
-
-    return Object.entries(conditions).map(([column, value]) => ({
-      column,
-      operator: '=' as const,
-      value,
-    }));
-  }
-
-  public where(conditions: QueryWhereCondition): this {
-    const normalized = this.normalizeConditions(conditions);
-
+  public where(conditions: QueryWhereConditionType): this {
     if (!this.queryLayers.base.where) {
-      this.queryLayers.base.where = normalized;
-    } else {
-      const existing = this.normalizeConditions(this.queryLayers.base.where);
-      this.queryLayers.base.where = [...existing, ...normalized];
+      this.queryLayers.base.where = new QueryWhereCondition();
+      this.queryLayers.base.where?.push(conditions);
     }
 
     return this;
@@ -167,11 +149,12 @@ export default abstract class Model<
     return instance.whereId(id);
   }
 
-  public async whereId(id: QueryValues): Promise<this> {
-    this.queryLayers.base.where = [
-      { column: this.primaryKeyColumn, operator: '=', value: id },
-    ];
-    await this.first();
+  public whereId(id: QueryValues): this {
+    this.queryLayers.base.where ??= new QueryWhereCondition();
+    this.queryLayers.base.where?.clear();
+    this.queryLayers.base.where?.push({
+      ["id"]: id,
+    })
     return this;
   }
 
@@ -184,9 +167,10 @@ export default abstract class Model<
   }
 
   public find(primaryKeyValue: QueryValues): this {
-    this.queryLayers.base.where = [
-      { column: this.primaryKeyColumn, operator: '=', value: primaryKeyValue },
-    ];
+    this.queryLayers.base.where ??= new QueryWhereCondition();
+    this.queryLayers.base.where?.push({
+      [this.primaryKeyColumn]: primaryKeyValue,
+    })
     return this;
   }
 
@@ -200,13 +184,11 @@ export default abstract class Model<
 
   public async findOrFail(primaryKeyValue?: QueryValues): Promise<this> {
     if (primaryKeyValue) {
-      this.queryLayers.base.where = [
-        {
-          column: this.primaryKeyColumn,
-          operator: '=',
-          value: primaryKeyValue,
-        },
-      ];
+      this.queryLayers.base.where ??= new QueryWhereCondition();
+      this.queryLayers.base.where?.clear();
+      this.queryLayers.base.where?.push({
+        [this.primaryKeyColumn]: primaryKeyValue,
+      });
     }
 
     this.queryLayers.base.from = this.Configuration.table;
@@ -234,26 +216,24 @@ export default abstract class Model<
 
   public async first(primaryKeyValue?: string | number): Promise<this> {
     if (primaryKeyValue !== undefined) {
-      this.queryLayers.base.where = [
-        {
-          column: this.primaryKeyColumn,
-          operator: '=',
-          value: primaryKeyValue,
-        },
-        ...this.normalizeConditions(this.queryLayers.base.where || []),
-      ];
+      this.queryLayers.base.where ??= new QueryWhereCondition();
+      this.queryLayers.base.where?.push({
+        [this.primaryKeyColumn]: primaryKeyValue,
+      });
     }
+
     const attributes = (await this.repository?.first(
       {
         ...this.queryLayers,
         base: {
           ...this.queryLayers.base,
           from: this.Configuration.table,
-          where: this.normalizeConditions(this.queryLayers.base.where || []),
-        },
+          where: this.queryLayers.base.where,
+        }
       },
       this,
-    ));
+    )) as Partial<ModelType>;
+
     if (attributes) {
       this.attributes = attributes;
       this.originalAttributes = { ...attributes };
@@ -293,13 +273,17 @@ export default abstract class Model<
   }
 
   public async all(): Promise<this[]> {
-    const records = await this.repository.all(this, {
-      ...this.queryLayers,
-      base: {
-        ...this.queryLayers.base,
-        from: this.Configuration.table,
-      },
-    });
+    const records = await this.repository.all(
+      this,
+      {
+        ...this.queryLayers,
+        base: {
+          ...this.queryLayers.base,
+          from: this.Configuration.table,
+        }
+      }
+    );
+
     return records.map((record) => {
       const instance = new (this.constructor as new () => this)();
       instance.set(record);
@@ -322,8 +306,10 @@ export default abstract class Model<
     if (attributes[this.primaryKeyColumn] !== undefined && !this.exists) {
       this.repository.syncModel(this);
     }
+
     this.attributes = { ...this.attributes, ...attributes };
     this.dirty = true;
+
     return this;
   }
 
@@ -332,9 +318,12 @@ export default abstract class Model<
       ...this.originalAttributes,
       ...this.attributes,
     };
+
     await this.repository.save(this.originalAttributes as ModelType);
+
     this.exists = true;
     this.dirty = false;
+
     return this;
   }
 

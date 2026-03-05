@@ -1,4 +1,6 @@
-import { expressionClause, Join, PossibleBaseExpressions, PossibleExpressions, PossiblePrettyExpressions, RecordFactory } from "@core/index.js";
+import QueryWhereCondition from "@core/base/QueryWhereConditions";
+import RecordFactory from "@core/factories/RecordFactory";
+import { columnType, expressionClause, Join, PossibleBaseExpressions, PossibleExpressions, PossiblePrettyExpressions } from "@core/index.js";
 
 export type QueryIsEqualParameter = {
     [key: string]: QueryValues;
@@ -10,13 +12,13 @@ export type QueryComparisonParameters = {
     value: QueryValues;
 };
 
-export type QueryWhereCondition = QueryIsEqualParameter | QueryComparisonParameters[];
+export type QueryWhereConditionType = QueryIsEqualParameter | QueryComparisonParameters[];
 
 export type QueryValues = string | number | boolean | null | bigint | Date;
 
 export type DefaultQueryParameters = {
     select?: string;
-    where?: QueryWhereCondition;
+    where?: QueryWhereConditionType;
 };
 
 export type ExtraQueryParameters = {
@@ -32,9 +34,9 @@ export type ExtraQueryParameters = {
 export type QueryConstructorType = {
     tableName: string;
     query?: string;
-    parameters?: QueryWhereCondition;
+    parameters?: QueryIsEqualParameter;
     adapterName?: string;
-    recordFactory?: RecordFactory;
+    recordFactory?: RecordFactory<columnType>;
 };
 
 export type QueryLayers = {
