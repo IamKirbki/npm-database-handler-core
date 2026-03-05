@@ -21,24 +21,26 @@ describe('Table', () => {
 
     describe('constructor', () => {
         it('should create a table instance', () => {
-            const table = new Table('users');
+            const table = new Table({ name: 'users' });
             expect(table).toBeDefined();
         });
 
         it('should use custom adapter when specified', () => {
             Container.getInstance().registerAdapter('custom', mockAdapter);
-            const table = new Table('users', 'custom');
+            const table = new Table({ name: 'users', adapter: 'custom' });
             expect(table).toBeDefined();
         });
 
         it('should use custom query factory', () => {
             let factoryCalled = false;
-            const customFactory = () => {
-                factoryCalled = true;
-                throw new Error('Custom factory called');
+            const customFactory = {
+                create: () => {
+                    factoryCalled = true;
+                    throw new Error('Custom factory called');
+                }
             };
             try {
-                new Table('users', 'default', customFactory as any);
+                new Table({ name: 'users', adapter: 'default', queryFactory: customFactory as any });
             } catch (e) {
                 // Expected - factory is called during construction
             }
@@ -53,8 +55,8 @@ describe('Table', () => {
                 { id: 2, name: 'Bob' }
             ]);
 
-            const table = new Table('users');
-            const records = await table.Records({
+            const table = new Table({ name: 'users' });
+            const records = await table.FetchRecords({
                 base: { from: 'users' }
             });
 
@@ -66,8 +68,8 @@ describe('Table', () => {
                 { id: 1, name: 'Alice' }
             ]);
 
-            const table = new Table('users');
-            const records = await table.Records({
+            const table = new Table({ name: 'users' });
+            const records = await table.FetchRecords({
                 base: {
                     from: 'users',
                     where: [{ column: 'id', operator: '=', value: 1 }]
@@ -80,8 +82,8 @@ describe('Table', () => {
         it('should apply orderBy', async () => {
             mockAdapter.setMockResults('SELECT * FROM "users"', []);
 
-            const table = new Table('users');
-            await table.Records({
+            const table = new Table({ name: 'users' });
+            await table.FetchRecords({
                 base: { from: 'users' },
                 final: { orderBy: [{ column: 'name', direction: 'ASC' }] }
             });
@@ -93,8 +95,8 @@ describe('Table', () => {
         it('should apply limit and offset', async () => {
             mockAdapter.setMockResults('SELECT * FROM "users"', []);
 
-            const table = new Table('users');
-            await table.Records({
+            const table = new Table({ name: 'users' });
+            await table.FetchRecords({
                 base: { from: 'users' },
                 final: { limit: 10, offset: 5 }
             });
@@ -111,8 +113,8 @@ describe('Table', () => {
                 { id: 1, name: 'Alice' }
             ]);
 
-            const table = new Table('users');
-            const record = await table.Record({
+            const table = new Table({ name: 'users' });
+            const record = await table.FetchSingleRecord({
                 base: { from: 'users' }
             });
 
@@ -123,8 +125,8 @@ describe('Table', () => {
         it('should return undefined when no record found', async () => {
             mockAdapter.setMockResults('SELECT * FROM "users" LIMIT 1', []);
 
-            const table = new Table('users');
-            const record = await table.Record({
+            const table = new Table({ name: 'users' });
+            const record = await table.FetchSingleRecord({
                 base: { from: 'users' }
             });
 
@@ -134,17 +136,17 @@ describe('Table', () => {
 
     describe('Insert', () => {
         it('should insert a record', async () => {
-            const table = new Table('users');
-            await table.Insert({ name: 'Charlie', email: 'charlie@example.com' });
+            const table = new Table({ name: 'users' });
+            await table.CreateRecord({ name: 'Charlie', email: 'charlie@example.com' });
 
             const queries = mockAdapter.getQueriesByType('prepare');
             expect(queries.some(q => q.includes('INSERT INTO'))).toBe(true);
         });
 
         it('should insert multiple records', async () => {
-            const table = new Table('users');
-            await table.Insert({ name: 'Alice', email: 'alice@example.com' });
-            await table.Insert({ name: 'Bob', email: 'bob@example.com' });
+            const table = new Table({ name: 'users' });
+            await table.CreateRecord({ name: 'Alice', email: 'alice@example.com' });
+            await table.CreateRecord({ name: 'Bob', email: 'bob@example.com' });
 
             const queries = mockAdapter.getQueriesByType('prepare');
             const insertQueries = queries.filter(q => q.includes('INSERT INTO'));
@@ -156,7 +158,7 @@ describe('Table', () => {
         it('should return count', async () => {
             mockAdapter.setMockRow('SELECT COUNT(*) as count FROM "users"', { count: '5' });
 
-            const table = new Table('users');
+            const table = new Table({ name: 'users' });
             const count = await table.RecordsCount();
 
             expect(count).toBe(5);
@@ -165,7 +167,7 @@ describe('Table', () => {
         it('should return 0 for empty table', async () => {
             mockAdapter.setMockRow('SELECT COUNT(*) as count FROM "users"', { count: '0' });
 
-            const table = new Table('users');
+            const table = new Table({ name: 'users' });
             const count = await table.RecordsCount();
 
             expect(count).toBe(0);
@@ -174,7 +176,7 @@ describe('Table', () => {
 
     describe('Drop', () => {
         it('should drop table', async () => {
-            const table = new Table('users');
+            const table = new Table({ name: 'users' });
             await table.Drop();
 
             const queries = mockAdapter.getQueriesByType('prepare');
@@ -185,14 +187,14 @@ describe('Table', () => {
     describe('exists', () => {
         it('should return true when table exists', async () => {
             mockAdapter.setTableExists('users', true);
-            const table = new Table('users');
+            const table = new Table({ name: 'users' });
             const exists = await table.exists();
             expect(exists).toBe(true);
         });
 
         it('should return false when table does not exist', async () => {
             mockAdapter.setTableExists('nonexistent', false);
-            const table = new Table('nonexistent');
+            const table = new Table({ name: 'nonexistent' });
             const exists = await table.exists();
             expect(exists).toBe(false);
         });
@@ -205,7 +207,7 @@ describe('Table', () => {
                 { cid: 1, name: 'name', type: 'TEXT', notnull: 0, dflt_value: null, pk: 0 }
             ]);
 
-            const table = new Table('users');
+            const table = new Table({ name: 'users' });
             const columns = await table.TableColumnInformation();
 
             expect(columns).toHaveLength(2);
@@ -218,7 +220,7 @@ describe('Table', () => {
                 { cid: 1, name: 'email', type: 'TEXT', notnull: 0, dflt_value: null, pk: 0 }
             ]);
 
-            const table = new Table('users');
+            const table = new Table({ name: 'users' });
             const columns = await table.ReadableTableColumnInformation();
 
             expect(columns).toHaveLength(2);
@@ -229,7 +231,7 @@ describe('Table', () => {
 
     describe('Join', () => {
         it('should throw error when no joins defined', async () => {
-            const table = new Table('users');
+            const table = new Table({ name: 'users' });
             
             await expect(table.FetchJoined({
                 base: { from: 'users' }
@@ -241,7 +243,7 @@ describe('Table', () => {
                 { 'users__id': 1, 'users__name': 'Alice', 'posts__title': 'Post 1' }
             ]);
 
-            const table = new Table('users');
+            const table = new Table({ name: 'users' });
             await table.FetchJoined({
                 base: {
                     from: 'users',

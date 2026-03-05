@@ -1,4 +1,4 @@
-import { columnType, joinedEntity, ModelConfig, QueryComparisonParameters, QueryWhereConditionType, relation } from "@core/types/index.js";
+import { columnType, joinedEntity, ModelConfig, QueryComparisonParameters, QueryWhereCondition, relation } from "@core/types/index.js";
 import Model from "@core/abstract/Model.js";
 import Repository from '@core/runtime/Repository.js';
 
@@ -43,11 +43,15 @@ export default abstract class ModelRelations<
         foreignKey: string = model.Configuration.primaryKey,
         pivotForeignKey: string = `${this.Configuration.table}_${localKey}`,
         pivotLocalKey: string = `${model.Configuration.table}_${foreignKey}`,
+        path: string = pivotTable,
+        name: string = path.split('.')[1]
     ): Promise<this> {
         const relation = await this.repository.getManyToManyRelation({
             type: 'manyToMany',
             model: model,
             pivotTable: pivotTable,
+            path: path,
+            name: name,
             foreignKey: foreignKey,
             pivotForeignKey: pivotForeignKey,
             localKey: localKey,
@@ -66,13 +70,17 @@ export default abstract class ModelRelations<
     protected hasMany<modelType extends Model<columnType>>(
         model: modelType,
         foreignKey: string = `${this.Configuration.table}_${this.Configuration.primaryKey}`,
-        localKey: string = this.Configuration.primaryKey
+        localKey: string = this.Configuration.primaryKey,
+        path: string = `${this.Configuration.table}.${model.Configuration.table}`,
+        name: string = path.split('.')[1]
     ): this {
         this.relations.push({
             type: 'hasMany',
             model: model,
             foreignKey: foreignKey,
             localKey: localKey,
+            path: path,
+            name: name
         });
         return this;
     }
@@ -80,13 +88,17 @@ export default abstract class ModelRelations<
     protected hasOne<modelType extends Model<columnType>>(
         model: modelType,
         foreignKey: string = `${model.Configuration.primaryKey}`,
-        localKey: string = `${model.Configuration.table}_${model.Configuration.primaryKey}`
+        localKey: string = `${model.Configuration.table}_${model.Configuration.primaryKey}`,
+        path: string = `${this.Configuration.table}.${model.Configuration.table}`,
+        name: string = path.split('.')[1]
     ): this {
         this.relations.push({
             type: 'hasOne',
             model: model,
             foreignKey: foreignKey,
             localKey: localKey,
+            path: path,
+            name: name
         });
         return this;
     }
@@ -94,13 +106,17 @@ export default abstract class ModelRelations<
     protected belongsTo<modelType extends Model<columnType>>(
         model: modelType,
         foreignKey: string = `${model.Configuration.table}_${model.Configuration.primaryKey}`,
-        localKey: string = model.Configuration.primaryKey
+        localKey: string = model.Configuration.primaryKey,
+        path: string = `${this.Configuration.table}.${model.Configuration.table}`,
+        name: string = path.split('.')[1]
     ): this {
         this.relations.push({
             type: 'belongsTo',
             model: model,
             foreignKey: foreignKey,
             localKey: localKey,
+            path: path,
+            name: name
         });
         return this;
     }
@@ -108,13 +124,13 @@ export default abstract class ModelRelations<
     public static with<ParameterModelType extends Model<columnType>>(
         this: new () => ParameterModelType,
         relation: string,
-        queryScopes?: QueryWhereConditionType
+        queryScopes?: QueryWhereCondition
     ): ParameterModelType {
         const instance = new this();
         return instance.with(relation, queryScopes);
     }
 
-    public with(relation: string, queryScopes?: QueryWhereConditionType): this {
+    public with(relation: string, queryScopes?: QueryWhereCondition): this {
         const result = this.callRelationMethod(relation);
 
         if (result instanceof Promise) {
@@ -122,16 +138,7 @@ export default abstract class ModelRelations<
                 `Relation method '${relation}' is asynchronous. Use asyncWith() instead of with().`
             );
         }
-        
-        return this.joinLastRelation(relation, queryScopes);
-    }
 
-    public async asyncWith(relation: string, queryScopes?: QueryWhereConditionType): Promise<this> {
-        await this.callRelationMethod(relation);
-        return this.joinLastRelation(relation, queryScopes);
-    }
-
-    private joinLastRelation(relation: string, queryScopes?: QueryWhereConditionType): this {
         const lastRelation = this.relations[this.relations.length - 1];
         const tableName = lastRelation.model.Configuration.table;
 
@@ -139,6 +146,24 @@ export default abstract class ModelRelations<
 
         this.joinedEntities.push({
             relation: relation,
+            path: lastRelation.path,
+            queryScopes: normalizedScopes
+        });
+
+        return this;
+    }
+
+    public async asyncWith(relation: string, queryScopes?: QueryWhereCondition): Promise<this> {
+        await this.callRelationMethod(relation);
+
+        const lastRelation = this.relations[this.relations.length - 1];
+        const tableName = lastRelation.model.Configuration.table;
+
+        const normalizedScopes = this.normalizeQueryScopes(queryScopes, tableName);
+
+        this.joinedEntities.push({
+            relation: relation,
+            path: lastRelation.path,
             queryScopes: normalizedScopes
         });
 
@@ -158,7 +183,7 @@ export default abstract class ModelRelations<
     }
 
     private normalizeQueryScopes(
-        queryScopes: QueryWhereConditionType | undefined,
+        queryScopes: QueryWhereCondition | undefined,
         tableName: string
     ): QueryComparisonParameters[] | undefined {
         if (!queryScopes) {

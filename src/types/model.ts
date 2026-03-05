@@ -57,6 +57,8 @@ export type ModelConfig = {
 }
 
 export type relation = {
+    name: string;
+    path: string;
     type: 'hasOne' | 'hasMany' | 'belongsTo' | 'manyToMany';
     model: unknown & Model<columnType>;
     foreignKey: string;
@@ -78,5 +80,6 @@ export type ModelWithTimestamps = {
 
 export type joinedEntity = {
     relation: string;
-    queryScopes?: QueryWhereConditionType;
+    path: string;
+    queryScopes?: QueryWhereCondition;
 }

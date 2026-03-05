@@ -98,19 +98,18 @@ describe('Model', () => {
 
     it('should add where conditions to query layers', () => {
       const user = new UserModel().where({ name: 'John' });
-      expect((user as any).queryLayers.base.where).toContainEqual({
-        column: 'name',
-        operator: '=',
-        value: 'John',
+      expect((user as any).queryLayers.base.where).toEqual({
+        name: 'John',
       });
     });
 
     it('should stack multiple where conditions', () => {
       const user = new UserModel().where({ name: 'John' }).where({ email: 'john@example.com' });
       const where = (user as any).queryLayers.base.where;
-      expect(where).toHaveLength(2);
-      expect(where).toContainEqual({ column: 'name', operator: '=', value: 'John' });
-      expect(where).toContainEqual({ column: 'email', operator: '=', value: 'john@example.com' });
+      expect(where).toEqual({
+        name: 'John',
+        email: 'john@example.com'
+      });
     });
   });
 
@@ -124,19 +123,15 @@ describe('Model', () => {
     it('static where should return a model instance with where set', () => {
       const user = UserModel.where({ name: 'John' });
       expect(user).toBeInstanceOf(UserModel);
-      expect((user as any).queryLayers.base.where).toContainEqual({
-        column: 'name',
-        operator: '=',
-        value: 'John',
+      expect((user as any).queryLayers.base.where).toEqual({
+        name: 'John',
       });
     });
 
     it('static find should set where condition for primary key', () => {
       const user = UserModel.find(1);
-      expect((user as any).queryLayers.base.where).toContainEqual({
-        column: 'id',
-        operator: '=',
-        value: 1,
+      expect((user as any).queryLayers.base.where).toEqual({
+        id: 1,
       });
     });
   });

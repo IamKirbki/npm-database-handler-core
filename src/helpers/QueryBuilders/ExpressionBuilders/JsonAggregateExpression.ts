@@ -5,7 +5,7 @@ import {
   PossibleExpressions,
   QueryComparisonParameters,
   QueryEvaluationPhase,
-} from '@core/index.js';
+} from '@core/types/index.js';
 import IExpressionBuilder from '@core/interfaces/IExpressionBuilder.js';
 import QueryExpressionBuilder from '../QueryExpressionBuilder.js';
 import QueryStatementBuilder from '../QueryStatementBuilder.js';
@@ -34,10 +34,10 @@ export default class JsonAggregateExpression implements IExpressionBuilder {
     const groupByClause =
       expression.parameters.groupByColumns.length > 0
         ? expression.parameters.groupByColumns
-          .map((col) =>
-            col.includes('.') ? `"${col.replace('.', '__')}"` : `"${col}"`,
-          )
-          .join(', ')
+            .map((col) =>
+              col.includes('.') ? `"${col.replace('.', '__')}"` : `"${col}"`,
+            )
+            .join(', ')
         : undefined;
 
     return {
@@ -60,37 +60,37 @@ export default class JsonAggregateExpression implements IExpressionBuilder {
 
     const computedPart = expression.parameters.computed?.length
       ? expression.parameters.computed.map((comp) => {
-        const valueClauseKeywords = [
-          `${comp.parameters.alias}_lat`,
-          `${comp.parameters.alias}_lon`,
-        ];
+          const valueClauseKeywords = [
+            `${comp.parameters.alias}_lat`,
+            `${comp.parameters.alias}_lon`,
+          ];
 
-        const expr = {
-          type: comp.type,
-          parameters: {
-            ...comp.parameters,
-            valueClauseKeywords:
-              comp.type === 'spatialDistance'
-                ? valueClauseKeywords
-                : comp.parameters.valueClauseKeywords,
-            isComputed: true,
-          },
-          requirements:
-            QueryExpressionBuilder.getExpressionDefaultRequirements(
-              comp.type,
-            )!,
-        };
+          const expr = {
+            type: comp.type,
+            parameters: {
+              ...comp.parameters,
+              valueClauseKeywords:
+                comp.type === 'spatialDistance'
+                  ? valueClauseKeywords
+                  : comp.parameters.valueClauseKeywords,
+              isComputed: true,
+            },
+            requirements:
+              QueryExpressionBuilder.getExpressionDefaultRequirements(
+                comp.type,
+              )!,
+          };
 
-        const builder = QueryExpressionBuilder.buildExpressionsPart([
-          expr as PossibleExpressions,
-        ])[0];
+          const builder = QueryExpressionBuilder.buildExpressionsPart([
+            expr as PossibleExpressions,
+          ])[0];
 
-        return {
-          sql: `'${comp.parameters.alias}', ${builder.baseExpressionClause?.split(' AS ')[0]}`,
-          whereClause: builder.whereClause,
-          valueClauseKeywords: builder.valueClauseKeywords,
-        };
-      })
+          return {
+            sql: `'${comp.parameters.alias}', ${builder.baseExpressionClause?.split(' AS ')[0]}`,
+            whereClause: builder.whereClause,
+            valueClauseKeywords: builder.valueClauseKeywords,
+          };
+        })
       : [];
 
     const computedSqlPart = computedPart.length
@@ -109,22 +109,23 @@ export default class JsonAggregateExpression implements IExpressionBuilder {
 
     const nestedPart = expression.parameters.nested?.length
       ? expression.parameters.nested
-        .map((n) => {
-          return `'${n.alias}', ${this.buildJsonBuildObject({
-            type: 'jsonAggregate',
-            parameters: {
-              table: n.table,
-              alias: n.alias,
-              columns: n.columns,
-              computed: n.computed,
-              nested: n.nested,
-              groupByColumns: [],
-            },
-            requirements: this.defaultRequirements,
-          }).sql
+          .map((n) => {
+            return `'${n.alias}', ${
+              this.buildJsonBuildObject({
+                type: 'jsonAggregate',
+                parameters: {
+                  table: n.table,
+                  alias: n.alias,
+                  columns: n.columns,
+                  computed: n.computed,
+                  nested: n.nested,
+                  groupByColumns: [],
+                },
+                requirements: this.defaultRequirements,
+              }).sql
             }`;
-        })
-        .join(',\n  ')
+          })
+          .join(',\n  ')
       : '';
 
     const parts = [columnPart, computedSqlPart, nestedPart]

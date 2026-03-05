@@ -1,48 +1,69 @@
-import type Model from "@core/abstract/Model.js";
-import Record from "@core/base/Record.js";
-import Table from "@core/base/Table.js";
-import TableFactory from "@core/factories/TableFactory.js";
-import { columnType, Join, relation, QueryIsEqualParameter, QueryLayers } from "@core/types/index.js";
-import { RepositoryConstructorType } from "@core/types/index";
-import QueryWhereCondition from "@core/base/QueryWhereConditions";
+import type Model from '@core/abstract/Model.js';
+import Query from '@core/base/Query.js';
+import {
+  columnType,
+  Join,
+  QueryWhereCondition,
+  relation,
+  QueryComparisonParameters,
+  QueryIsEqualParameter,
+  QueryLayers,
+  TableColumnInfo,
+} from '@core/types/index.js';
+import QueryStatementBuilder from '@core/helpers/QueryBuilders/QueryStatementBuilder.js';
+import { Container, IDatabaseAdapter } from '@core/index.js';
+import QueryCache from '@core/runtime/QueryCache.js';
+import { QueryFactory } from '@core/types/factories';
 
-export default class Repository<Type extends columnType, ModelType extends Model<Type>> {
-  private static _instances: Map<string, Repository<columnType, Model<columnType>>> = new Map();
+export default class Repository<
+  Type extends columnType,
+  ModelType extends Model<Type>,
+> {
+  private static _instances: Map<
+    string,
+    Repository<columnType, Model<columnType>>
+  > = new Map();
   private models: Map<string, ModelType> = new Map();
   private manyToManyRelations: Map<string, relation> = new Map();
-  private Table: Table
-  private adapter?: string;
-  private tableFactory: TableFactory;
+  private customDatabaseAdapter?: string;
+  private queryFactory: QueryFactory;
+  private tableName: string;
+  private queryCache: QueryCache;
 
-  constructor({
-    tableName,
-    ModelClass,
-    adapter,
-    tableFactory = new TableFactory()
-  }: RepositoryConstructorType<ModelType>) {
-    const modelPk = ModelClass.primaryKey?.toString() || ModelClass.constructor.name;
+  constructor(
+    tableName: string,
+    ModelClass: ModelType,
+    customDatabaseAdapter?: string,
+    queryFactory: QueryFactory = (config) => new Query(config),
+  ) {
+    const modelPk =
+      ModelClass.primaryKey?.toString() || ModelClass.constructor.name;
     this.models.set(modelPk, ModelClass);
-    this.tableFactory = tableFactory;
-    this.Table = this.tableFactory.create({ name: tableName, adapter: adapter });
-    this.adapter = adapter;
+    this.queryFactory = queryFactory;
+    this.tableName = tableName;
+    this.customDatabaseAdapter = customDatabaseAdapter;
+    this.queryCache = QueryCache.getInstance();
   }
 
   public static getInstance<ModelType extends columnType>(
     ModelClass: new () => Model<ModelType>,
     tableName: string,
-    adapter?: string,
-    tableFactory?: TableFactory
+    customDatabaseAdapter?: string,
+    queryFactory?: QueryFactory,
   ): Repository<ModelType, Model<ModelType>> {
-    // Use tableName as key to differentiate instances for different tables
     const key = tableName || ModelClass.name;
-    if (!this._instances.has(key)) {
-      const instance = new Repository<ModelType, Model<ModelType>>({
+    const existing = this._instances.get(key);
+    if (!existing) {
+      const instance = new Repository<ModelType, Model<ModelType>>(
         tableName,
-        ModelClass: new ModelClass(),
-        adapter,
-        tableFactory
-      });
-      this._instances.set(key, instance);
+        new ModelClass(),
+        customDatabaseAdapter,
+        queryFactory,
+      );
+      this._instances.set(
+        key,
+        instance,
+      );
       return instance;
     }
 
@@ -79,28 +100,52 @@ export default class Repository<Type extends columnType, ModelType extends Model
   public async insertRecordIntoPivotTable(
     foreignKey: string,
     modelOfOrigin: ModelType,
-    relation: relation
+    relation: relation,
   ): Promise<void> {
-    const table = this.tableFactory.create({ name: relation.pivotTable!, adapter: this.adapter });
-    await table.CreateRecord(this.generatePivotTableKeys(foreignKey, modelOfOrigin, relation));
+    const keys = this.generatePivotTableKeys(
+      foreignKey,
+      modelOfOrigin,
+      relation,
+    );
+    const queryStr = await this.buildInsertQuery(relation.pivotTable!, keys);
+
+    const query = this.queryFactory({
+      tableName: relation.pivotTable!,
+      query: queryStr,
+      parameters: keys,
+      adapterName: this.customDatabaseAdapter,
+    });
+    await query.Run();
   }
 
   public async deleteRecordFromPivotTable(
     foreignKey: string,
     modelOfOrigin: ModelType,
-    relation: relation
+    relation: relation,
   ): Promise<void> {
-    const table = this.tableFactory.create({ name: relation.pivotTable!, adapter: this.adapter });
+    const keys = this.generatePivotTableKeys(
+      foreignKey,
+      modelOfOrigin,
+      relation,
+    );
+    const queryStr = await this.buildDeleteQuery(relation.pivotTable!, keys);
 
-    const whereCondition = new QueryWhereCondition();
-    whereCondition.push(this.generatePivotTableKeys(foreignKey, modelOfOrigin, relation));
-
-    const record = await table.FetchSingleRecord({ base: { where: whereCondition } });
-    await record?.Delete();
+    const query = this.queryFactory({
+      tableName: relation.pivotTable!,
+      query: queryStr,
+      parameters: keys,
+      adapterName: this.customDatabaseAdapter,
+    });
+    await query.Run();
   }
 
-  public async getManyToManyRelation(relation: relation): Promise<relation | undefined> {
-    if (relation.pivotTable && this.manyToManyRelations.has(relation.pivotTable)) {
+  public async getManyToManyRelation(
+    relation: relation,
+  ): Promise<relation | undefined> {
+    if (
+      relation.pivotTable &&
+      this.manyToManyRelations.has(relation.pivotTable)
+    ) {
       return this.manyToManyRelations.get(relation.pivotTable);
     }
 
@@ -115,8 +160,15 @@ export default class Repository<Type extends columnType, ModelType extends Model
   }
 
   public async doesTableExist(name: string): Promise<boolean> {
-    const table = this.tableFactory.create({ name, adapter: this.adapter });
-    return await table.exists();
+    if (this.queryCache.doesTableExist(name)) {
+      return true;
+    }
+    const adapter = this.getAdapter();
+    const exists = await adapter.tableExists(name);
+    if (exists) {
+      this.queryCache.addExistingTable(name);
+    }
+    return exists;
   }
 
   public syncModel(model: ModelType): void {
@@ -129,27 +181,44 @@ export default class Repository<Type extends columnType, ModelType extends Model
   }
 
   public async save(attributes: Type): Promise<void> {
-    await this.Table.CreateRecord<Type>(attributes);
+    const queryStr = await this.buildInsertQuery(this.tableName, attributes);
+    const query = this.queryFactory({
+      tableName: this.tableName,
+      query: queryStr,
+      parameters: attributes,
+      adapterName: this.customDatabaseAdapter,
+    });
+    await query.Run();
   }
 
-  public async first(queryLayers: QueryLayers, Model: Model<Type>): Promise<Type | undefined> {
+  public async first(
+    queryLayers: QueryLayers,
+    Model: Model<Type>,
+  ): Promise<Type | undefined> {
     let record;
     if (Model.JoinedEntities.length > 0) {
-      const result = (await this.join(Model, { ...queryLayers, final: { ...queryLayers.final, limit: 1 } }))[0];
-      record = result ? { values: result } : undefined;
+      const result = (
+        await this.join(Model, {
+          ...queryLayers,
+          final: { ...queryLayers.final, limit: 1 },
+        })
+      )[0];
+      record = result;
     } else {
-      record = await this.Table.FetchSingleRecord<Type>(queryLayers);
+      record = await this.getRecord(queryLayers, true);
     }
 
     return record;
   }
 
-  public async get(QueryLayers: QueryLayers, Model: Model<Type>): Promise<Type[]> {
+  public async get(
+    QueryLayers: QueryLayers,
+    Model: Model<Type>,
+  ): Promise<Type[]> {
     if (Model.JoinedEntities.length > 0) {
       return await this.join(Model, QueryLayers);
     } else {
-      const records = await this.Table.FetchRecords<Type>(QueryLayers);
-      return records.map(record => record.values);
+      return await this.getRecords(QueryLayers);
     }
   }
 
@@ -160,14 +229,74 @@ export default class Repository<Type extends columnType, ModelType extends Model
     return this.get(QueryLayers, Model);
   }
 
-  public async update(primaryKey: QueryIsEqualParameter, newAttributes: Partial<Type>): Promise<Record<Type> | undefined> {
-    const whereCondition = new QueryWhereCondition();
-    whereCondition.push(primaryKey);
+  public async update(
+    primaryKey: QueryIsEqualParameter,
+    newAttributes: Partial<Type>,
+    table: string,
+  ): Promise<Type | undefined> {
+    const queryStr = await this.buildUpdateQuery(
+      table,
+      newAttributes,
+      primaryKey,
+    );
 
-    const record = await this.Table.FetchSingleRecord<Type>({ base: { where: whereCondition } });
-    if (record) {
-      return await record.Update(newAttributes, primaryKey);
+    const params = { ...newAttributes, ...primaryKey };
+
+    const query = this.queryFactory({
+      tableName: table,
+      query: queryStr,
+      parameters: params,
+      adapterName: this.customDatabaseAdapter,
+    });
+
+    await query.Run();
+
+    const updatedRecord = await this.getRecord(
+      { base: { from: table, where: primaryKey } },
+      true,
+    );
+    return updatedRecord;
+  }
+
+  private async getRecords(queryLayers: QueryLayers): Promise<Type[]> {
+    const builder = new QueryStatementBuilder(queryLayers);
+    const queryStr = await builder.build();
+
+    let params = {};
+    if (
+      queryLayers?.base?.where &&
+      Object.keys(queryLayers.base.where).length > 0
+    ) {
+      params = this.convertParamsToObject(queryLayers.base.where);
     }
+    if (
+      queryLayers?.pretty?.where &&
+      Object.keys(queryLayers.pretty.where).length > 0
+    ) {
+      params = { ...params, ...queryLayers.pretty.where };
+    }
+
+    const query = this.queryFactory({
+      tableName: this.tableName,
+      query: queryStr,
+      parameters: params,
+      adapterName: this.customDatabaseAdapter,
+    });
+
+    const results = await query.All<Type>();
+    return results.map((r: { values: Type }) => r.values);
+  }
+
+  private async getRecord(
+    queryLayers: QueryLayers,
+    limitOne: boolean = false,
+  ): Promise<Type | undefined> {
+    const layers = limitOne
+      ? { ...queryLayers, final: { ...queryLayers?.final, limit: 1 } }
+      : queryLayers;
+
+    const records = await this.getRecords(layers);
+    return records[0];
   }
 
   private async join(
@@ -181,8 +310,99 @@ export default class Repository<Type extends columnType, ModelType extends Model
 
     nextLayers.base.joins = joins;
 
-    const records = await this.Table.FetchJoined<Type>(nextLayers);
-    return records.map(record => record.values);
+    const records = await this.getJoinRecords(nextLayers);
+    return records;
+  }
+
+  private async getJoinRecords(queryLayers: QueryLayers): Promise<Type[]> {
+    if (
+      queryLayers.base.joins === undefined ||
+      (Array.isArray(queryLayers.base.joins) &&
+        queryLayers.base.joins.length === 0)
+    ) {
+      throw new Error('No joins defined for the Join operation.');
+    }
+
+    const joinedTables = queryLayers.base.joins.map((j) => j.fromTable);
+    const tableColumnCache = new Map<string, TableColumnInfo[]>();
+    const adapter = this.getAdapter();
+
+    const columnInfo = await adapter.tableColumnInformation(this.tableName);
+    tableColumnCache.set(this.tableName, columnInfo);
+
+    for (const tableName of joinedTables) {
+      const columnInfo = await adapter.tableColumnInformation(tableName);
+      tableColumnCache.set(tableName, columnInfo);
+    }
+
+    const builder = new QueryStatementBuilder(queryLayers, tableColumnCache);
+    const queryString = await builder.build();
+
+    let params = {};
+    if (queryLayers?.base?.where) {
+      params = this.convertParamsToObject(queryLayers.base.where);
+    }
+    if (queryLayers?.pretty?.where) {
+      params = {
+        ...params,
+        ...this.convertParamsToObject(queryLayers.pretty.where),
+      };
+    }
+
+    const query = this.queryFactory({
+      tableName: this.tableName,
+      query: queryString,
+      parameters: params,
+      adapterName: this.customDatabaseAdapter,
+    });
+
+    const records = await query.All<Type>();
+    const splitTables = await this.splitJoinValues<Type>(
+      records,
+      joinedTables,
+      queryLayers.base.joins,
+    );
+    return splitTables;
+  }
+
+  private async splitJoinValues<Type extends columnType>(
+    records: { values: Type }[],
+    joinedTables: string[],
+    joins: Join[],
+  ): Promise<Type[]> {
+    return records.map((record) => {
+      const mainTableData: columnType = {};
+      const joinedTableData: { [tableName: string]: columnType } = {};
+
+      for (const [aliasedKey, value] of Object.entries(record.values)) {
+        if (aliasedKey.includes('__')) {
+          const [tableName, columnName] = aliasedKey.split('__');
+
+          if (tableName === this.tableName) {
+            mainTableData[columnName] = value;
+          } else if (joinedTables.includes(tableName)) {
+            const currentJoin = joins.find((j) => j.fromTable === tableName);
+            const aliasedTableName = currentJoin?.name || tableName;
+            joinedTableData[aliasedTableName] ??= {};
+            joinedTableData[aliasedTableName][columnName] = value;
+          }
+        } else {
+          mainTableData[aliasedKey] = value;
+        }
+      }
+
+      const filteredJoinedData = Object.fromEntries(
+        Object.entries(joinedTableData).filter(
+          ([, data]) => Object.keys(data).length > 0,
+        ),
+      );
+
+      const combinedData = {
+        ...mainTableData,
+        ...filteredJoinedData,
+      } as Type;
+      return combinedData;
+    });
   }
 
   public async toSql(
@@ -224,21 +444,14 @@ export default class Repository<Type extends columnType, ModelType extends Model
 
   private buildJoinObject(
     Model: Model<Type>,
-    inputLayers: QueryLayers
+    inputLayers: QueryLayers,
   ): { joins: Join[]; queryLayers: QueryLayers } {
-    const queryWhereCondition = new QueryWhereCondition();
-    if (inputLayers.base.where) {
-      queryWhereCondition.push(inputLayers.base.where.QueryIsEqualParameter);
-    }
-
     const queryLayers: QueryLayers = {
       ...inputLayers,
       base: {
         ...inputLayers.base,
       },
-      final: inputLayers.final
-        ? { ...inputLayers.final }
-        : undefined
+      final: inputLayers.final ? { ...inputLayers.final } : undefined,
     };
 
     const joins: Join[] = Model.JoinedEntities.flatMap((join) => {
@@ -261,8 +474,12 @@ export default class Repository<Type extends columnType, ModelType extends Model
       }
 
       if (join.queryScopes && queryLayers.base.where) {
-        queryLayers.base.where ??= new QueryWhereCondition();
-        queryLayers.base.where.push(join.queryScopes);
+        queryLayers.base.where = this.mergeQueryWhereConditions(
+          queryLayers.base.where,
+          join.queryScopes,
+        );
+      } else if (join.queryScopes) {
+        queryLayers.base.where = join.queryScopes;
       }
 
       if (relation.type !== 'manyToMany') {
@@ -332,5 +549,100 @@ export default class Repository<Type extends columnType, ModelType extends Model
     });
 
     return { joins, queryLayers };
+  }
+
+  public mergeQueryWhereConditions(
+    base: QueryWhereCondition,
+    additional: QueryWhereCondition,
+  ): QueryComparisonParameters[] {
+    return [
+      ...this.convertParamsToArray(base),
+      ...this.convertParamsToArray(additional),
+    ];
+  }
+
+  public ConvertParamsToArray(
+    params: QueryWhereCondition,
+  ): QueryComparisonParameters[] {
+    return this.convertParamsToArray(params);
+  }
+
+  private convertParamsToArray(
+    params: QueryWhereCondition,
+  ): QueryComparisonParameters[] {
+    const paramArray: QueryComparisonParameters[] = [];
+
+    if (Array.isArray(params)) {
+      return params;
+    } else {
+      Object.entries(params).forEach(([key, value]) => {
+        return paramArray.push({
+          column: key,
+          operator: '=',
+          value,
+        });
+      });
+    }
+
+    return paramArray;
+  }
+
+  private convertParamsToObject(params: QueryWhereCondition): columnType {
+    const paramObject: columnType = {};
+
+    if (Array.isArray(params)) {
+      params.forEach((param) => {
+        paramObject[param.column] = param.value;
+      });
+    } else {
+      Object.assign(paramObject, params);
+    }
+
+    return paramObject;
+  }
+
+  private async buildInsertQuery(
+    tableName: string,
+    data: columnType,
+  ): Promise<string> {
+    const columns = Object.keys(data);
+    const values = Object.values(data);
+    const placeholders = values.map((_, i) => `@value${i}`).join(', ');
+    const columnList = columns.join(', ');
+
+    const query = `INSERT INTO "${tableName}" (${columnList}) VALUES (${placeholders})`;
+
+    const params: columnType = {};
+    values.forEach((value, index) => {
+      params[`value${index}`] = value;
+    });
+
+    return query;
+  }
+
+  private async buildUpdateQuery(
+    tableName: string,
+    data: Partial<columnType>,
+    where: QueryIsEqualParameter,
+  ): Promise<string> {
+    const sets = Object.keys(data)
+      .map((key) => `"${key}" = @${key}`)
+      .join(', ');
+    const whereClauses = Object.keys(where)
+      .map((key) => `"${key}" = @where_${key}`)
+      .join(' AND ');
+
+    return `UPDATE "${tableName}" SET ${sets} WHERE ${whereClauses}`;
+  }
+
+  private async buildDeleteQuery(
+    tableName: string,
+    where: QueryIsEqualParameter,
+  ): Promise<string> {
+    const whereClauses = Object.keys(where)
+      .map((key) => `"${key}" = @${key}`)
+      .join(' AND ');
+
+    return `DELETE FROM "${tableName}" WHERE ${whereClauses}`;
   }
 }
