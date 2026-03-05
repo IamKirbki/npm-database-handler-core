@@ -98,18 +98,30 @@ describe('Model', () => {
 
     it('should add where conditions to query layers', () => {
       const user = new UserModel().where({ name: 'John' });
-      expect((user as any).queryLayers.base.where).toEqual({
-        name: 'John',
-      });
+      expect((user as any).queryLayers.base.where).toEqual([
+        {
+          column: 'name',
+          operator: '=',
+          value: 'John',
+        },
+      ]);
     });
 
     it('should stack multiple where conditions', () => {
       const user = new UserModel().where({ name: 'John' }).where({ email: 'john@example.com' });
       const where = (user as any).queryLayers.base.where;
-      expect(where).toEqual({
-        name: 'John',
-        email: 'john@example.com'
-      });
+      expect(where).toEqual([
+        {
+          column: 'name',
+          operator: '=',
+          value: 'John',
+        },
+        {
+          column: 'email',
+          operator: '=',
+          value: 'john@example.com',
+        },
+      ]);
     });
   });
 
@@ -123,16 +135,24 @@ describe('Model', () => {
     it('static where should return a model instance with where set', () => {
       const user = UserModel.where({ name: 'John' });
       expect(user).toBeInstanceOf(UserModel);
-      expect((user as any).queryLayers.base.where).toEqual({
-        name: 'John',
-      });
+      expect((user as any).queryLayers.base.where).toEqual([
+        {
+          column: 'name',
+          operator: '=',
+          value: 'John',
+        },
+      ]);
     });
 
     it('static find should set where condition for primary key', () => {
       const user = UserModel.find(1);
-      expect((user as any).queryLayers.base.where).toEqual({
-        id: 1,
-      });
+      expect((user as any).queryLayers.base.where).toEqual([
+        {
+          column: 'id',
+          operator: '=',
+          value: 1,
+        },
+      ]);
     });
   });
 
@@ -188,7 +208,7 @@ describe('Model', () => {
       const user = new UserModel();
       vi.spyOn((user as any).repository, 'first').mockResolvedValue(null);
       
-      await expect(user.findOrFail(999)).rejects.toThrow('Record with primary key 999 not found.');
+      await expect(user.findOrFail(999)).rejects.toThrow("No record found in table 'users' matching identifier '999'");
     });
 
     it('all() should return array of model instances', async () => {

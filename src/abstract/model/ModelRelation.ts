@@ -1,6 +1,8 @@
 import { columnType, joinedEntity, ModelConfig, QueryComparisonParameters, QueryWhereCondition, relation } from "@core/types/index.js";
 import Model from "@core/abstract/Model.js";
 import Repository from '@core/runtime/Repository.js';
+import RelationError from "@core/helpers/Errors/ModelErrors/RelationError.js";
+import InvalidOperationError from "@core/helpers/Errors/ModelErrors/InvalidOperationError.js";
 
 export default abstract class ModelRelations<
     Type extends columnType,
@@ -30,7 +32,7 @@ export default abstract class ModelRelations<
         const relation = this.relations.pop();
 
         if (!relation) {
-            throw new Error(`Relation for pivot table insertion not found.`);
+            throw new RelationError('pivot table insertion', 'Relation not found');
         }
 
         await this.repository.insertRecordIntoPivotTable(foreignKey, this.self, relation);
@@ -59,7 +61,7 @@ export default abstract class ModelRelations<
         });
 
         if (!relation) {
-            throw new Error(`Failed to create many-to-many relation for model ${model.Configuration.table}`);
+            throw new RelationError(model.Configuration.table, 'Failed to create many-to-many relation');
         }
 
         this.relations.push(relation);
@@ -135,7 +137,7 @@ export default abstract class ModelRelations<
         const result = this.callRelationMethod(relationName);
 
         if (result instanceof Promise) {
-            throw new Error(
+            throw new InvalidOperationError(
                 `Relation method '${relationName}' is asynchronous. Use asyncWith() instead of with().`
             );
         }
@@ -177,7 +179,7 @@ export default abstract class ModelRelations<
     public callRelationMethod(relation: string): void | Promise<void> {
         const method = Reflect.get(this, relation);
         if (typeof method !== 'function') {
-            throw new Error(`Relation method '${relation}' does not exist`);
+            throw new RelationError(relation, 'Relation method does not exist');
         }
         const result = method.call(this);
 
@@ -185,6 +187,7 @@ export default abstract class ModelRelations<
         // Only return promise if the method is actually async
         return result instanceof Promise ? result : undefined;
     }
+
 
     private normalizeQueryScopes(
         queryScopes: QueryWhereCondition | undefined,

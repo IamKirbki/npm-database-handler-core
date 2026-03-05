@@ -47,7 +47,7 @@ export type QueryLayers = {
 export type BaseQueryOptions = {
     from?: string;
     joins?: Join[];
-    where?: QueryWhereCondition;
+    where?: QueryComparisonParameters[];
     orderBy?: OrderByDefinition[];
 
     expressions?: PossibleBaseExpressions[];

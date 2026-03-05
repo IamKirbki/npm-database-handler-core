@@ -15,6 +15,9 @@ import QueryStatementBuilder from '@core/helpers/QueryBuilders/QueryStatementBui
 import { Container, IDatabaseAdapter } from '@core/index.js';
 import QueryCache from '@core/runtime/QueryCache.js';
 import { QueryFactory } from '@core/types/factories';
+import RelationError from "@core/helpers/Errors/ModelErrors/RelationError.js";
+import InvalidOperationError from "@core/helpers/Errors/ModelErrors/InvalidOperationError.js";
+import UnknownTableError from "@core/helpers/Errors/TableErrors/UnknownTableError.js";
 
 export default class Repository<
   Type extends columnType,
@@ -154,8 +157,9 @@ export default class Repository<
       this.manyToManyRelations.set(relation.pivotTable!, relation);
       return relation;
     } else {
-      throw new Error(
-        `Pivot table ${relation.pivotTable} does not exist. Create it in alphabetical order before using many-to-many relationships.`,
+      throw new UnknownTableError(
+        relation.pivotTable!,
+        'Create it in alphabetical order before using many-to-many relationships.',
       );
     }
   }
@@ -252,8 +256,10 @@ export default class Repository<
 
     await query.Run();
 
+    const normalizedPrimaryKey = this.convertParamsToArray(primaryKey);
+
     const updatedRecord = await this.getRecord(
-      { base: { from: table, where: primaryKey } },
+      { base: { from: table, where: normalizedPrimaryKey } },
       true,
     );
     return updatedRecord;
@@ -321,7 +327,7 @@ export default class Repository<
       (Array.isArray(queryLayers.base.joins) &&
         queryLayers.base.joins.length === 0)
     ) {
-      throw new Error('No joins defined for the Join operation.');
+      throw new InvalidOperationError('No joins defined for the Join operation.');
     }
 
     const joinedTables = queryLayers.base.joins.map((j) => j.fromTable);
@@ -525,9 +531,7 @@ export default class Repository<
 
 
       if (!relation) {
-        throw new Error(
-          `Relation for joined entity ${join.relation} not found.`,
-        );
+        throw new RelationError(join.relation, 'Relation not found.');
       }
 
       if (join.queryScopes && queryLayers.base.where) {
@@ -536,7 +540,7 @@ export default class Repository<
           join.queryScopes,
         );
       } else if (join.queryScopes) {
-        queryLayers.base.where = join.queryScopes;
+        queryLayers.base.where = this.convertParamsToArray(join.queryScopes);
       }
 
       if (relation.type !== 'manyToMany') {

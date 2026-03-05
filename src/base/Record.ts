@@ -4,12 +4,14 @@ import {
     ModelWithTimestamps,
     QueryValues,
     QueryIsEqualParameter,
+    QueryComparisonParameters,
 } from "@core/types/index.js";
 import QueryStatementBuilder from "@core/helpers/QueryBuilders/QueryStatementBuilder.js";
 import oldQueryStatementBuilder from "@core/helpers/QueryBuilders/oldQueryStatementBuilder.js";
 import QueryFactory from "@core/factories/QueryFactory.js";
 import RecordFactory from "@core/factories/RecordFactory.js";
 import { RecordConstructorType } from "@core/types/record.js";
+import InvalidOperationError from "@core/helpers/Errors/ModelErrors/InvalidOperationError.js";
 
 /** Record class represents a single database row */
 export default class Record<ColumnValuesType extends columnType> {
@@ -42,7 +44,7 @@ export default class Record<ColumnValuesType extends columnType> {
         const columns = Object.keys(this._values);
 
         if (columns.length === 0) {
-            throw new Error("Cannot insert record with no columns");
+            throw new InvalidOperationError("Cannot insert record with no columns");
         }
 
         const queryStr = await oldQueryStatementBuilder.BuildInsert(this._tableName, this._values);
@@ -69,7 +71,13 @@ export default class Record<ColumnValuesType extends columnType> {
             return undefined;
         }
 
-        const builder = new QueryStatementBuilder({ base: { from: this._tableName, where: { ...this._values } } });
+        const whereParams: QueryComparisonParameters[] = Object.entries(this._values).map(([column, value]) => ({
+            column,
+            operator: '=',
+            value
+        }));
+
+        const builder = new QueryStatementBuilder({ base: { from: this._tableName, where: whereParams } });
         const queryStrSelect = await builder.build();
         const querySelect = this._queryFactory.create({
             tableName: this._tableName,

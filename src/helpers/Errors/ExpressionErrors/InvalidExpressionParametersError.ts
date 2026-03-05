@@ -1,6 +1,7 @@
-export default class InvalidExpressionParametersError extends Error {
+import DatabaseHandlerError from "../DatabaseHandlerError.js";
+
+export default class InvalidExpressionParametersError extends DatabaseHandlerError {
     constructor(message: string) {
-        super(`Invalid expression parameters: ${message}`);
-        this.name = "InvalidExpressionParametersError";
+        super(`Invalid expression parameters: ${message}`, { code: 'INVALID_EXPRESSION_PARAMETERS' });
     }
 }

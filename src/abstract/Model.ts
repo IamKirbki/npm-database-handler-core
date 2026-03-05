@@ -1,5 +1,7 @@
 import Repository from '@core/runtime/Repository.js';
 import ModelRelations from '@core/abstract/model/ModelRelation.js';
+import RecordNotFoundError from '@core/helpers/Errors/ModelErrors/RecordNotFoundError.js';
+import InvalidOperationError from '@core/helpers/Errors/ModelErrors/InvalidOperationError.js';
 import {
   columnType,
   QueryValues,
@@ -13,6 +15,7 @@ import {
   QueryEvaluationPhase,
   QueryLayers,
   QueryWhereCondition,
+  QueryComparisonParameters,
 } from '@core/types/index.js';
 
 /** Abstract Model class for ORM-style database interactions */
@@ -100,7 +103,7 @@ export default abstract class Model<
 
   public offset(value: number): this {
     if (!this.queryLayers.final?.limit) {
-      throw new Error('Offset cannot be set without a limit.');
+      throw new InvalidOperationError('Offset cannot be set without a limit.');
     }
 
     this.queryLayers.final.offset = value;
@@ -132,13 +135,20 @@ export default abstract class Model<
   }
 
   public where(conditions: QueryWhereCondition): this {
-    if (Array.isArray(conditions) && Array.isArray(this.queryLayers.base.where)) {
-      this.queryLayers.base.where.push(...conditions);
-    } else if (!Array.isArray(conditions) && !Array.isArray(this.queryLayers.base.where)) {
-      this.queryLayers.base.where = { ...this.queryLayers.base.where, ...conditions };
+    const normalizedConditions: QueryComparisonParameters[] = Array.isArray(conditions)
+      ? conditions
+      : Object.entries(conditions).map(([key, value]) => ({
+          column: key,
+          operator: '=',
+          value,
+        }));
+
+    if (this.queryLayers.base.where) {
+      this.queryLayers.base.where.push(...normalizedConditions);
     } else {
-      this.queryLayers.base.where = conditions;
+      this.queryLayers.base.where = normalizedConditions;
     }
+
     return this;
   }
 
@@ -151,9 +161,13 @@ export default abstract class Model<
   }
 
   public whereId(id: QueryValues): this {
-    this.queryLayers.base.where = {
-      [this.primaryKeyColumn]: id,
-    }
+    this.queryLayers.base.where = [
+      {
+        column: this.primaryKeyColumn,
+        operator: '=',
+        value: id,
+      },
+    ];
     return this;
   }
 
@@ -166,9 +180,13 @@ export default abstract class Model<
   }
 
   public find(primaryKeyValue: QueryValues): this {
-    this.queryLayers.base.where = {
-      [this.primaryKeyColumn]: primaryKeyValue,
-    };
+    this.queryLayers.base.where = [
+      {
+        column: this.primaryKeyColumn,
+        operator: '=',
+        value: primaryKeyValue,
+      },
+    ];
     return this;
   }
 
@@ -191,7 +209,7 @@ export default abstract class Model<
 
     const record = await this.repository?.first(query, this);
     if (!record) {
-      throw new Error(`Record with primary key ${primaryKeyValue} not found.`);
+      throw new RecordNotFoundError(primaryKeyValue, this.Configuration.table);
     }
 
     this.attributes = record;
@@ -320,7 +338,7 @@ export default abstract class Model<
 
   public async update(attributes: Partial<ModelType>): Promise<this> {
     if (this.primaryKey === undefined) {
-      throw new Error(
+      throw new InvalidOperationError(
         'Primary key value is undefined. Cannot update record without a valid primary key.',
       );
     }
@@ -339,6 +357,7 @@ export default abstract class Model<
 
     return this;
   }
+
 
   public near(params: {
     referencePoint: SpatialPoint;

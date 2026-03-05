@@ -2,6 +2,7 @@ import { Join, DefaultQueryParameters, ExtraQueryParameters, QueryLayers, QueryC
 import QueryDecorator from "./QueryDecorator.js";
 import IQueryBuilder from "@core/interfaces/IQueryBuilder.js";
 import { TableColumnInfo } from "@core/types/index.js";
+import InvalidOperationError from "@core/helpers/Errors/ModelErrors/InvalidOperationError.js";
 
 export default class JoinDecorator extends QueryDecorator {
     private fromTableName: string;
@@ -11,7 +12,7 @@ export default class JoinDecorator extends QueryDecorator {
 
     constructor(builder: IQueryBuilder, layer: QueryLayers, tableColumnInformation: Map<string, TableColumnInfo[]>) {
         if (!layer.base.from) {
-            throw new Error("Base layer must specify 'from' table name for JoinDecorator.");
+            throw new InvalidOperationError("Base layer must specify 'from' table name for JoinDecorator.");
         }
 
         super(builder);

@@ -10,6 +10,7 @@ import QueryStatementBuilder from "@core/helpers/QueryBuilders/QueryStatementBui
 import { Record, Query } from "@core/index.js";
 import QueryFactory from "@core/factories/QueryFactory.js";
 import RecordFactory from "@core/factories/RecordFactory.js";
+import InvalidOperationError from "@core/helpers/Errors/ModelErrors/InvalidOperationError.js";
 
 /** Table class for interacting with a database table */
 export default class Table {
@@ -163,7 +164,7 @@ export default class Table {
         queryLayers: QueryLayers
     ): Promise<Record<Type>[]> {
         if (queryLayers.base.joins === undefined || (Array.isArray(queryLayers.base.joins) && queryLayers.base.joins.length === 0)) {
-            throw new Error("No joins defined for the Join operation.");
+            throw new InvalidOperationError("No joins defined for the Join operation.");
         }
 
         const joinedTables = queryLayers.base.joins.map(j => j.fromTable);

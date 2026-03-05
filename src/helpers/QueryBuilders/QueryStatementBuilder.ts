@@ -15,6 +15,7 @@ import GroupByDecorator from "./QueryDecorators/GroupByDecorator.js";
 import OrderByDecorator from "./QueryDecorators/OrderByDecorator.js";
 import LimitDecorator from "./QueryDecorators/LimitDecorator.js";
 import SqlRenderer from "./SqlRenderer.js";
+import InvalidOperationError from "@core/helpers/Errors/ModelErrors/InvalidOperationError.js";
 
 export default class QueryStatementBuilder {
     private _layers: QueryLayers;
@@ -51,7 +52,7 @@ export default class QueryStatementBuilder {
 
     private async buildBaseLayer(): Promise<string> {
         if (!this._layers.base.from) {
-            throw new Error("Base layer must specify 'from' table name.");
+            throw new InvalidOperationError("Base layer must specify 'from' table name.");
         }
 
         let builder: IQueryBuilder = new BaseSelectQueryBuilder(this._layers.base.from, this._layers.base.select || [], this._layers.base.joinsSelect || [], this._layers.base.expressionsSelect || []);

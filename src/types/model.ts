@@ -1,7 +1,8 @@
 /** Model configuration and types */
 
 import Model from "@core/abstract/Model";
-import { columnType, QueryWhereCondition } from "./index";
+import { columnType } from "./index";
+import { QueryComparisonParameters } from "./query";
 
 export type ModelConfig = {
     /** Table name - defaults to lowercase class name */
@@ -82,5 +83,5 @@ export type joinedEntity = {
     relation: string;
     alias?: string;
     path: string;
-    queryScopes?: QueryWhereCondition;
+    queryScopes?: QueryComparisonParameters[];
 }
