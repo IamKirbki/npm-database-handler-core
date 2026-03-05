@@ -7,9 +7,9 @@ import {
 } from "@core/types/index.js";
 import QueryStatementBuilder from "@core/helpers/QueryBuilders/QueryStatementBuilder.js";
 import oldQueryStatementBuilder from "@core/helpers/QueryBuilders/oldQueryStatementBuilder.js";
-import QueryFactory from "@core/factories/QueryFactory";
-import RecordFactory from "@core/factories/RecordFactory";
-import { RecordConstructorType } from "@core/types/record";
+import QueryFactory from "@core/factories/QueryFactory.js";
+import RecordFactory from "@core/factories/RecordFactory.js";
+import { RecordConstructorType } from "@core/types/record.js";
 
 /** Record class represents a single database row */
 export default class Record<ColumnValuesType extends columnType> {

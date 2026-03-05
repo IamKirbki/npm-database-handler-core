@@ -9,6 +9,7 @@ import {
   QueryIsEqualParameter,
   QueryLayers,
   TableColumnInfo,
+  QueryValues,
 } from '@core/types/index.js';
 import QueryStatementBuilder from '@core/helpers/QueryBuilders/QueryStatementBuilder.js';
 import { Container, IDatabaseAdapter } from '@core/index.js';
@@ -357,15 +358,16 @@ export default class Repository<
     });
 
     const records = await query.All<Type>();
-    const splitTables = await this.splitJoinValues<Type>(
+    const rawMapped = await this.mapJoinedResults<Type>(
       records,
       joinedTables,
       queryLayers.base.joins,
     );
+    const splitTables = this.hydrateJoinedRecords<Type>(rawMapped, joinedTables);
     return splitTables;
   }
 
-  private async splitJoinValues<Type extends columnType>(
+  private async mapJoinedResults<Type extends columnType>(
     records: { values: Type }[],
     joinedTables: string[],
     joins: Join[],
@@ -440,6 +442,55 @@ export default class Repository<
       const builder = new QueryStatementBuilder(queryLayers);
       return await builder.build();
     }
+  }
+
+  private hydrateJoinedRecords<Type extends columnType>(
+    records: Type[],
+    joinedTables: string[],
+    primaryKey: string = 'id'
+  ): Type[] {
+    const parentMap = new Map<unknown, {
+      parent: columnType,
+      childMaps: { [table: string]: Map<unknown, columnType> }
+    }>();
+
+    for (const values of records) {
+      const parentId = values[primaryKey];
+      const parentData: columnType = {};
+      const childData: { [table: string]: columnType } = {};
+
+      for (const [key, val] of Object.entries(values)) {
+        if (joinedTables.includes(key)) {
+          childData[key] = val as unknown as columnType;
+        } else {
+          parentData[key] = val;
+        }
+      }
+
+      if (!parentMap.has(parentId)) {
+        const childMaps: { [table: string]: Map<unknown, columnType> } = {};
+        for (const table of joinedTables) {
+          childMaps[table] = new Map();
+        }
+        parentMap.set(parentId, { parent: parentData, childMaps });
+      }
+
+      const entry = parentMap.get(parentId)!;
+      for (const [table, child] of Object.entries(childData)) {
+        const childId = child[primaryKey] ?? Object.values(child).filter(v => v !== null).join('__');
+        if (childId !== undefined && childId !== '') {
+          entry.childMaps[table].set(childId, child);
+        }
+      }
+    }
+
+    return Array.from(parentMap.values()).map(({ parent, childMaps }) => {
+      const merged: columnType = { ...parent };
+      for (const [table, childMap] of Object.entries(childMaps)) {
+        merged[table] = Array.from(childMap.values()) as unknown as QueryValues;
+      }
+      return merged as Type;
+    });
   }
 
   private buildJoinObject(
