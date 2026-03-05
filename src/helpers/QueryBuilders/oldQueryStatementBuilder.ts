@@ -1,4 +1,4 @@
-import { ExtraQueryParameters, QueryWhereConditionType, QueryComparisonParameters, QueryIsEqualParameter } from "@core/types/index.js";
+import { ExtraQueryParameters, QueryWhereCondition, QueryComparisonParameters, QueryIsEqualParameter } from "@core/types/index.js";
 
 /** Utility class for building SQL query strings */
 export default class oldQueryStatementBuilder {
@@ -59,7 +59,7 @@ export default class oldQueryStatementBuilder {
      * // "UPDATE users SET status = @status WHERE status = @status AND last_login = @last_login"
      * ```
      */
-    public static BuildUpdate(tableName: string, record: QueryWhereConditionType, where: QueryWhereConditionType): string {
+    public static BuildUpdate(tableName: string, record: QueryWhereCondition, where: QueryWhereCondition): string {
         const queryParts: string[] = [];
         const setClauses = Object.keys(record).map(col => `${col} = @${col}`);
 
@@ -90,7 +90,7 @@ export default class oldQueryStatementBuilder {
      * // "DELETE FROM users WHERE status = @status AND last_login = @last_login"
      * ```
      */
-    public static BuildDelete(tableName: string, where: QueryWhereConditionType): string {
+    public static BuildDelete(tableName: string, where: QueryWhereCondition): string {
         const queryParts: string[] = [];
 
         queryParts.push(`DELETE FROM "${tableName}"`);
@@ -120,7 +120,7 @@ export default class oldQueryStatementBuilder {
      * // "SELECT COUNT(*) as count FROM users WHERE status = @status AND age = @age"
      * ```
      */
-    public static BuildCount(tableName: string, where?: QueryWhereConditionType): string {
+    public static BuildCount(tableName: string, where?: QueryWhereCondition): string {
         const queryParts: string[] = [];
         queryParts.push(`SELECT COUNT(*) as count FROM "${tableName}"`);
         queryParts.push(this.BuildWhere(where));
@@ -156,7 +156,7 @@ export default class oldQueryStatementBuilder {
      * // ""
      * ```
      */
-    public static BuildWhere(where?: QueryWhereConditionType): string {
+    public static BuildWhere(where?: QueryWhereCondition): string {
         if (!where || (Array.isArray(where) && where.length === 0) || Object.keys(where).length === 0) return "";
         const isSimpleObject = !Array.isArray(where) && typeof where === 'object' && where !== null;
 

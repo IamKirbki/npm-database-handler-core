@@ -1,5 +1,5 @@
 import {
-    QueryWhereConditionType,
+    QueryWhereCondition,
     QueryComparisonParameters,
     QueryLayers,
     QueryContext,
@@ -162,7 +162,7 @@ export default class QueryStatementBuilder {
     }
 
     public static normalizeAndQualifyConditions(
-        where: QueryWhereConditionType,
+        where: QueryWhereCondition,
         tableName: string,
         normalizeBlacklist: string[] = [],
         valueClauseKeywords: Set<string> = new Set(),
@@ -188,7 +188,7 @@ export default class QueryStatementBuilder {
     }
 
     public static normalizeQueryConditions(
-        where: QueryWhereConditionType,
+        where: QueryWhereCondition,
     ): QueryComparisonParameters[] {
         if (Array.isArray(where)) {
             return where;

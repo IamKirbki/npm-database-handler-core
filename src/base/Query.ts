@@ -1,6 +1,6 @@
 import {
   columnType,
-  QueryWhereConditionType,
+  QueryWhereCondition,
   TableColumnInfo,
   QueryConstructorType,
 } from '@core/types/index.js';
@@ -19,9 +19,9 @@ export default class Query {
   private readonly _queryCache: QueryCache;
 
   private _query?: string;
-  private _parameters: QueryWhereConditionType = {};
+  private _parameters: QueryWhereCondition = {};
 
-  public get Parameters(): QueryWhereConditionType {
+  public get Parameters(): QueryWhereCondition {
     return this._parameters;
   }
 

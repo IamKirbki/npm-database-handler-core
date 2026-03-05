@@ -1,14 +1,14 @@
 import IQueryBuilder from "@core/interfaces/IQueryBuilder.js";
-import { QueryContext, QueryWhereConditionType } from "@core/types/query.js";
+import { QueryContext, QueryWhereCondition } from "@core/types/query.js";
 import QueryDecorator from "./QueryDecorator.js";
 import QueryStatementBuilder from "../QueryStatementBuilder.js";
 
 export default class WhereDecorator extends QueryDecorator {
-    private conditions: QueryWhereConditionType;
+    private conditions: QueryWhereCondition;
 
     constructor(
         component: IQueryBuilder,
-        conditions: QueryWhereConditionType
+        conditions: QueryWhereCondition
     ) {
         super(component);
         this.conditions = conditions;
