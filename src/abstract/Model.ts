@@ -12,9 +12,8 @@ import {
   NestedJsonAggregateDefinition,
   QueryEvaluationPhase,
   QueryLayers,
-  QueryWhereConditionType,
+  QueryWhereCondition,
 } from '@core/types/index.js';
-import QueryWhereCondition from '@core/base/QueryWhereConditions';
 
 /** Abstract Model class for ORM-style database interactions */
 export default abstract class Model<
@@ -126,35 +125,35 @@ export default abstract class Model<
 
   public static where<ParamterModelType extends Model<columnType>>(
     this: new () => ParamterModelType,
-    conditions: QueryWhereConditionType,
+    conditions: QueryWhereCondition,
   ): ParamterModelType {
     const instance = new this();
     return instance.where(conditions);
   }
 
-  public where(conditions: QueryWhereConditionType): this {
-    if (!this.queryLayers.base.where) {
-      this.queryLayers.base.where = new QueryWhereCondition();
-      this.queryLayers.base.where?.push(conditions);
+  public where(conditions: QueryWhereCondition): this {
+    if (Array.isArray(conditions) && Array.isArray(this.queryLayers.base.where)) {
+      this.queryLayers.base.where.push(...conditions);
+    } else if (!Array.isArray(conditions) && !Array.isArray(this.queryLayers.base.where)) {
+      this.queryLayers.base.where = { ...this.queryLayers.base.where, ...conditions };
+    } else {
+      this.queryLayers.base.where = conditions;
     }
-
     return this;
   }
 
   public static whereId<ParamterModelType extends Model<columnType>>(
     this: new () => ParamterModelType,
     id: QueryValues,
-  ): Promise<ParamterModelType> {
+  ): ParamterModelType {
     const instance = new this();
     return instance.whereId(id);
   }
 
   public whereId(id: QueryValues): this {
-    this.queryLayers.base.where ??= new QueryWhereCondition();
-    this.queryLayers.base.where?.clear();
-    this.queryLayers.base.where?.push({
-      ["id"]: id,
-    })
+    this.queryLayers.base.where = {
+      [this.primaryKeyColumn]: id,
+    }
     return this;
   }
 
@@ -167,10 +166,9 @@ export default abstract class Model<
   }
 
   public find(primaryKeyValue: QueryValues): this {
-    this.queryLayers.base.where ??= new QueryWhereCondition();
-    this.queryLayers.base.where?.push({
+    this.queryLayers.base.where = {
       [this.primaryKeyColumn]: primaryKeyValue,
-    })
+    };
     return this;
   }
 
@@ -184,11 +182,7 @@ export default abstract class Model<
 
   public async findOrFail(primaryKeyValue?: QueryValues): Promise<this> {
     if (primaryKeyValue) {
-      this.queryLayers.base.where ??= new QueryWhereCondition();
-      this.queryLayers.base.where?.clear();
-      this.queryLayers.base.where?.push({
-        [this.primaryKeyColumn]: primaryKeyValue,
-      });
+      this.find(primaryKeyValue);
     }
 
     this.queryLayers.base.from = this.Configuration.table;
@@ -216,10 +210,7 @@ export default abstract class Model<
 
   public async first(primaryKeyValue?: string | number): Promise<this> {
     if (primaryKeyValue !== undefined) {
-      this.queryLayers.base.where ??= new QueryWhereCondition();
-      this.queryLayers.base.where?.push({
-        [this.primaryKeyColumn]: primaryKeyValue,
-      });
+      this.find(primaryKeyValue);
     }
 
     const attributes = (await this.repository?.first(
@@ -337,7 +328,6 @@ export default abstract class Model<
     const newRecord = await this.repository?.update(
       { [this.primaryKeyColumn]: this.primaryKey },
       attributes,
-      this.Configuration.table,
     );
 
     if (newRecord) {

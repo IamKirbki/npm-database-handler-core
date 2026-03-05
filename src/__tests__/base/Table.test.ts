@@ -231,7 +231,7 @@ describe('Table', () => {
         it('should throw error when no joins defined', async () => {
             const table = new Table('users');
             
-            await expect(table.Join({
+            await expect(table.FetchJoined({
                 base: { from: 'users' }
             })).rejects.toThrow('No joins defined');
         });
@@ -242,7 +242,7 @@ describe('Table', () => {
             ]);
 
             const table = new Table('users');
-            await table.Join({
+            await table.FetchJoined({
                 base: {
                     from: 'users',
                     joins: [{
