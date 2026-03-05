@@ -360,16 +360,15 @@ export default class Repository<
     const records = await query.All<Type>();
     const rawMapped = await this.mapJoinedResults<Type>(
       records,
-      joinedTables,
       queryLayers.base.joins,
     );
-    const splitTables = this.hydrateJoinedRecords<Type>(rawMapped, joinedTables);
+    const joinAliases = queryLayers.base.joins.map((j) => j.name || j.fromTable);
+    const splitTables = this.hydrateJoinedRecords<Type>(rawMapped, joinAliases);
     return splitTables;
   }
 
   private async mapJoinedResults<Type extends columnType>(
     records: { values: Type }[],
-    joinedTables: string[],
     joins: Join[],
   ): Promise<Type[]> {
     return records.map((record) => {
@@ -382,11 +381,16 @@ export default class Repository<
 
           if (tableName === this.tableName) {
             mainTableData[columnName] = value;
-          } else if (joinedTables.includes(tableName)) {
-            const currentJoin = joins.find((j) => j.fromTable === tableName);
-            const aliasedTableName = currentJoin?.name || tableName;
-            joinedTableData[aliasedTableName] ??= {};
-            joinedTableData[aliasedTableName][columnName] = value;
+          } else {
+            // Check if tableName matches any join alias or table name
+            const currentJoin = joins.find(
+              (j) => (j.name || j.fromTable) === tableName,
+            );
+            if (currentJoin) {
+              const aliasedTableName = currentJoin.name || currentJoin.fromTable;
+              joinedTableData[aliasedTableName] ??= {};
+              joinedTableData[aliasedTableName][columnName] = value;
+            }
           }
         } else {
           mainTableData[aliasedKey] = value;
@@ -558,6 +562,8 @@ export default class Repository<
           }
         }
 
+        const relationName = join.alias || relation.name;
+
         return [
           {
             fromTable: targetTable
@@ -565,7 +571,7 @@ export default class Repository<
               : relation.model.Configuration.table,
             baseTable: baseTable ? baseTable : Model.Configuration.table,
             joinType,
-            name: relation.name,
+            name: relationName,
             on: [
               { [relation.foreignKey!]: baseKey ? baseKey : relation.localKey },
             ],
@@ -573,12 +579,16 @@ export default class Repository<
         ];
       }
 
+      const relationName = join.alias || relation.name;
+      const pivotAlias = `${relationName}_pivot`;
+
       queryLayers.final ??= {};
       queryLayers.final.blacklistTables ??= [];
 
       queryLayers.final.blacklistTables = [
         ...queryLayers.final.blacklistTables,
         relation.pivotTable!,
+        pivotAlias,
       ];
 
       return [
@@ -586,14 +596,14 @@ export default class Repository<
           fromTable: relation.pivotTable!,
           baseTable: Model.Configuration.table,
           joinType: 'INNER',
-          name: relation.name,
+          name: pivotAlias,
           on: [{ [relation.pivotForeignKey!]: relation.localKey }],
         },
         {
           fromTable: relation.model.Configuration.table,
-          baseTable: relation.pivotTable!,
+          baseTable: pivotAlias,
           joinType: 'INNER',
-          name: relation.name,
+          name: relationName,
           on: [{ [relation.foreignKey!]: relation.pivotLocalKey! }],
         },
       ];

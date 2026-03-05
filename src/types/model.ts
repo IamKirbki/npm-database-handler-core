@@ -80,6 +80,7 @@ export type ModelWithTimestamps = {
 
 export type joinedEntity = {
     relation: string;
+    alias?: string;
     path: string;
     queryScopes?: QueryWhereCondition;
 }

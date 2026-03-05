@@ -131,21 +131,23 @@ export default abstract class ModelRelations<
     }
 
     public with(relation: string, queryScopes?: QueryWhereCondition): this {
-        const result = this.callRelationMethod(relation);
+        const [relationName, alias] = relation.split(' as ').map(s => s.trim());
+        const result = this.callRelationMethod(relationName);
 
         if (result instanceof Promise) {
             throw new Error(
-                `Relation method '${relation}' is asynchronous. Use asyncWith() instead of with().`
+                `Relation method '${relationName}' is asynchronous. Use asyncWith() instead of with().`
             );
         }
 
         const lastRelation = this.relations[this.relations.length - 1];
-        const tableName = lastRelation.model.Configuration.table;
+        const tableName = alias || lastRelation.model.Configuration.table;
 
         const normalizedScopes = this.normalizeQueryScopes(queryScopes, tableName);
 
         this.joinedEntities.push({
-            relation: relation,
+            relation: relationName,
+            alias: alias,
             path: lastRelation.path,
             queryScopes: normalizedScopes
         });
@@ -154,15 +156,17 @@ export default abstract class ModelRelations<
     }
 
     public async asyncWith(relation: string, queryScopes?: QueryWhereCondition): Promise<this> {
-        await this.callRelationMethod(relation);
+        const [relationName, alias] = relation.split(' as ').map(s => s.trim());
+        await this.callRelationMethod(relationName);
 
         const lastRelation = this.relations[this.relations.length - 1];
-        const tableName = lastRelation.model.Configuration.table;
+        const tableName = alias || lastRelation.model.Configuration.table;
 
         const normalizedScopes = this.normalizeQueryScopes(queryScopes, tableName);
 
         this.joinedEntities.push({
-            relation: relation,
+            relation: relationName,
+            alias: alias,
             path: lastRelation.path,
             queryScopes: normalizedScopes
         });
