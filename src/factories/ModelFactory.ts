@@ -1,6 +1,6 @@
 import Model from "@core/abstract/Model";
 import IFactory from "../interfaces/IFactory";
-import { columnType } from "@core/types";
+import { columnType } from "@core/types/index";
 
 export default class ModelFactory<
     ModelColumnType extends columnType,

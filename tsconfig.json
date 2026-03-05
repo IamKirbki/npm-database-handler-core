@@ -21,7 +21,6 @@
     "preserveConstEnums": true,
     "experimentalDecorators": true,
     "importHelpers": false,
-    "ignoreDeprecations": "6.0",
     "lib": ["es2019", "DOM"],
     "baseUrl": ".",
     "paths": {
