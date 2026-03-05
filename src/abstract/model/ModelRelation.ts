@@ -44,7 +44,7 @@ export default abstract class ModelRelations<
         pivotForeignKey: string = `${this.Configuration.table}_${localKey}`,
         pivotLocalKey: string = `${model.Configuration.table}_${foreignKey}`,
         path: string = pivotTable,
-        name: string = path.split('.')[1] ?? model.Configuration.table
+        name: string = path.split('.')[1]
     ): Promise<this> {
         const relation = await this.repository.getManyToManyRelation({
             type: 'manyToMany',

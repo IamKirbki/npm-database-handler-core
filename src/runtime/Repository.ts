@@ -518,9 +518,11 @@ export default class Repository<
 
       if (!relation) {
         relation = Model.Relations.find(
-          (rel) => rel.path.split('.')[1] === join.path.split('.')[1],
+          (rel) => rel.path === join.path,
         );
       }
+
+
 
       if (!relation) {
         throw new Error(
@@ -548,7 +550,6 @@ export default class Repository<
         let baseKey: string | undefined;
 
         const [firstPathSegment, secondPathSegment] = relation.path.split('.');
-
         if (firstPathSegment !== Model.Configuration.table) {
           baseTable = firstPathSegment;
           targetTable = secondPathSegment;
@@ -579,7 +580,7 @@ export default class Repository<
         ];
       }
 
-      const relationName = join.alias || relation.name;
+      const relationName = join.alias || relation.name || relation.model.Configuration.table;
       const pivotAlias = `${relationName}_pivot`;
 
       queryLayers.final ??= {};
