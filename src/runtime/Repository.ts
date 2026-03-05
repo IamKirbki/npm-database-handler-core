@@ -580,16 +580,12 @@ export default class Repository<
         ];
       }
 
-      const relationName = join.alias || relation.name || relation.model.Configuration.table;
-      const pivotAlias = `${relationName}_pivot`;
-
       queryLayers.final ??= {};
       queryLayers.final.blacklistTables ??= [];
 
       queryLayers.final.blacklistTables = [
         ...queryLayers.final.blacklistTables,
         relation.pivotTable!,
-        pivotAlias,
       ];
 
       return [
@@ -597,14 +593,14 @@ export default class Repository<
           fromTable: relation.pivotTable!,
           baseTable: Model.Configuration.table,
           joinType: 'INNER',
-          name: pivotAlias,
+          name: relation.name,
           on: [{ [relation.pivotForeignKey!]: relation.localKey }],
         },
         {
           fromTable: relation.model.Configuration.table,
-          baseTable: pivotAlias,
+          baseTable: relation.pivotTable!,
           joinType: 'INNER',
-          name: relationName,
+          name: relation.name,
           on: [{ [relation.foreignKey!]: relation.pivotLocalKey! }],
         },
       ];
