@@ -17,6 +17,7 @@ import { QueryFactory } from '@core/types/factories';
 import RelationError from '@core/helpers/Errors/ModelErrors/RelationError.js';
 import InvalidOperationError from '@core/helpers/Errors/ModelErrors/InvalidOperationError.js';
 import UnknownTableError from '@core/helpers/Errors/TableErrors/UnknownTableError.js';
+import DepricatedQueryStatementBuilder from '@core/helpers/QueryBuilders/depricatedQueryStatementBuilder';
 
 export default class Repository<
   Type extends columnType,
@@ -646,12 +647,8 @@ export default class Repository<
     tableName: string,
     data: columnType,
   ): Promise<string> {
-    const columns = Object.keys(data);
+    const query = DepricatedQueryStatementBuilder.BuildInsert(tableName, data);
     const values = Object.values(data);
-    const placeholders = values.map((_, i) => `@value${i}`).join(', ');
-    const columnList = columns.join(', ');
-
-    const query = `INSERT INTO "${tableName}" (${columnList}) VALUES (${placeholders})`;
 
     const params: columnType = {};
     values.forEach((value, index) => {
