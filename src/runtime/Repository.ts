@@ -242,7 +242,12 @@ export default class Repository<
       primaryKey,
     );
 
-    const params = { ...newAttributes, ...primaryKey };
+    const whereParams: columnType = {};
+    Object.entries(primaryKey).forEach(([key, value]) => {
+      whereParams[`where_${key}`] = value;
+    });
+
+    const params = { ...newAttributes, ...whereParams };
 
     const query = this.queryFactory({
       tableName: table,
@@ -647,15 +652,7 @@ export default class Repository<
     tableName: string,
     data: columnType,
   ): Promise<string> {
-    const query = DepricatedQueryStatementBuilder.BuildInsert(tableName, data);
-    const values = Object.values(data);
-
-    const params: columnType = {};
-    values.forEach((value, index) => {
-      params[`value${index}`] = value;
-    });
-
-    return query;
+    return DepricatedQueryStatementBuilder.BuildInsert(tableName, data);
   }
 
   private async buildUpdateQuery(
@@ -663,24 +660,36 @@ export default class Repository<
     data: Partial<columnType>,
     where: QueryIsEqualParameter,
   ): Promise<string> {
-    const sets = Object.keys(data)
-      .map((key) => `"${key}" = @${key}`)
-      .join(', ');
-    const whereClauses = Object.keys(where)
-      .map((key) => `"${key}" = @where_${key}`)
-      .join(' AND ');
+    const whereConditions: QueryComparisonParameters[] = Object.entries(
+      where,
+    ).map(([key, value]) => ({
+      column: key,
+      operator: '=',
+      value: value as QueryValues,
+    }));
 
-    return `UPDATE "${tableName}" SET ${sets} WHERE ${whereClauses}`;
+    return DepricatedQueryStatementBuilder.BuildUpdate(
+      tableName,
+      data as QueryIsEqualParameter,
+      whereConditions,
+    );
   }
 
   private async buildDeleteQuery(
     tableName: string,
     where: QueryIsEqualParameter,
   ): Promise<string> {
-    const whereClauses = Object.keys(where)
-      .map((key) => `"${key}" = @${key}`)
-      .join(' AND ');
+    const whereConditions: QueryComparisonParameters[] = Object.entries(
+      where,
+    ).map(([key, value]) => ({
+      column: key,
+      operator: '=',
+      value: value as QueryValues,
+    }));
 
-    return `DELETE FROM "${tableName}" WHERE ${whereClauses}`;
+    return DepricatedQueryStatementBuilder.BuildDelete(
+      tableName,
+      whereConditions,
+    );
   }
 }
