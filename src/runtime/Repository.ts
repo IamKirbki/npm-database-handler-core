@@ -17,7 +17,7 @@ import { QueryFactory } from '@core/types/factories';
 import RelationError from '@core/helpers/Errors/ModelErrors/RelationError.js';
 import InvalidOperationError from '@core/helpers/Errors/ModelErrors/InvalidOperationError.js';
 import UnknownTableError from '@core/helpers/Errors/TableErrors/UnknownTableError.js';
-import DepricatedQueryStatementBuilder from '@core/helpers/QueryBuilders/depricatedQueryStatementBuilder';
+import DepricatedQueryStatementBuilder from '@core/helpers/QueryBuilders/depricatedQueryStatementBuilder.js';
 
 export default class Repository<
   Type extends columnType,
