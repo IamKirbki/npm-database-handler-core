@@ -2,6 +2,7 @@ import InvalidExpressionParametersError from '@core/helpers/Errors/ExpressionErr
 import IExpressionBuilder from '@core/interfaces/IExpressionBuilder.js';
 import {
   expressionClause,
+  QueryComparisonParameters,
   QueryEvaluationPhase,
   SpatialQueryExpression,
 } from '@core/types/index.js';
@@ -38,18 +39,31 @@ export default class SpatialDistanceExpression implements IExpressionBuilder {
       direction: expression.parameters.orderByDistance || 'ASC',
     };
 
+    const whereClauses: QueryComparisonParameters[] = [
+      ...(expression.parameters.where || []),
+    ];
+
+    if (expression.parameters.maxDistance !== undefined) {
+      whereClauses.push({
+        column: expression.parameters.alias,
+        operator: '<=',
+        value: expression.parameters.maxDistance,
+      });
+    }
+
+    if (expression.parameters.minDistance !== undefined) {
+      whereClauses.push({
+        column: expression.parameters.alias,
+        operator: '>=',
+        value: expression.parameters.minDistance,
+      });
+    }
+
     return {
       baseExpressionClause,
       phase: expression.requirements.phase,
       requiresWrapping: expression.requirements.requiresSelectWrapping || false,
-      whereClause: [
-        {
-          column: expression.parameters.alias,
-          operator: '<=',
-          value: expression.parameters.maxDistance,
-        },
-        ...(expression.parameters.where || []),
-      ],
+      whereClause: whereClauses,
       valueClauseKeywords: expression.parameters.valueClauseKeywords,
       orderByClause,
     };
@@ -65,7 +79,11 @@ export default class SpatialDistanceExpression implements IExpressionBuilder {
       typeof expression.parameters.targetColumns.lon === 'string' &&
       (expression.parameters.unit === 'km' ||
         expression.parameters.unit === 'miles') &&
-      typeof expression.parameters.alias === 'string'
+      typeof expression.parameters.alias === 'string' &&
+      (expression.parameters.maxDistance === undefined ||
+        typeof expression.parameters.maxDistance === 'number') &&
+      (expression.parameters.minDistance === undefined ||
+        typeof expression.parameters.minDistance === 'number')
     );
   }
 

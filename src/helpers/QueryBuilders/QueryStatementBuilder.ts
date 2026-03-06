@@ -13,7 +13,7 @@ import IQueryBuilder from '@core/interfaces/IQueryBuilder.js';
 import GroupByDecorator from './QueryDecorators/GroupByDecorator.js';
 import OrderByDecorator from './QueryDecorators/OrderByDecorator.js';
 import LimitDecorator from './QueryDecorators/LimitDecorator.js';
-import SqlRenderer from './SqlRenderer.js';
+import SqlGenerator from './SqlGenerator.js';
 import InvalidOperationError from '@core/helpers/Errors/ModelErrors/InvalidOperationError.js';
 
 export default class QueryStatementBuilder {
@@ -157,7 +157,7 @@ export default class QueryStatementBuilder {
 
     this._contexts.base = await builder.build();
 
-    const renderer = new SqlRenderer(this._contexts.base);
+    const renderer = new SqlGenerator(this._contexts.base);
     return renderer.build();
   }
 
@@ -243,7 +243,7 @@ export default class QueryStatementBuilder {
     }
 
     this._contexts.pretty = await builder.build();
-    const renderer = new SqlRenderer(this._contexts.pretty);
+    const renderer = new SqlGenerator(this._contexts.pretty);
     return renderer.build();
   }
 
@@ -267,7 +267,7 @@ export default class QueryStatementBuilder {
     }
 
     this._contexts.final = await builder.build();
-    const renderer = new SqlRenderer(this._contexts.final);
+    const renderer = new SqlGenerator(this._contexts.final);
     return renderer.build();
   }
 

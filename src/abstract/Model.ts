@@ -360,20 +360,22 @@ export default abstract class Model<
   public near(params: {
     referencePoint: SpatialPoint;
     targetColumns: SpatialPointColumns;
-    maxDistance: number;
+    maxDistance?: number;
+    minDistance?: number;
     unit: 'km' | 'miles';
     orderByDistance: 'ASC' | 'DESC';
     alias?: string;
-    valueClauseKeywords: Record<"lon" | "lat", string>;
+    valueClauseKeywords: Record<'lon' | 'lat', string>;
   }): this {
     const {
       referencePoint,
       targetColumns,
       maxDistance,
+      minDistance,
       unit,
       orderByDistance,
       alias = 'distance',
-      valueClauseKeywords
+      valueClauseKeywords,
     } = params;
     const expression: SpatialQueryExpression = {
       type: 'spatialDistance',
@@ -386,6 +388,7 @@ export default abstract class Model<
         targetColumns: targetColumns,
         alias: alias,
         maxDistance: maxDistance,
+        minDistance: minDistance,
         orderByDistance: orderByDistance,
         valueClauseKeywords: valueClauseKeywords,
         unit: unit,

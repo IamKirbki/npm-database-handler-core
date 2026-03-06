@@ -99,7 +99,8 @@ export type SpatialDistanceDefinition = {
   valueClauseKeywords: Record<string, string>;
   where?: QueryComparisonParameters[];
 
-  maxDistance: number;
+  maxDistance?: number;
+  minDistance?: number;
   orderByDistance?: 'ASC' | 'DESC';
   isComputed?: boolean;
 };
