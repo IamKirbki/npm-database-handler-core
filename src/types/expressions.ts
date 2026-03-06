@@ -41,7 +41,7 @@ export type expressionClause = {
 
   whereClause?: QueryComparisonParameters[];
 
-  valueClauseKeywords?: string[];
+  valueClauseKeywords?: Record<string, string>;
 
   groupByClause?: string;
 
@@ -96,7 +96,7 @@ export type SpatialDistanceDefinition = {
   earthRadius?: number;
   alias: string;
 
-  valueClauseKeywords: string[];
+  valueClauseKeywords: Record<string, string>;
   where?: QueryComparisonParameters[];
 
   maxDistance: number;
@@ -129,7 +129,7 @@ export type TextRelevanceDefinition = {
 
   alias: string;
   where?: QueryComparisonParameters[];
-  valueClauseKeywords: string[];
+  valueClauseKeywords: Record<string, string>;
 
   minimumRelevance?: number;
   orderByRelevance?: 'ASC' | 'DESC';

@@ -12,7 +12,7 @@ import QueryExpressionBuilder from '../QueryExpressionBuilder.js';
 type JsonBuildObject = {
   sql: string;
   whereClause?: QueryComparisonParameters[];
-  valueClauseKeywords?: string[];
+  valueClauseKeywords?: Record<string, string>;
 };
 
 export default class JsonAggregateExpression implements IExpressionBuilder {
@@ -59,10 +59,10 @@ export default class JsonAggregateExpression implements IExpressionBuilder {
 
     const computedPart = expression.parameters.computed?.length
       ? expression.parameters.computed.map((comp) => {
-          const valueClauseKeywords = [
-            `${comp.parameters.alias}_lat`,
-            `${comp.parameters.alias}_lon`,
-          ];
+          const valueClauseKeywords = {
+            lat: `${comp.parameters.alias}_lat`,
+            lon: `${comp.parameters.alias}_lon`,
+          };
 
           const expr = {
             type: comp.type,
@@ -84,10 +84,19 @@ export default class JsonAggregateExpression implements IExpressionBuilder {
             expr as PossibleExpressions,
           ])[0];
 
+          const prefixedKeywords: Record<string, string> = {};
+          if (builder.valueClauseKeywords) {
+            for (const [key, value] of Object.entries(
+              builder.valueClauseKeywords,
+            )) {
+              prefixedKeywords[`${comp.parameters.alias}_${key}`] = value;
+            }
+          }
+
           return {
             sql: `'${comp.parameters.alias}', ${builder.baseExpressionClause?.split(' AS ')[0]}`,
             whereClause: builder.whereClause,
-            valueClauseKeywords: builder.valueClauseKeywords,
+            valueClauseKeywords: prefixedKeywords,
           };
         })
       : [];
@@ -100,8 +109,12 @@ export default class JsonAggregateExpression implements IExpressionBuilder {
       c.whereClause ? c.whereClause : [],
     );
 
-    const valueClauseKeywords = computedPart.flatMap(
-      (c) => c.valueClauseKeywords || [],
+    const valueClauseKeywords = computedPart.reduce(
+      (acc, c) => ({
+        ...acc,
+        ...(c.valueClauseKeywords || {}),
+      }),
+      {} as Record<string, string>,
     );
 
     const nestedPart = expression.parameters.nested?.length

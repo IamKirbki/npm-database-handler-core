@@ -22,9 +22,9 @@ export default class TextRelevanceExpression implements IExpressionBuilder {
 
     const baseExpressionClause = `(
             CASE 
-                WHEN LOWER(${columnConcat}) = LOWER(@${expression.parameters.valueClauseKeywords[0]}) THEN 3
-                WHEN LOWER(${columnConcat}) LIKE LOWER(@${expression.parameters.valueClauseKeywords[0]} || '%') THEN 2
-                WHEN LOWER(${columnConcat}) LIKE LOWER('%' || @${expression.parameters.valueClauseKeywords[0]} || '%') THEN 1
+                WHEN LOWER(${columnConcat}) = LOWER(@${expression.parameters.valueClauseKeywords.searchTerm}) THEN 3
+                WHEN LOWER(${columnConcat}) LIKE LOWER(@${expression.parameters.valueClauseKeywords.searchTerm} || '%') THEN 2
+                WHEN LOWER(${columnConcat}) LIKE LOWER('%' || @${expression.parameters.valueClauseKeywords.searchTerm} || '%') THEN 1
                 ELSE 0
             END
         ) AS ${expression.parameters.alias}`;

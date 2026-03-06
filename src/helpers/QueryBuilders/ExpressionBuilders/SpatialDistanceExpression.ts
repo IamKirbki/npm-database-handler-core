@@ -22,13 +22,13 @@ export default class SpatialDistanceExpression implements IExpressionBuilder {
 
     const baseExpressionClause = `
             ${earthRadius} * acos(
-                cos(radians(@${expression.parameters.valueClauseKeywords[0]}))
+                cos(radians(@${expression.parameters.valueClauseKeywords.lat}))
                 * cos(radians(${isComputed ? expression.parameters.targetColumns.lat.replace('.', '_') : `${expression.parameters.targetColumns.lat}`}))
                 * cos(
                     radians(${isComputed ? expression.parameters.targetColumns.lon.replace('.', '_') : `${expression.parameters.targetColumns.lon}`})
-                    - radians(@${expression.parameters.valueClauseKeywords[1]})
+                    - radians(@${expression.parameters.valueClauseKeywords.lon})
                 )
-                + sin(radians(@${expression.parameters.valueClauseKeywords[0]}))
+                + sin(radians(@${expression.parameters.valueClauseKeywords.lat}))
                 * sin(radians(${isComputed ? expression.parameters.targetColumns.lat.replace('.', '_') : `${expression.parameters.targetColumns.lat}`}))
             ) AS ${expression.parameters.alias}
         `.trim();

@@ -364,6 +364,7 @@ export default abstract class Model<
     unit: 'km' | 'miles';
     orderByDistance: 'ASC' | 'DESC';
     alias?: string;
+    valueClauseKeywords: Record<"lon" | "lat", string>;
   }): this {
     const {
       referencePoint,
@@ -372,9 +373,8 @@ export default abstract class Model<
       unit,
       orderByDistance,
       alias = 'distance',
+      valueClauseKeywords
     } = params;
-    const valueClauseKeywords = [`${alias}_lat`, `${alias}_lon`];
-
     const expression: SpatialQueryExpression = {
       type: 'spatialDistance',
       requirements: {
@@ -391,12 +391,12 @@ export default abstract class Model<
         unit: unit,
         where: [
           {
-            column: valueClauseKeywords[0],
+            column: valueClauseKeywords.lat,
             operator: '=',
             value: referencePoint.lat,
           },
           {
-            column: valueClauseKeywords[1],
+            column: valueClauseKeywords.lon,
             operator: '=',
             value: referencePoint.lon,
           },
@@ -424,7 +424,9 @@ export default abstract class Model<
       alias = 'relevance',
       orderByRelevance = 'ASC',
     } = params;
-    const valueClauseKeyword = `${alias}_searchTerm`;
+    const valueClauseKeywords = {
+      searchTerm: `${alias}_searchTerm`,
+    };
 
     const expression: TextRelevanceQueryExpression = {
       type: 'textRelevance',
@@ -438,10 +440,10 @@ export default abstract class Model<
         alias: alias,
         minimumRelevance: minimumRelevance,
         orderByRelevance: orderByRelevance,
-        valueClauseKeywords: [valueClauseKeyword],
+        valueClauseKeywords: valueClauseKeywords,
         where: [
           {
-            column: valueClauseKeyword,
+            column: valueClauseKeywords.searchTerm,
             operator: '=',
             value: searchTerm,
           },
