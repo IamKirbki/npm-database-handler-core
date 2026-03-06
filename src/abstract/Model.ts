@@ -335,16 +335,27 @@ export default abstract class Model<
     return this;
   }
 
-  public async update(attributes: Partial<ModelType>): Promise<this> {
+  public async update(attributes: Partial<ModelType> = {}): Promise<this> {
     if (this.primaryKey === undefined) {
       throw new InvalidOperationError(
         'Primary key value is undefined. Cannot update record without a valid primary key.',
       );
     }
 
+    if (Object.keys(attributes).length > 0) {
+      this.set(attributes);
+    }
+
+    const dirtyAttributes: Partial<ModelType> = {};
+    for (const key in this.attributes) {
+      if (this.attributes[key] !== this.originalAttributes[key]) {
+        dirtyAttributes[key] = this.attributes[key];
+      }
+    }
+
     const newRecord = await this.repository?.update(
       { [this.primaryKeyColumn]: this.primaryKey },
-      attributes,
+      dirtyAttributes,
       this.Configuration.table,
     );
 
@@ -352,6 +363,7 @@ export default abstract class Model<
       this.attributes = { ...newRecord };
       this.originalAttributes = { ...this.attributes };
       this.exists = true;
+      this.dirty = false;
     }
 
     return this;

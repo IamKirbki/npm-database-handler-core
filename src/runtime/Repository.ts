@@ -236,9 +236,28 @@ export default class Repository<
     newAttributes: Partial<Type>,
     table: string,
   ): Promise<Type | undefined> {
+    const checkQuery = this.queryFactory({
+      tableName: table,
+      query: '',
+      parameters: {},
+      adapterName: this.customDatabaseAdapter,
+    });
+    const columns = await checkQuery.TableColumnInformation(table);
+    if (columns.some((col) => col.name === 'updated_at')) {
+      (newAttributes as columnType)['updated_at'] = new Date();
+    }
+
+    const filteredAttributes = Object.fromEntries(
+      Object.entries(newAttributes).filter(([, value]) => value !== undefined),
+    );
+
+    if (Object.keys(filteredAttributes).length === 0) {
+      return undefined;
+    }
+
     const queryStr = await this.buildUpdateQuery(
       table,
-      newAttributes,
+      filteredAttributes,
       primaryKey,
     );
 
@@ -247,7 +266,7 @@ export default class Repository<
       whereParams[`where_${key}`] = value;
     });
 
-    const params = { ...newAttributes, ...whereParams };
+    const params = { ...filteredAttributes, ...whereParams };
 
     const query = this.queryFactory({
       tableName: table,
@@ -667,6 +686,10 @@ export default class Repository<
     data: Partial<columnType>,
     where: QueryIsEqualParameter,
   ): Promise<string> {
+    const filteredData = Object.fromEntries(
+      Object.entries(data).filter(([, value]) => value !== undefined),
+    ) as QueryIsEqualParameter;
+
     const whereConditions: QueryComparisonParameters[] = Object.entries(
       where,
     ).map(([key, value]) => ({
@@ -677,7 +700,7 @@ export default class Repository<
 
     return DepricatedQueryStatementBuilder.BuildUpdate(
       tableName,
-      data as QueryIsEqualParameter,
+      filteredData,
       whereConditions,
     );
   }
