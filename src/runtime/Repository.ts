@@ -54,8 +54,8 @@ export default class Repository<
     customDatabaseAdapter?: string,
     queryFactory?: QueryFactory,
   ): Repository<ModelType, Model<ModelType>> {
-    const key = tableName || ModelClass.name;
-    const existing = this._instances.get(key);
+    const modelNameKey = tableName || ModelClass.name;
+    const existing = this._instances.get(modelNameKey);
     if (!existing) {
       const instance = new Repository<ModelType, Model<ModelType>>(
         tableName,
@@ -63,7 +63,7 @@ export default class Repository<
         customDatabaseAdapter,
         queryFactory,
       );
-      this._instances.set(key, instance);
+      this._instances.set(modelNameKey, instance);
       return instance;
     }
 
