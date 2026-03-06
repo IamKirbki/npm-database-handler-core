@@ -33,7 +33,7 @@ export default class JoinDecorator extends QueryDecorator {
         const context = await this.component.build();
 
         const selectExtensions = this.buildJoinSelect();
-        const joinPart = this.buildJoinPart();
+        const joinPart = this.buildSqlJoinPart();
 
         context.joinsSelect = selectExtensions;
 
@@ -52,7 +52,7 @@ export default class JoinDecorator extends QueryDecorator {
             .filter(() => !blacklist.includes(this.fromTableName))
             .map(col => `"${this.fromTableName}"."${col.name}" AS "${this.fromTableName}__${col.name}"`);
 
-        const joinedSelects =
+        const innerSelects =
             joinArray.map((join) => {
                 const alias = join.name || join.fromTable;
                 if (blacklist.includes(join.fromTable) || blacklist.includes(alias)) return "";
@@ -63,10 +63,10 @@ export default class JoinDecorator extends QueryDecorator {
                     .filter(col => col.trim() !== "")
             })
 
-        return [...mainSelect, ...joinedSelects.flat()].filter(s => s !== "").filter(Boolean);
+        return [...mainSelect, ...innerSelects.flat()].filter(s => s !== "").filter(Boolean);
     }
 
-    private buildJoinPart(): string[] {
+    private buildSqlJoinPart(): string[] {
         const joinArray = Array.isArray(this.joins) ? this.joins : [this.joins];
 
         return joinArray.map(join => {
