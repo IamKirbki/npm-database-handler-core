@@ -32,7 +32,7 @@ export default class JoinDecorator extends QueryDecorator {
     async build(): Promise<QueryContext> {
         const context = await this.component.build();
 
-        const selectExtensions = await this.buildJoinSelect();
+        const selectExtensions = this.buildJoinSelect();
         const joinPart = this.buildJoinPart();
 
         context.joinsSelect = selectExtensions;
@@ -43,7 +43,7 @@ export default class JoinDecorator extends QueryDecorator {
         return context;
     }
 
-    private async buildJoinSelect(): Promise<string[]> {
+    private buildJoinSelect(): string[] {
         const blacklist = this.options?.blacklistTables || [];
         const joinArray = Array.isArray(this.joins) ? this.joins : [this.joins];
 
@@ -52,8 +52,8 @@ export default class JoinDecorator extends QueryDecorator {
             .filter(() => !blacklist.includes(this.fromTableName))
             .map(col => `"${this.fromTableName}"."${col.name}" AS "${this.fromTableName}__${col.name}"`);
 
-        const joinedSelects = await Promise.all(
-            joinArray.map(async (join) => {
+        const joinedSelects =
+            joinArray.map((join) => {
                 const alias = join.name || join.fromTable;
                 if (blacklist.includes(join.fromTable) || blacklist.includes(alias)) return "";
 
@@ -62,7 +62,6 @@ export default class JoinDecorator extends QueryDecorator {
                     .map(col => `"${alias}"."${col.name}" AS "${alias}__${col.name}"`)
                     .filter(col => col.trim() !== "")
             })
-        );
 
         return [...mainSelect, ...joinedSelects.flat()].filter(s => s !== "").filter(Boolean);
     }
