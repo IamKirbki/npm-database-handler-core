@@ -389,10 +389,18 @@ export default abstract class Model<
         orderByDistance: orderByDistance,
         valueClauseKeywords: valueClauseKeywords,
         unit: unit,
-        where: {
-          [valueClauseKeywords[0]]: referencePoint.lat,
-          [valueClauseKeywords[1]]: referencePoint.lon,
-        },
+        where: [
+          {
+            column: valueClauseKeywords[0],
+            operator: '=',
+            value: referencePoint.lat,
+          },
+          {
+            column: valueClauseKeywords[1],
+            operator: '=',
+            value: referencePoint.lon,
+          },
+        ],
       },
     };
 
@@ -431,9 +439,13 @@ export default abstract class Model<
         minimumRelevance: minimumRelevance,
         orderByRelevance: orderByRelevance,
         valueClauseKeywords: [valueClauseKeyword],
-        where: {
-          [valueClauseKeyword]: searchTerm,
-        },
+        where: [
+          {
+            column: valueClauseKeyword,
+            operator: '=',
+            value: searchTerm,
+          },
+        ],
       },
     };
 
@@ -483,7 +495,15 @@ export default abstract class Model<
         groupByColumns: groupByColumns,
         alias: alias,
         nested: nested,
-        having: having,
+        having: having
+          ? Array.isArray(having)
+            ? having
+            : Object.entries(having).map(([key, value]) => ({
+                column: key,
+                operator: '=',
+                value: value as QueryValues,
+              }))
+          : undefined,
       },
     };
 

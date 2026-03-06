@@ -8,7 +8,6 @@ import {
 } from '@core/types/index.js';
 import IExpressionBuilder from '@core/interfaces/IExpressionBuilder.js';
 import QueryExpressionBuilder from '../QueryExpressionBuilder.js';
-import QueryStatementBuilder from '../QueryStatementBuilder.js';
 
 type JsonBuildObject = {
   sql: string;
@@ -98,9 +97,7 @@ export default class JsonAggregateExpression implements IExpressionBuilder {
       : '';
 
     const whereClauses = computedPart.flatMap((c) =>
-      c.whereClause
-        ? QueryStatementBuilder.normalizeQueryConditions(c.whereClause)
-        : [],
+      c.whereClause ? c.whereClause : [],
     );
 
     const valueClauseKeywords = computedPart.flatMap(

@@ -3,7 +3,6 @@ import Query from '@core/base/Query.js';
 import {
   columnType,
   Join,
-  QueryWhereCondition,
   relation,
   QueryComparisonParameters,
   QueryIsEqualParameter,
@@ -15,9 +14,9 @@ import QueryStatementBuilder from '@core/helpers/QueryBuilders/QueryStatementBui
 import { Container, IDatabaseAdapter } from '@core/index.js';
 import QueryCache from '@core/runtime/QueryCache.js';
 import { QueryFactory } from '@core/types/factories';
-import RelationError from "@core/helpers/Errors/ModelErrors/RelationError.js";
-import InvalidOperationError from "@core/helpers/Errors/ModelErrors/InvalidOperationError.js";
-import UnknownTableError from "@core/helpers/Errors/TableErrors/UnknownTableError.js";
+import RelationError from '@core/helpers/Errors/ModelErrors/RelationError.js';
+import InvalidOperationError from '@core/helpers/Errors/ModelErrors/InvalidOperationError.js';
+import UnknownTableError from '@core/helpers/Errors/TableErrors/UnknownTableError.js';
 
 export default class Repository<
   Type extends columnType,
@@ -64,10 +63,7 @@ export default class Repository<
         customDatabaseAdapter,
         queryFactory,
       );
-      this._instances.set(
-        key,
-        instance,
-      );
+      this._instances.set(key, instance);
       return instance;
     }
 
@@ -256,7 +252,13 @@ export default class Repository<
 
     await query.Run();
 
-    const normalizedPrimaryKey = this.convertParamsToArray(primaryKey);
+    const normalizedPrimaryKey = Object.entries(primaryKey).map(
+      ([column, value]) => ({
+        column,
+        operator: '=' as const,
+        value,
+      }),
+    );
 
     const updatedRecord = await this.getRecord(
       { base: { from: table, where: normalizedPrimaryKey } },
@@ -327,7 +329,9 @@ export default class Repository<
       (Array.isArray(queryLayers.base.joins) &&
         queryLayers.base.joins.length === 0)
     ) {
-      throw new InvalidOperationError('No joins defined for the Join operation.');
+      throw new InvalidOperationError(
+        'No joins defined for the Join operation.',
+      );
     }
 
     const joinedTables = queryLayers.base.joins.map((j) => j.fromTable);
@@ -368,7 +372,9 @@ export default class Repository<
       records,
       queryLayers.base.joins,
     );
-    const joinAliases = queryLayers.base.joins.map((j) => j.name || j.fromTable);
+    const joinAliases = queryLayers.base.joins.map(
+      (j) => j.name || j.fromTable,
+    );
     const splitTables = this.hydrateJoinedRecords<Type>(rawMapped, joinAliases);
     return splitTables;
   }
@@ -393,7 +399,8 @@ export default class Repository<
               (j) => (j.name || j.fromTable) === tableName,
             );
             if (currentJoin) {
-              const aliasedTableName = currentJoin.name || currentJoin.fromTable;
+              const aliasedTableName =
+                currentJoin.name || currentJoin.fromTable;
               joinedTableData[aliasedTableName] ??= {};
               joinedTableData[aliasedTableName][columnName] = value;
             }
@@ -457,12 +464,15 @@ export default class Repository<
   private hydrateJoinedRecords<Type extends columnType>(
     records: Type[],
     joinedTables: string[],
-    primaryKey: string = 'id'
+    primaryKey: string = 'id',
   ): Type[] {
-    const parentMap = new Map<unknown, {
-      parent: columnType,
-      childMaps: { [table: string]: Map<unknown, columnType> }
-    }>();
+    const parentMap = new Map<
+      unknown,
+      {
+        parent: columnType;
+        childMaps: { [table: string]: Map<unknown, columnType> };
+      }
+    >();
 
     for (const values of records) {
       const parentId = values[primaryKey];
@@ -487,7 +497,11 @@ export default class Repository<
 
       const entry = parentMap.get(parentId)!;
       for (const [table, child] of Object.entries(childData)) {
-        const childId = child[primaryKey] ?? Object.values(child).filter(v => v !== null).join('__');
+        const childId =
+          child[primaryKey] ??
+          Object.values(child)
+            .filter((v) => v !== null)
+            .join('__');
         if (childId !== undefined && childId !== '') {
           entry.childMaps[table].set(childId, child);
         }
@@ -523,12 +537,8 @@ export default class Repository<
       );
 
       if (!relation) {
-        relation = Model.Relations.find(
-          (rel) => rel.path === join.path,
-        );
+        relation = Model.Relations.find((rel) => rel.path === join.path);
       }
-
-
 
       if (!relation) {
         throw new RelationError(join.relation, 'Relation not found.');
@@ -540,7 +550,7 @@ export default class Repository<
           join.queryScopes,
         );
       } else if (join.queryScopes) {
-        queryLayers.base.where = this.convertParamsToArray(join.queryScopes);
+        queryLayers.base.where = join.queryScopes;
       }
 
       if (relation.type !== 'manyToMany') {
@@ -614,51 +624,20 @@ export default class Repository<
   }
 
   public mergeQueryWhereConditions(
-    base: QueryWhereCondition,
-    additional: QueryWhereCondition,
+    base: QueryComparisonParameters[],
+    additional: QueryComparisonParameters[],
   ): QueryComparisonParameters[] {
-    return [
-      ...this.convertParamsToArray(base),
-      ...this.convertParamsToArray(additional),
-    ];
+    return [...base, ...additional];
   }
 
-  public ConvertParamsToArray(
-    params: QueryWhereCondition,
-  ): QueryComparisonParameters[] {
-    return this.convertParamsToArray(params);
-  }
-
-  private convertParamsToArray(
-    params: QueryWhereCondition,
-  ): QueryComparisonParameters[] {
-    const paramArray: QueryComparisonParameters[] = [];
-
-    if (Array.isArray(params)) {
-      return params;
-    } else {
-      Object.entries(params).forEach(([key, value]) => {
-        return paramArray.push({
-          column: key,
-          operator: '=',
-          value,
-        });
-      });
-    }
-
-    return paramArray;
-  }
-
-  private convertParamsToObject(params: QueryWhereCondition): columnType {
+  private convertParamsToObject(
+    params: QueryComparisonParameters[],
+  ): columnType {
     const paramObject: columnType = {};
 
-    if (Array.isArray(params)) {
-      params.forEach((param) => {
-        paramObject[param.column] = param.value;
-      });
-    } else {
-      Object.assign(paramObject, params);
-    }
+    params.forEach((param) => {
+      paramObject[param.column] = param.value;
+    });
 
     return paramObject;
   }

@@ -5,7 +5,6 @@ import {
   QueryEvaluationPhase,
   SpatialQueryExpression,
 } from '@core/types/index.js';
-import QueryStatementBuilder from '../QueryStatementBuilder.js';
 
 export default class SpatialDistanceExpression implements IExpressionBuilder {
   build(expression: SpatialQueryExpression): expressionClause {
@@ -49,9 +48,7 @@ export default class SpatialDistanceExpression implements IExpressionBuilder {
           operator: '<=',
           value: expression.parameters.maxDistance,
         },
-        ...QueryStatementBuilder.normalizeQueryConditions(
-          expression.parameters.where || [],
-        ),
+        ...(expression.parameters.where || []),
       ],
       valueClauseKeywords: expression.parameters.valueClauseKeywords,
       orderByClause,

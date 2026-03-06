@@ -1,6 +1,6 @@
 import {
   columnType,
-  QueryWhereCondition,
+  QueryIsEqualParameter,
   TableColumnInfo,
   QueryConstructorType,
 } from '@core/types/index.js';
@@ -20,9 +20,9 @@ export default class Query {
   private readonly _queryCache: QueryCache;
 
   private _query?: string;
-  private _parameters: QueryWhereCondition = {};
+  private _parameters: QueryIsEqualParameter = {};
 
-  public get Parameters(): QueryWhereCondition {
+  public get Parameters(): QueryIsEqualParameter {
     return this._parameters;
   }
 
@@ -38,7 +38,12 @@ export default class Query {
 
     if (parameters) this._parameters = parameters;
     // eslint-disable-next-line no-undef
-    if (Container.getInstance().logging) this._query ? console.info(this._query, "\n", this._parameters) : console.info("No query found, probably checking if a table exists or getting the table column information.");
+    if (Container.getInstance().logging)
+      this._query
+        ? console.info(this._query, '\n', this._parameters)
+        : console.info(
+            'No query found, probably checking if a table exists or getting the table column information.',
+          );
 
     this._adapter = Container.getInstance().getAdapter(adapterName);
     this._queryCache = QueryCache.getInstance();
@@ -81,10 +86,12 @@ export default class Query {
     try {
       const stmt = await this._adapter.prepare(this._query);
       const results = (await stmt.all(this.Parameters)) as Type[];
-      return results.map((res) => this._recordFactory.create({
-        table: this.TableName,
-        values: res,
-      })) as Record<Type>[];
+      return results.map((res) =>
+        this._recordFactory.create({
+          table: this.TableName,
+          values: res,
+        }),
+      ) as Record<Type>[];
     } catch (error) {
       throw new QueryExecutionError(this._query, error);
     }
@@ -103,7 +110,10 @@ export default class Query {
       const stmt = await this._adapter.prepare(this._query);
       const results = (await stmt.get(this.Parameters)) as Type | undefined;
       return results
-        ? this._recordFactory.create({table: this.TableName, values: results}) as Record<Type>
+        ? (this._recordFactory.create({
+            table: this.TableName,
+            values: results,
+          }) as Record<Type>)
         : undefined;
     } catch (error) {
       throw new QueryExecutionError(this._query, error);
@@ -114,7 +124,7 @@ export default class Query {
     tableName: string,
   ): Promise<TableColumnInfo[]> {
     let tableColumnInfo = this._queryCache.getTableColumnInformation(tableName);
-    if (tableColumnInfo) return tableColumnInfo
+    if (tableColumnInfo) return tableColumnInfo;
 
     try {
       tableColumnInfo = await this._adapter.tableColumnInformation(tableName);
@@ -122,7 +132,10 @@ export default class Query {
 
       return tableColumnInfo;
     } catch (error) {
-      throw new QueryExecutionError(`TableColumnInformation for ${tableName}`, error);
+      throw new QueryExecutionError(
+        `TableColumnInformation for ${tableName}`,
+        error,
+      );
     }
   }
 
@@ -139,7 +152,10 @@ export default class Query {
 
       return exists;
     } catch (error) {
-      throw new QueryExecutionError(`DoesTableExist for ${this.TableName}`, error);
+      throw new QueryExecutionError(
+        `DoesTableExist for ${this.TableName}`,
+        error,
+      );
     }
   }
 
@@ -158,4 +174,3 @@ export default class Query {
     }
   }
 }
-

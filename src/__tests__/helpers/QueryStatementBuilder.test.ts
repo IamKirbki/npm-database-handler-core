@@ -16,9 +16,13 @@ describe('QueryStatementBuilder - Spatial Expressions', () => {
                         ]
                     }
                 ],
-                where: {
-                    distance: "something"
-                }
+                where: [
+                    {
+                        column: "distance",
+                        operator: "=",
+                        value: "something"
+                    }
+                ]
             },
             pretty: {
                 groupBy: 'locations.region'
