@@ -288,7 +288,10 @@ export default class Repository<
       queryLayers?.pretty?.where &&
       Object.keys(queryLayers.pretty.where).length > 0
     ) {
-      params = { ...params, ...queryLayers.pretty.where };
+      params = {
+        ...params,
+        ...this.convertParamsToObject(queryLayers.pretty.where),
+      };
     }
 
     const query = this.queryFactory({
@@ -642,7 +645,11 @@ export default class Repository<
     const paramObject: columnType = {};
 
     params.forEach((param) => {
-      paramObject[param.column] = param.value;
+      const colName = param.column.trim();
+      const paramName = colName.includes('.')
+        ? colName.split('.')[1].trim()
+        : colName;
+      paramObject[paramName] = param.value;
     });
 
     return paramObject;
@@ -664,7 +671,7 @@ export default class Repository<
       where,
     ).map(([key, value]) => ({
       column: key,
-      operator: '=',
+      operator: '=' as const,
       value: value as QueryValues,
     }));
 
@@ -683,7 +690,7 @@ export default class Repository<
       where,
     ).map(([key, value]) => ({
       column: key,
-      operator: '=',
+      operator: '=' as const,
       value: value as QueryValues,
     }));
 
