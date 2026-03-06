@@ -135,7 +135,9 @@ export default abstract class Model<
   }
 
   public where(conditions: QueryWhereCondition): this {
-    const normalizedConditions: QueryComparisonParameters[] = Array.isArray(conditions)
+    const normalizedConditions: QueryComparisonParameters[] = Array.isArray(
+      conditions,
+    )
       ? conditions
       : Object.entries(conditions).map(([key, value]) => ({
           column: key,
@@ -195,7 +197,7 @@ export default abstract class Model<
     primaryKeyValue: QueryValues,
   ): Promise<ParamterModelType> {
     const instance = new this();
-    return (await instance.findOrFail(primaryKeyValue));
+    return await instance.findOrFail(primaryKeyValue);
   }
 
   public async findOrFail(primaryKeyValue?: QueryValues): Promise<this> {
@@ -238,7 +240,7 @@ export default abstract class Model<
           ...this.queryLayers.base,
           from: this.Configuration.table,
           where: this.queryLayers.base.where,
-        }
+        },
       },
       this,
     )) as Partial<ModelType>;
@@ -282,16 +284,13 @@ export default abstract class Model<
   }
 
   public async all(): Promise<this[]> {
-    const records = await this.repository.all(
-      this,
-      {
-        ...this.queryLayers,
-        base: {
-          ...this.queryLayers.base,
-          from: this.Configuration.table,
-        }
-      }
-    );
+    const records = await this.repository.all(this, {
+      ...this.queryLayers,
+      base: {
+        ...this.queryLayers.base,
+        from: this.Configuration.table,
+      },
+    });
 
     return records.map((record) => {
       const instance = new (this.constructor as new () => this)();
@@ -358,7 +357,6 @@ export default abstract class Model<
     return this;
   }
 
-
   public near(params: {
     referencePoint: SpatialPoint;
     targetColumns: SpatialPointColumns;
@@ -381,8 +379,6 @@ export default abstract class Model<
       type: 'spatialDistance',
       requirements: {
         phase: QueryEvaluationPhase.PROJECTION,
-        cardinality: 'row',
-        requiresAlias: true,
         requiresSelectWrapping: true,
       },
       parameters: {
@@ -426,8 +422,6 @@ export default abstract class Model<
       type: 'textRelevance',
       requirements: {
         phase: QueryEvaluationPhase.PROJECTION,
-        cardinality: 'row',
-        requiresAlias: true,
         requiresSelectWrapping: true,
       },
       parameters: {
@@ -481,8 +475,6 @@ export default abstract class Model<
       type: 'jsonAggregate',
       requirements: {
         phase: QueryEvaluationPhase.PROJECTION,
-        cardinality: 'row',
-        requiresAlias: true,
         requiresSelectWrapping: true,
       },
       parameters: {

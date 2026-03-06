@@ -7,7 +7,7 @@ import {
     QueryComparisonParameters,
 } from "@core/types/index.js";
 import QueryStatementBuilder from "@core/helpers/QueryBuilders/QueryStatementBuilder.js";
-import oldQueryStatementBuilder from "@core/helpers/QueryBuilders/oldQueryStatementBuilder.js";
+import DepricatedQueryStatementBuilder from "@core/helpers/QueryBuilders/depricatedQueryStatementBuilder.js";
 import QueryFactory from "@core/factories/QueryFactory.js";
 import RecordFactory from "@core/factories/RecordFactory.js";
 import { RecordConstructorType } from "@core/types/record.js";
@@ -47,7 +47,7 @@ export default class Record<ColumnValuesType extends columnType> {
             throw new InvalidOperationError("Cannot insert record with no columns");
         }
 
-        const queryStr = await oldQueryStatementBuilder.BuildInsert(this._tableName, this._values);
+        const queryStr = await DepricatedQueryStatementBuilder.BuildInsert(this._tableName, this._values);
         const query = this._queryFactory.create({
             tableName: this._tableName,
             query: queryStr,
@@ -103,7 +103,7 @@ export default class Record<ColumnValuesType extends columnType> {
             (newValues as object & ModelWithTimestamps).updated_at = new Date().toISOString();
         }
 
-        const queryStr = await oldQueryStatementBuilder.BuildUpdate(this._tableName, newValues as QueryIsEqualParameter, whereParameters);
+        const queryStr = await DepricatedQueryStatementBuilder.BuildUpdate(this._tableName, newValues as QueryIsEqualParameter, whereParameters);
 
         // Merge newValues and originalValues for parameters (with 'where_' prefix for where clause)
         const params: Partial<ColumnValuesType> = { ...newValues };
@@ -133,7 +133,7 @@ export default class Record<ColumnValuesType extends columnType> {
             return;
         }
 
-        const queryStr = await oldQueryStatementBuilder.BuildDelete(this._tableName, this._values);
+        const queryStr = await DepricatedQueryStatementBuilder.BuildDelete(this._tableName, this._values);
         const _query = this._queryFactory.create({
             tableName: this._tableName,
             query: queryStr,

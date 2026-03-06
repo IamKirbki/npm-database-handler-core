@@ -1,7 +1,7 @@
 import { ExtraQueryParameters, QueryWhereCondition, QueryComparisonParameters, QueryIsEqualParameter } from "@core/types/index.js";
 
 /** Utility class for building SQL query strings */
-export default class oldQueryStatementBuilder {
+export default class DepricatedQueryStatementBuilder {
     /**
      * Build an INSERT SQL statement with named parameter placeholders
      * 
@@ -11,7 +11,7 @@ export default class oldQueryStatementBuilder {
      * 
      * @example
      * ```typescript
-     * const query = QueryStatementBuilder.BuildInsert(usersTable, {
+     * const query = DepricatedQueryStatementBuilder.BuildInsert(usersTable, {
      *   name: 'John',
      *   email: 'john@example.com',
      *   age: 30
@@ -43,7 +43,7 @@ export default class oldQueryStatementBuilder {
      * 
      * @example
      * ```typescript
-     * const query = QueryStatementBuilder.BuildUpdate(
+     * const query = DepricatedQueryStatementBuilder.BuildUpdate(
      *   usersTable,
      *   { name: 'John Doe', age: 31 },
      *   { id: 1 }
@@ -51,7 +51,7 @@ export default class oldQueryStatementBuilder {
      * // "UPDATE users SET name = @name, age = @age WHERE id = @id"
      * 
      * // Multiple WHERE conditions
-     * const query = QueryStatementBuilder.BuildUpdate(
+     * const query = DepricatedQueryStatementBuilder.BuildUpdate(
      *   usersTable,
      *   { status: 'inactive' },
      *   { status: 'active', last_login: '2023-01-01' }
@@ -79,11 +79,11 @@ export default class oldQueryStatementBuilder {
      * 
      * @example
      * ```typescript
-     * const query = QueryStatementBuilder.BuildDelete(usersTable, { id: 1 });
+     * const query = DepricatedQueryStatementBuilder.BuildDelete(usersTable, { id: 1 });
      * // "DELETE FROM users WHERE id = @id"
      * 
      * // Multiple WHERE conditions
-     * const query = QueryStatementBuilder.BuildDelete(usersTable, {
+     * const query = DepricatedQueryStatementBuilder.BuildDelete(usersTable, {
      *   status: 'deleted',
      *   last_login: '2020-01-01'
      * });
@@ -109,11 +109,11 @@ export default class oldQueryStatementBuilder {
      * @example
      * ```typescript
      * // Count all rows
-     * const query = QueryStatementBuilder.BuildCount(usersTable);
+     * const query = DepricatedQueryStatementBuilder.BuildCount(usersTable);
      * // "SELECT COUNT(*) as count FROM users"
      * 
      * // Count with conditions
-     * const query = QueryStatementBuilder.BuildCount(usersTable, {
+     * const query = DepricatedQueryStatementBuilder.BuildCount(usersTable, {
      *   status: 'active',
      *   age: 25
      * });
@@ -140,11 +140,11 @@ export default class oldQueryStatementBuilder {
      * @example
      * ```typescript
      * // Single condition
-     * const whereClause = QueryStatementBuilder.BuildWhere({ id: 1 });
+     * const whereClause = DepricatedQueryStatementBuilder.BuildWhere({ id: 1 });
      * // "WHERE id = @id"
      * 
      * // Multiple conditions (joined with AND)
-     * const whereClause = QueryStatementBuilder.BuildWhere({
+     * const whereClause = DepricatedQueryStatementBuilder.BuildWhere({
      *   status: 'active',
      *   age: 25,
      *   role: 'admin'
@@ -152,7 +152,7 @@ export default class oldQueryStatementBuilder {
      * // "WHERE status = @status AND age = @age AND role = @role"
      * 
      * // No conditions
-     * const whereClause = QueryStatementBuilder.BuildWhere();
+     * const whereClause = DepricatedQueryStatementBuilder.BuildWhere();
      * // ""
      * ```
      */
@@ -198,7 +198,7 @@ export default class oldQueryStatementBuilder {
      * @example
      * ```typescript
      * // All options
-     * const optionsClause = QueryStatementBuilder.BuildQueryOptions({
+     * const optionsClause = DepricatedQueryStatementBuilder.BuildQueryOptions({
      *   orderBy: 'created_at DESC',
      *   limit: 10,
      *   offset: 20
@@ -206,13 +206,13 @@ export default class oldQueryStatementBuilder {
      * // "ORDER BY created_at DESC LIMIT 10 OFFSET 20"
      * 
      * // Just ordering
-     * const optionsClause = QueryStatementBuilder.BuildQueryOptions({
+     * const optionsClause = DepricatedQueryStatementBuilder.BuildQueryOptions({
      *   orderBy: 'name ASC'
      * });
      * // "ORDER BY name ASC"
      * 
      * // Pagination only
-     * const optionsClause = QueryStatementBuilder.BuildQueryOptions({
+     * const optionsClause = DepricatedQueryStatementBuilder.BuildQueryOptions({
      *   limit: 25,
      *   offset: 50
      * });

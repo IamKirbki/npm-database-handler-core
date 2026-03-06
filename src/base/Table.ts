@@ -47,7 +47,7 @@ export default class Table {
     // GETTERS & ACCESSORS
     // ============================================================================
 
-    public get ExtraQueryClient(): Query {
+    public get QueryHelperClient(): Query {
         return this._query;
     }
 

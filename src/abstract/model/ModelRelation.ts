@@ -142,25 +142,16 @@ export default abstract class ModelRelations<
             );
         }
 
-        const lastRelation = this.relations[this.relations.length - 1];
-        const tableName = alias || lastRelation.model.Configuration.table;
-
-        const normalizedScopes = this.normalizeQueryScopes(queryScopes, tableName);
-
-        this.joinedEntities.push({
-            relation: relationName,
-            alias: alias,
-            path: lastRelation.path,
-            queryScopes: normalizedScopes
-        });
-
-        return this;
+        return this.finishWith(alias, relationName, queryScopes);
     }
 
     public async asyncWith(relation: string, queryScopes?: QueryWhereCondition): Promise<this> {
         const [relationName, alias] = relation.split(' as ').map(s => s.trim());
         await this.callRelationMethod(relationName);
+        return this.finishWith(alias, relationName, queryScopes);
+    }
 
+    private finishWith(alias: string, relationName: string, queryScopes?: QueryWhereCondition): this {
         const lastRelation = this.relations[this.relations.length - 1];
         const tableName = alias || lastRelation.model.Configuration.table;
 

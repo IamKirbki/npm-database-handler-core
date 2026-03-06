@@ -157,8 +157,6 @@ export default class JsonAggregateExpression implements IExpressionBuilder {
   get defaultRequirements(): JsonAggregateQueryExpression['requirements'] {
     return {
       phase: QueryEvaluationPhase.PROJECTION,
-      cardinality: 'row',
-      requiresAlias: true,
       requiresSelectWrapping: true,
     };
   }
