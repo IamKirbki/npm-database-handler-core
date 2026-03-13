@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import Container from '@core/runtime/Container';
+import { Container } from '@core/runtime/Container';
 import { MockDatabaseAdapter } from '../mocks/MockDatabaseAdapter';
-import AdapterNotFoundError from '@core/helpers/Errors/AdapterErrors/AdapterNotFoundError';
-import NoDefaultAdapterError from '@core/helpers/Errors/AdapterErrors/NoDefaultAdapterError';
+import { AdapterNotFoundError } from '@core/helpers/Errors/AdapterErrors/AdapterNotFoundError';
+import { NoDefaultAdapterError } from '@core/helpers/Errors/AdapterErrors/NoDefaultAdapterError';
 
 describe('Container', () => {
     let mockAdapter: MockDatabaseAdapter;

@@ -1,8 +1,8 @@
-import IQueryBuilder from '@core/interfaces/IQueryBuilder.js';
+import { IQueryBuilder } from '@core/interfaces/IQueryBuilder.js';
 import { QueryContext, QueryComparisonParameters } from '@core/types/query.js';
-import QueryDecorator from './QueryDecorator.js';
+import { QueryDecorator } from './QueryDecorator.js';
 
-export default class WhereDecorator extends QueryDecorator {
+export class WhereDecorator extends QueryDecorator {
   private conditions: QueryComparisonParameters[];
 
   constructor(

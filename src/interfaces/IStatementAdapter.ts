@@ -1,4 +1,4 @@
-export default interface IStatementAdapter {
+export interface IStatementAdapter {
     run(parameters?: object): Promise<unknown>;
     all(parameters?: object): Promise<unknown[]>;
     get(parameters?: object): Promise<unknown | undefined>;

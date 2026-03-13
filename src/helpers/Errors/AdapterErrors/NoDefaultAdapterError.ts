@@ -1,7 +1,7 @@
-import DatabaseHandlerError from "../DatabaseHandlerError.js";
+import { DatabaseHandlerError } from '../DatabaseHandlerError.js';
 
-export default class NoDefaultAdapterError extends DatabaseHandlerError {
-    constructor() {
-        super("No default adapter set", { code: 'NO_DEFAULT_ADAPTER' });
-    }
+export class NoDefaultAdapterError extends DatabaseHandlerError {
+  constructor() {
+    super('No default adapter set', { code: 'NO_DEFAULT_ADAPTER' });
+  }
 }

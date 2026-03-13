@@ -1,5 +1,5 @@
-import type Model from '@core/abstract/Model.js';
-import Query from '@core/base/Query.js';
+import type { Model } from '@core/abstract/Model.js';
+import { Query } from '@core/base/Query.js';
 import {
   columnType,
   Join,
@@ -10,16 +10,16 @@ import {
   TableColumnInfo,
   QueryValues,
 } from '@core/types/index.js';
-import QueryStatementBuilder from '@core/helpers/QueryBuilders/QueryStatementBuilder.js';
+import { QueryStatementBuilder } from '@core/helpers/QueryBuilders/QueryStatementBuilder.js';
 import { Container, IDatabaseAdapter } from '@core/index.js';
-import QueryCache from '@core/runtime/QueryCache.js';
+import { QueryCache } from '@core/runtime/QueryCache.js';
 import { QueryFactory } from '@core/types/factories';
-import RelationError from '@core/helpers/Errors/ModelErrors/RelationError.js';
-import InvalidOperationError from '@core/helpers/Errors/ModelErrors/InvalidOperationError.js';
-import UnknownTableError from '@core/helpers/Errors/TableErrors/UnknownTableError.js';
-import DepricatedQueryStatementBuilder from '@core/helpers/QueryBuilders/depricatedQueryStatementBuilder.js';
+import { RelationError } from '@core/helpers/Errors/ModelErrors/RelationError.js';
+import { InvalidOperationError } from '@core/helpers/Errors/ModelErrors/InvalidOperationError.js';
+import { UnknownTableError } from '@core/helpers/Errors/TableErrors/UnknownTableError.js';
+import { DepricatedQueryStatementBuilder } from '@core/helpers/QueryBuilders/depricatedQueryStatementBuilder.js';
 
-export default class Repository<
+export class Repository<
   Type extends columnType,
   ModelType extends Model<Type>,
 > {

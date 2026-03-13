@@ -1,7 +1,7 @@
-import Repository from '@core/runtime/Repository.js';
-import ModelRelations from '@core/abstract/model/ModelRelation.js';
-import RecordNotFoundError from '@core/helpers/Errors/ModelErrors/RecordNotFoundError.js';
-import InvalidOperationError from '@core/helpers/Errors/ModelErrors/InvalidOperationError.js';
+import { Repository } from '@core/runtime/Repository.js';
+import { ModelRelations } from '@core/abstract/model/ModelRelation.js';
+import { RecordNotFoundError } from '@core/helpers/Errors/ModelErrors/RecordNotFoundError.js';
+import { InvalidOperationError } from '@core/helpers/Errors/ModelErrors/InvalidOperationError.js';
 import {
   columnType,
   QueryValues,
@@ -19,7 +19,7 @@ import {
 } from '@core/types/index.js';
 
 /** Abstract Model class for ORM-style database interactions */
-export default abstract class Model<
+export abstract class Model<
   ModelType extends columnType,
 > extends ModelRelations<ModelType> {
   private _repository?: Repository<ModelType, Model<ModelType>>;

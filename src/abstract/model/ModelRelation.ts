@@ -6,12 +6,12 @@ import {
   QueryWhereCondition,
   relation,
 } from '@core/types/index.js';
-import Model from '@core/abstract/Model.js';
-import Repository from '@core/runtime/Repository.js';
-import RelationError from '@core/helpers/Errors/ModelErrors/RelationError.js';
-import InvalidOperationError from '@core/helpers/Errors/ModelErrors/InvalidOperationError.js';
+import { Model } from '@core/abstract/Model.js';
+import { Repository } from '@core/runtime/Repository.js';
+import { RelationError } from '@core/helpers/Errors/ModelErrors/RelationError.js';
+import { InvalidOperationError } from '@core/helpers/Errors/ModelErrors/InvalidOperationError.js';
 
-export default abstract class ModelRelations<
+export abstract class ModelRelations<
   Type extends columnType,
   Self extends Model<Type> = Model<Type>,
 > {

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 import { QueryEvaluationPhase } from '../../types/expressions';
-import Model from '../../abstract/Model';
+import { Model } from '../../abstract/Model';
 import { setupTestEnvironment, teardownTestEnvironment } from '../utils/testHelpers';
 import { MockDatabaseAdapter } from '../mocks/MockDatabaseAdapter';
 

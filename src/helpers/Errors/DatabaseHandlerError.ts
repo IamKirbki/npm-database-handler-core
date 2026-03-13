@@ -1,4 +1,4 @@
-export default class DatabaseHandlerError extends Error {
+export class DatabaseHandlerError extends Error {
     public cause?: unknown;
     public code?: string;
 

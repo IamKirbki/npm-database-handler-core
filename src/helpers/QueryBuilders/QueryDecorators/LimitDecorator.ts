@@ -1,8 +1,8 @@
-import IQueryBuilder from "@core/interfaces/IQueryBuilder.js";
-import QueryDecorator from "./QueryDecorator.js";
+import { IQueryBuilder } from "@core/interfaces/IQueryBuilder.js";
+import { QueryDecorator } from "./QueryDecorator.js";
 import { QueryContext } from "@core/types/query.js";
 
-export default class LimitDecorator extends QueryDecorator {
+export class LimitDecorator extends QueryDecorator {
     private limitCount: number;
     private offsetCount?: number;
 

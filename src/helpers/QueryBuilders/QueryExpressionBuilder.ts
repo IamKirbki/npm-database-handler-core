@@ -6,10 +6,10 @@ import {
     TextRelevanceQueryExpression,
     JsonAggregateQueryExpression,
 } from "@core/types/index.js";
-import SpatialDistanceExpression from "./ExpressionBuilders/SpatialDistanceExpression.js";
+import { SpatialDistanceExpression } from "./ExpressionBuilders/SpatialDistanceExpression.js";
 import { UnknownExpressionTypeError } from "../Errors/ExpressionErrors/UnknownExpressionTypeError.js";
-import TextRelevanceExpression from "./ExpressionBuilders/TextRelevanceExpression.js";
-import JsonAggregateExpression from "./ExpressionBuilders/JsonAggregateExpression.js";
+import { TextRelevanceExpression } from "./ExpressionBuilders/TextRelevanceExpression.js";
+import { JsonAggregateExpression } from "./ExpressionBuilders/JsonAggregateExpression.js";
 
 /**
  * A normalized, intermediate representation of a query expression.
@@ -34,7 +34,7 @@ import JsonAggregateExpression from "./ExpressionBuilders/JsonAggregateExpressio
  * Its ONLY job is to translate abstract expressions
  * into structured SQL fragments with metadata.
  */
-export default class QueryExpressionBuilder {
+export class QueryExpressionBuilder {
 
     /**
      * Registry mapping expression "type" → builder function.

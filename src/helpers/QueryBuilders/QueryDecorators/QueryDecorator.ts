@@ -1,7 +1,7 @@
-import IQueryBuilder from "@core/interfaces/IQueryBuilder";
+import { IQueryBuilder } from "@core/interfaces/IQueryBuilder";
 import { QueryContext } from "@core/types/query";
 
-export default abstract class QueryDecorator implements IQueryBuilder {
+export abstract class QueryDecorator implements IQueryBuilder {
     protected component: IQueryBuilder;
 
     constructor(component: IQueryBuilder) {

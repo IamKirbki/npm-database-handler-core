@@ -1,5 +1,5 @@
-import InvalidExpressionParametersError from '@core/helpers/Errors/ExpressionErrors/InvalidExpressionParametersError.js';
-import IExpressionBuilder from '@core/interfaces/IExpressionBuilder.js';
+import { InvalidExpressionParametersError } from '@core/helpers/Errors/ExpressionErrors/InvalidExpressionParametersError.js';
+import { IExpressionBuilder } from '@core/interfaces/IExpressionBuilder.js';
 import {
   expressionClause,
   QueryComparisonParameters,
@@ -7,7 +7,7 @@ import {
   SpatialQueryExpression,
 } from '@core/types/index.js';
 
-export default class SpatialDistanceExpression implements IExpressionBuilder {
+export class SpatialDistanceExpression implements IExpressionBuilder {
   build(expression: SpatialQueryExpression): expressionClause {
     if (!this.validate(expression)) {
       throw new InvalidExpressionParametersError(

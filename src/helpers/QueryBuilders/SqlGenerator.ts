@@ -1,7 +1,7 @@
 import { QueryComparisonParameters, QueryContext } from '@core/types/query.js';
-import InvalidWhereConditionError from '../Errors/QueryErrors/InvalidWhereConditionError.js';
+import { InvalidWhereConditionError } from '../Errors/QueryErrors/InvalidWhereConditionError.js';
 
-export default class SqlGenerator {
+export class SqlGenerator {
     private _context: QueryContext;
 
     constructor(context: QueryContext) {

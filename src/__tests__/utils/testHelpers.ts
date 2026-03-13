@@ -1,9 +1,9 @@
-import Container from '../../runtime/Container';
-import Repository from '../../runtime/Repository';
+import { Container } from '../../runtime/Container';
+import { Repository } from '../../runtime/Repository';
 import { MockDatabaseAdapter } from '../mocks/MockDatabaseAdapter';
-import type IDatabaseAdapter from '../../interfaces/IDatabaseAdapter';
+import type { IDatabaseAdapter } from '../../interfaces/IDatabaseAdapter';
 import type { columnType } from '@core/index.js';
-import Model from '../../abstract/Model';
+import { Model } from '../../abstract/Model';
 
 /**
  * Test utilities for setting up and tearing down test environments
