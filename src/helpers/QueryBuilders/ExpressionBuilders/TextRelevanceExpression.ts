@@ -1,5 +1,5 @@
-import InvalidExpressionParametersError from '@core/helpers/Errors/ExpressionErrors/InvalidExpressionParametersError.js';
-import IExpressionBuilder from '@core/interfaces/IExpressionBuilder.js';
+import { InvalidExpressionParametersError } from '@core/helpers/Errors/ExpressionErrors/InvalidExpressionParametersError.js';
+import { IExpressionBuilder } from '@core/interfaces/IExpressionBuilder.js';
 import {
   expressionClause,
   QueryEvaluationPhase,
@@ -7,7 +7,7 @@ import {
   TextRelevanceQueryExpression,
 } from '@core/types/index.js';
 
-export default class TextRelevanceExpression implements IExpressionBuilder {
+export class TextRelevanceExpression implements IExpressionBuilder {
   build(expression: TextRelevanceQueryExpression): expressionClause {
     if (!this.validate(expression)) {
       throw new InvalidExpressionParametersError(

@@ -1,6 +1,6 @@
-import IDatabaseAdapter from "./IDatabaseAdapter.js";
+import { IDatabaseAdapter } from "./IDatabaseAdapter.js";
 
-export default interface IMigration {
-    up(db: IDatabaseAdapter): Promise<void>;
-    down(db: IDatabaseAdapter): Promise<void>;
+export interface IMigration<T extends IDatabaseAdapter = IDatabaseAdapter> {
+    up(db: T): Promise<void>;
+    down(db: T): Promise<void>;
 }

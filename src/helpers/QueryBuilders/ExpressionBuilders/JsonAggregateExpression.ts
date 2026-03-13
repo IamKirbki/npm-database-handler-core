@@ -1,4 +1,4 @@
-import InvalidExpressionParametersError from '@core/helpers/Errors/ExpressionErrors/InvalidExpressionParametersError.js';
+import { InvalidExpressionParametersError } from '@core/helpers/Errors/ExpressionErrors/InvalidExpressionParametersError.js';
 import {
   expressionClause,
   JsonAggregateQueryExpression,
@@ -6,8 +6,8 @@ import {
   QueryComparisonParameters,
   QueryEvaluationPhase,
 } from '@core/types/index.js';
-import IExpressionBuilder from '@core/interfaces/IExpressionBuilder.js';
-import QueryExpressionBuilder from '../QueryExpressionBuilder.js';
+import { IExpressionBuilder } from '@core/interfaces/IExpressionBuilder.js';
+import { QueryExpressionBuilder } from '../QueryExpressionBuilder.js';
 
 type JsonBuildObject = {
   sql: string;
@@ -15,7 +15,7 @@ type JsonBuildObject = {
   valueClauseKeywords?: Record<string, string>;
 };
 
-export default class JsonAggregateExpression implements IExpressionBuilder {
+export class JsonAggregateExpression implements IExpressionBuilder {
   build(expression: JsonAggregateQueryExpression): expressionClause {
     if (!this.validate(expression)) {
       throw new InvalidExpressionParametersError(

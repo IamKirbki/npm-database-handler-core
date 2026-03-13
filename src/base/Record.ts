@@ -6,15 +6,15 @@ import {
   QueryIsEqualParameter,
   QueryComparisonParameters,
 } from '@core/types/index.js';
-import QueryStatementBuilder from '@core/helpers/QueryBuilders/QueryStatementBuilder.js';
-import DepricatedQueryStatementBuilder from '@core/helpers/QueryBuilders/depricatedQueryStatementBuilder.js';
-import QueryFactory from '@core/factories/QueryFactory.js';
-import RecordFactory from '@core/factories/RecordFactory.js';
+import { QueryStatementBuilder } from '@core/helpers/QueryBuilders/QueryStatementBuilder.js';
+import { DepricatedQueryStatementBuilder } from '@core/helpers/QueryBuilders/depricatedQueryStatementBuilder.js';
+import { QueryFactory } from '@core/factories/QueryFactory.js';
+import { RecordFactory } from '@core/factories/RecordFactory.js';
 import { RecordConstructorType } from '@core/types/record.js';
-import InvalidOperationError from '@core/helpers/Errors/ModelErrors/InvalidOperationError.js';
+import { InvalidOperationError } from '@core/helpers/Errors/ModelErrors/InvalidOperationError.js';
 
 /** Record class represents a single database row */
-export default class Record<ColumnValuesType extends columnType> {
+export class Record<ColumnValuesType extends columnType> {
   private _values: ColumnValuesType = {} as ColumnValuesType;
   private readonly _tableName: string;
   private readonly _customAdapter?: string;

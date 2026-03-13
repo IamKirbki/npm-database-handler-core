@@ -1,10 +1,10 @@
 import { Join, DefaultQueryParameters, ExtraQueryParameters, QueryLayers, QueryContext } from "@core/index.js";
-import QueryDecorator from "./QueryDecorator.js";
-import IQueryBuilder from "@core/interfaces/IQueryBuilder.js";
+import { QueryDecorator } from "./QueryDecorator.js";
+import { IQueryBuilder } from "@core/interfaces/IQueryBuilder.js";
 import { TableColumnInfo } from "@core/types/index.js";
-import InvalidOperationError from "@core/helpers/Errors/ModelErrors/InvalidOperationError.js";
+import { InvalidOperationError } from "@core/helpers/Errors/ModelErrors/InvalidOperationError.js";
 
-export default class JoinDecorator extends QueryDecorator {
+export class JoinDecorator extends QueryDecorator {
     private fromTableName: string;
     private joins: Join | Join[];
     private tableColumnsCache: Map<string, TableColumnInfo[]>;

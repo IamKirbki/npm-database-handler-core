@@ -4,19 +4,19 @@ import {
   QueryContext,
   TableColumnInfo,
 } from '@core/types/index.js';
-import BaseSelectQueryBuilder from './BaseQueryBuilders/BaseSelectQueryBuilder.js';
-import ExpressionDecorator from './QueryDecorators/ExpressionDecorator.js';
-import QueryExpressionBuilder from './QueryExpressionBuilder.js';
-import WhereDecorator from './QueryDecorators/WhereDecorator.js';
-import JoinDecorator from './QueryDecorators/JoinDecorator.js';
-import IQueryBuilder from '@core/interfaces/IQueryBuilder.js';
-import GroupByDecorator from './QueryDecorators/GroupByDecorator.js';
-import OrderByDecorator from './QueryDecorators/OrderByDecorator.js';
-import LimitDecorator from './QueryDecorators/LimitDecorator.js';
-import SqlGenerator from './SqlGenerator.js';
-import InvalidOperationError from '@core/helpers/Errors/ModelErrors/InvalidOperationError.js';
+import { BaseSelectQueryBuilder } from './BaseQueryBuilders/BaseSelectQueryBuilder.js';
+import { ExpressionDecorator } from './QueryDecorators/ExpressionDecorator.js';
+import { QueryExpressionBuilder } from './QueryExpressionBuilder.js';
+import { WhereDecorator } from './QueryDecorators/WhereDecorator.js';
+import { JoinDecorator } from './QueryDecorators/JoinDecorator.js';
+import { IQueryBuilder } from '@core/interfaces/IQueryBuilder.js';
+import { GroupByDecorator } from './QueryDecorators/GroupByDecorator.js';
+import { OrderByDecorator } from './QueryDecorators/OrderByDecorator.js';
+import { LimitDecorator } from './QueryDecorators/LimitDecorator.js';
+import { SqlGenerator } from './SqlGenerator.js';
+import { InvalidOperationError } from '@core/helpers/Errors/ModelErrors/InvalidOperationError.js';
 
-export default class QueryStatementBuilder {
+export class QueryStatementBuilder {
   private _layers: QueryLayers;
   private _contexts: {
     base?: QueryContext;

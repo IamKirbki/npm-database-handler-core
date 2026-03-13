@@ -5,14 +5,14 @@ import {
   QueryConstructorType,
 } from '@core/types/index.js';
 import { Container, Record, IDatabaseAdapter } from '@core/index.js';
-import UnknownTableError from '@core/helpers/Errors/TableErrors/UnknownTableError.js';
-import UnexpectedEmptyQueryError from '@core/helpers/Errors/QueryErrors/UnexpectedEmptyQueryError.js';
-import QueryExecutionError from '@core/helpers/Errors/QueryErrors/QueryExecutionError.js';
-import QueryCache from '@core/runtime/QueryCache.js';
-import RecordFactory from '@core/factories/RecordFactory.js';
+import { UnknownTableError } from '@core/helpers/Errors/TableErrors/UnknownTableError.js';
+import { UnexpectedEmptyQueryError } from '@core/helpers/Errors/QueryErrors/UnexpectedEmptyQueryError.js';
+import { QueryExecutionError } from '@core/helpers/Errors/QueryErrors/QueryExecutionError.js';
+import { QueryCache } from '@core/runtime/QueryCache.js';
+import { RecordFactory } from '@core/factories/RecordFactory.js';
 
 /** Query class for executing custom SQL queries */
-export default class Query {
+export class Query {
   public readonly TableName: string;
 
   private readonly _adapter: IDatabaseAdapter;

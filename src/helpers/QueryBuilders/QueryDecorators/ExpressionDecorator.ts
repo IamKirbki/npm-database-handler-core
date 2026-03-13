@@ -4,10 +4,10 @@ import {
   QueryComparisonParameters,
   QueryContext,
 } from '@core/types/index.js';
-import QueryDecorator from './QueryDecorator.js';
-import IQueryBuilder from '@core/interfaces/IQueryBuilder.js';
+import { QueryDecorator } from './QueryDecorator.js';
+import { IQueryBuilder } from '@core/interfaces/IQueryBuilder.js';
 
-export default class ExpressionDecorator extends QueryDecorator {
+export class ExpressionDecorator extends QueryDecorator {
   private parsedExpressions: expressionClause[];
   public whereClauses?: QueryComparisonParameters[];
   public orderByClauses?: OrderByDefinition[];

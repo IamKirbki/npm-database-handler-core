@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import Table from '@core/base/Table';
-import Record from '@core/base/Record';
-import Container from '@core/runtime/Container';
+import { Table } from '@core/base/Table';
+import { Record } from '@core/base/Record';
+import { Container } from '@core/runtime/Container';
 import { MockDatabaseAdapter } from '../mocks/MockDatabaseAdapter';
 
 describe('Table', () => {

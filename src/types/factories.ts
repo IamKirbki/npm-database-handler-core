@@ -1,6 +1,6 @@
-import type Table from '@core/base/Table.js';
-import type Record from '@core/base/Record.js';
-import type Query from '@core/base/Query.js';
+import type { Table } from '@core/base/Table.js';
+import type { Record } from '@core/base/Record.js';
+import type { Query } from '@core/base/Query.js';
 import type {
   columnType,
   Model,

@@ -1,6 +1,6 @@
 /** Model configuration and types */
 
-import Model from "@core/abstract/Model";
+import { Model } from "@core/abstract/Model";
 import { columnType } from "./index";
 import { QueryComparisonParameters } from "./query";
 

@@ -5,7 +5,7 @@ import {
 } from '@core/types/index.js';
 
 /** Utility class for building SQL query strings */
-export default class DepricatedQueryStatementBuilder {
+export class DepricatedQueryStatementBuilder {
   /**
    * Build an INSERT SQL statement with named parameter placeholders
    *

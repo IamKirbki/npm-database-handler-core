@@ -1,6 +1,6 @@
 import { TableColumnInfo } from "@core/types/table.js";
 
-export default class QueryCache {
+export class QueryCache {
     private static _instance?: QueryCache;
     private cachedExistingTables: string[] = [];
     private cachedTableColumnInformation: Map<string, TableColumnInfo[]> = new Map();

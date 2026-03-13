@@ -1,4 +1,4 @@
-export default interface IController<M> {
+export interface IController<M> {
     index(): Promise<M[]>;
     show(id: string): Promise<M | undefined>;
     create(data: object): Promise<M>;

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import Container from '@core/runtime/Container';
+import { Container } from '@core/runtime/Container';
 import { MockDatabaseAdapter } from '../mocks/MockDatabaseAdapter';
 
 describe('Repository', () => {
