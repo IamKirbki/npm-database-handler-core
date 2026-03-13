@@ -26,6 +26,25 @@ export default class Query {
     return this._parameters;
   }
 
+  private serializeParameters(parameters: QueryIsEqualParameter): QueryIsEqualParameter {
+    const serialized: QueryIsEqualParameter = {};
+    for (const [key, value] of Object.entries(parameters)) {
+      if (
+        value !== null &&
+        typeof value === 'object' &&
+        !(value instanceof Date) &&
+        !Array.isArray(value)
+      ) {
+        serialized[key] = JSON.stringify(value);
+      } else if (Array.isArray(value)) {
+        serialized[key] = JSON.stringify(value);
+      } else {
+        serialized[key] = value;
+      }
+    }
+    return serialized;
+  }
+
   constructor({
     tableName,
     query,
@@ -36,14 +55,15 @@ export default class Query {
     this.TableName = tableName;
     this._query = query;
 
-    if (parameters) this._parameters = parameters;
-    // eslint-disable-next-line no-undef
+    if (parameters) this._parameters = this.serializeParameters(parameters);
     if (Container.getInstance().logging)
       this._query
+        // eslint-disable-next-line no-undef
         ? console.info(this._query, '\n', this._parameters)
+        // eslint-disable-next-line no-undef
         : console.info(
-            'No query found, probably checking if a table exists or getting the table column information.',
-          );
+          'No query found, probably checking if a table exists or getting the table column information.',
+        );
 
     this._adapter = Container.getInstance().getAdapter(adapterName);
     this._queryCache = QueryCache.getInstance();
@@ -111,9 +131,9 @@ export default class Query {
       const results = (await stmt.get(this.Parameters)) as Type | undefined;
       return results
         ? (this._recordFactory.create({
-            table: this.TableName,
-            values: results,
-          }) as Record<Type>)
+          table: this.TableName,
+          values: results,
+        }) as Record<Type>)
         : undefined;
     } catch (error) {
       throw new QueryExecutionError(this._query, error);
