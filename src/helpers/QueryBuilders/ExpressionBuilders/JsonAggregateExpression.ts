@@ -4,7 +4,6 @@ import {
   JsonAggregateQueryExpression,
   PossibleExpressions,
   QueryComparisonParameters,
-  QueryEvaluationPhase,
 } from '@core/types/index.js';
 import { IExpressionBuilder } from '@core/interfaces/IExpressionBuilder.js';
 import { QueryExpressionBuilder } from '../QueryExpressionBuilder.js';
@@ -41,8 +40,6 @@ export class JsonAggregateExpression implements IExpressionBuilder {
 
     return {
       baseExpressionClause,
-      phase: expression.requirements.phase,
-      requiresWrapping: expression.requirements.requiresSelectWrapping || false,
       groupByClause,
       whereClause: jsonBuildObjects.whereClause,
       valueClauseKeywords: jsonBuildObjects.valueClauseKeywords,
@@ -74,10 +71,6 @@ export class JsonAggregateExpression implements IExpressionBuilder {
                   : comp.parameters.valueClauseKeywords,
               isComputed: true,
             },
-            requirements:
-              QueryExpressionBuilder.getExpressionDefaultRequirements(
-                comp.type,
-              )!,
           };
 
           const builder = QueryExpressionBuilder.buildExpressionsPart([
@@ -131,7 +124,6 @@ export class JsonAggregateExpression implements IExpressionBuilder {
                   nested: n.nested,
                   groupByColumns: [],
                 },
-                requirements: this.defaultRequirements,
               }).sql
             }`;
           })
@@ -162,12 +154,5 @@ export class JsonAggregateExpression implements IExpressionBuilder {
       Array.isArray(expression.parameters.groupByColumns) &&
       typeof expression.parameters.alias === 'string'
     );
-  }
-
-  get defaultRequirements(): JsonAggregateQueryExpression['requirements'] {
-    return {
-      phase: QueryEvaluationPhase.PROJECTION,
-      requiresSelectWrapping: true,
-    };
   }
 }

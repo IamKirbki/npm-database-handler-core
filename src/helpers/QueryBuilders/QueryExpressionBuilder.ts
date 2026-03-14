@@ -72,27 +72,6 @@ export class QueryExpressionBuilder {
         // ['windowFunction', (expr) => QueryExpressionBuilder.BuildWindowFunction(expr)]
     ]);
 
-    private static expressionDefaults: Map<string, PossibleExpressions['requirements']> = new Map([
-        [
-            'spatialDistance',
-            new SpatialDistanceExpression().defaultRequirements
-        ],
-        [
-            'textRelevance',
-            new TextRelevanceExpression().defaultRequirements
-        ],
-        [
-            'jsonAggregate',
-            new JsonAggregateExpression().defaultRequirements
-        ]
-    ]);
-
-    public static getExpressionDefaultRequirements(
-        type: string
-    ): PossibleExpressions['requirements'] | undefined {
-        return this.expressionDefaults.get(type);
-    }
-
     /**
      * Registers a new expression builder at runtime.
      *

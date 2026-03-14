@@ -3,7 +3,6 @@ import { IExpressionBuilder } from '@core/interfaces/IExpressionBuilder.js';
 import {
   expressionClause,
   QueryComparisonParameters,
-  QueryEvaluationPhase,
   SpatialQueryExpression,
 } from '@core/types/index.js';
 
@@ -61,8 +60,6 @@ export class SpatialDistanceExpression implements IExpressionBuilder {
 
     return {
       baseExpressionClause,
-      phase: expression.requirements.phase,
-      requiresWrapping: expression.requirements.requiresSelectWrapping || false,
       whereClause: whereClauses,
       valueClauseKeywords: expression.parameters.valueClauseKeywords,
       orderByClause,
@@ -85,12 +82,5 @@ export class SpatialDistanceExpression implements IExpressionBuilder {
       (expression.parameters.minDistance === undefined ||
         typeof expression.parameters.minDistance === 'number')
     );
-  }
-
-  get defaultRequirements(): SpatialQueryExpression['requirements'] {
-    return {
-      phase: QueryEvaluationPhase.PROJECTION,
-      requiresSelectWrapping: true,
-    };
   }
 }

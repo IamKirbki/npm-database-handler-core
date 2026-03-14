@@ -13,22 +13,6 @@ export type expressionClause = {
    */
   baseExpressionClause: string;
 
-  /**
-   * Determines *where* in the query lifecycle this expression is evaluated.
-   *
-   * - base:      Can live directly in SELECT
-   * - projection: Must be computed in a subquery
-   */
-  phase?: QueryEvaluationPhase;
-
-  /**
-   * Signals that this expression cannot safely exist in the same
-   * SELECT level where it is filtered or ordered on.
-   *
-   * This is the “SQL is dumb, wrap it” flag.
-   */
-  requiresWrapping?: boolean;
-
   selectClause?: string;
 
   /**
@@ -64,7 +48,6 @@ export type ExpressionBuilderFunction<
 // Base type for all query expressions
 export type QueryExpression<T extends string = string> = {
   type: T;
-  requirements: QueryExpressionRequirements;
 };
 
 // Union type of all supported expressions - add new types here
@@ -80,12 +63,6 @@ export type ComputedExpression<T extends string = string> = {
 export type PossibleComputedExpressions =
   | SpatialComputedExpression
   | TextRelevanceComputedExpression;
-
-export type QueryExpressionRequirements = {
-  phase: QueryEvaluationPhase;
-
-  requiresSelectWrapping: boolean;
-};
 
 export type SpatialDistanceDefinition = {
   referencePoint: SpatialPoint;
@@ -195,12 +172,6 @@ export type NestedJsonAggregateDefinition<Tables extends string = string> = {
 export type JsonAggregateQueryExpression = QueryExpression<'jsonAggregate'> & {
   parameters: JsonAggregateDefinition;
 };
-
-export enum QueryEvaluationPhase {
-  BASE = 'base',
-  PROJECTION = 'projection',
-  LATERAL = 'lateral',
-}
 
 export type PossibleBaseExpressions =
   | SpatialQueryExpression

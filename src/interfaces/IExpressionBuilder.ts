@@ -3,5 +3,4 @@ import { PossibleComputedExpressions, PossibleExpressions, expressionClause } fr
 export interface IExpressionBuilder {
     build(expression: PossibleExpressions | PossibleComputedExpressions): expressionClause;
     validate?(expression: PossibleExpressions | PossibleComputedExpressions): boolean;
-    get defaultRequirements(): PossibleExpressions['requirements'];
 }

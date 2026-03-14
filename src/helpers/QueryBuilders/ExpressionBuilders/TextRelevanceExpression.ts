@@ -2,8 +2,6 @@ import { InvalidExpressionParametersError } from '@core/helpers/Errors/Expressio
 import { IExpressionBuilder } from '@core/interfaces/IExpressionBuilder.js';
 import {
   expressionClause,
-  QueryEvaluationPhase,
-  QueryExpressionRequirements,
   TextRelevanceQueryExpression,
 } from '@core/types/index.js';
 
@@ -36,8 +34,6 @@ export class TextRelevanceExpression implements IExpressionBuilder {
 
     return {
       baseExpressionClause,
-      phase: expression.requirements.phase,
-      requiresWrapping: expression.requirements.requiresSelectWrapping || false,
       whereClause: expression.parameters.where,
       valueClauseKeywords: expression.parameters.valueClauseKeywords,
       orderByClause,
@@ -55,12 +51,5 @@ export class TextRelevanceExpression implements IExpressionBuilder {
       typeof expression.parameters.alias === 'string' &&
       typeof expression.parameters.minimumRelevance == 'number'
     );
-  }
-
-  get defaultRequirements(): QueryExpressionRequirements {
-    return {
-      phase: QueryEvaluationPhase.PROJECTION,
-      requiresSelectWrapping: true,
-    };
   }
 }

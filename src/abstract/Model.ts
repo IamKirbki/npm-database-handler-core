@@ -12,7 +12,6 @@ import {
   TextRelevanceQueryExpression,
   JsonAggregateQueryExpression,
   NestedJsonAggregateDefinition,
-  QueryEvaluationPhase,
   QueryLayers,
   QueryWhereCondition,
   QueryComparisonParameters,
@@ -391,10 +390,6 @@ export abstract class Model<
     } = params;
     const expression: SpatialQueryExpression = {
       type: 'spatialDistance',
-      requirements: {
-        phase: QueryEvaluationPhase.PROJECTION,
-        requiresSelectWrapping: true,
-      },
       parameters: {
         referencePoint: referencePoint,
         targetColumns: targetColumns,
@@ -445,10 +440,6 @@ export abstract class Model<
 
     const expression: TextRelevanceQueryExpression = {
       type: 'textRelevance',
-      requirements: {
-        phase: QueryEvaluationPhase.PROJECTION,
-        requiresSelectWrapping: true,
-      },
       parameters: {
         targetColumns: targetColumns,
         searchTerm: searchTerm,
@@ -502,10 +493,6 @@ export abstract class Model<
 
     const expression: JsonAggregateQueryExpression = {
       type: 'jsonAggregate',
-      requirements: {
-        phase: QueryEvaluationPhase.PROJECTION,
-        requiresSelectWrapping: true,
-      },
       parameters: {
         columns: columns,
         table: table,
