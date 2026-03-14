@@ -1,6 +1,7 @@
-export default class NoDefaultAdapterError extends Error {
-    constructor() {
-        super("No default adapter set");
-        this.name = "NoDefaultAdapterError";
-    }
+import { DatabaseHandlerError } from '../DatabaseHandlerError.js';
+
+export class NoDefaultAdapterError extends DatabaseHandlerError {
+  constructor() {
+    super('No default adapter set', { code: 'NO_DEFAULT_ADAPTER' });
+  }
 }

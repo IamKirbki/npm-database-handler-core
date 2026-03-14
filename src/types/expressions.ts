@@ -1,48 +1,35 @@
-import { OrderByDefinition, QueryWhereCondition } from "@core/types/index.js";
+import {
+  OrderByDefinition,
+  QueryComparisonParameters,
+} from '@core/types/index.js';
 
 export type expressionClause = {
-    /**
-     * SQL fragment that produces the expression value.
-     * Must include an alias if it needs to be referenced later.
-     *
-     * Example:
-     *   6371 * acos(...) AS distance
-     */
-    baseExpressionClause: string;
+  /**
+   * SQL fragment that produces the expression value.
+   * Must include an alias if it needs to be referenced later.
+   *
+   * Example:
+   *   6371 * acos(...) AS distance
+   */
+  baseExpressionClause: string;
 
-    /**
-     * Determines *where* in the query lifecycle this expression is evaluated.
-     *
-     * - base:      Can live directly in SELECT
-     * - projection: Must be computed in a subquery
-     */
-    phase?: QueryEvaluationPhase;
+  selectClause?: string;
 
-    /**
-     * Signals that this expression cannot safely exist in the same
-     * SELECT level where it is filtered or ordered on.
-     *
-     * This is the “SQL is dumb, wrap it” flag.
-     */
-    requiresWrapping?: boolean;
+  /**
+   * ORDER BY fragment derived from the expression.
+   *
+   * Example:
+   *   distance ASC
+   */
+  orderByClause?: OrderByDefinition;
 
-    selectClause?: string;
+  whereClause?: QueryComparisonParameters[];
 
-    /**
-     * ORDER BY fragment derived from the expression.
-     *
-     * Example:
-     *   distance ASC
-     */
-    orderByClause?: OrderByDefinition;
+  valueClauseKeywords?: Record<string, string>;
 
-    whereClause?: QueryWhereCondition;
+  groupByClause?: string;
 
-    valueClauseKeywords?: string[];
-
-    groupByClause?: string;
-
-    havingClause?: QueryWhereCondition;
+  havingClause?: QueryComparisonParameters[];
 };
 
 /**
@@ -52,164 +39,142 @@ export type expressionClause = {
  * - receives a strongly-typed expression definition
  * - returns a normalized expressionClause
  */
-export type ExpressionBuilderFunction<T extends PossibleExpressions = PossibleExpressions> =
-    /* eslint-disable-next-line no-unused-vars */
-    (expression: T) => expressionClause;
-
+export type ExpressionBuilderFunction<
+  T extends PossibleExpressions = PossibleExpressions,
+> =
+  /* eslint-disable-next-line no-unused-vars */
+  (expression: T) => expressionClause;
 
 // Base type for all query expressions
 export type QueryExpression<T extends string = string> = {
-    type: T;
-    requirements: QueryExpressionRequirements;
+  type: T;
 };
 
 // Union type of all supported expressions - add new types here
 export type PossibleExpressions =
-    SpatialQueryExpression |
-    TextRelevanceQueryExpression |
-    JsonAggregateQueryExpression;
+  | SpatialQueryExpression
+  | TextRelevanceQueryExpression
+  | JsonAggregateQueryExpression;
 
 export type ComputedExpression<T extends string = string> = {
-    type: T;
-}
-
-export type PossibleComputedExpressions =
-    SpatialComputedExpression |
-    TextRelevanceComputedExpression;
-
-export type QueryExpressionRequirements = {
-    phase: QueryEvaluationPhase;
-
-    cardinality: 'row' | 'aggregate';
-
-    select?: string;
-    where?: QueryWhereCondition;
-    having?: QueryWhereCondition;
-    orderBy?: string;
-
-    requiresAlias: boolean;
-    requiresSelectWrapping: boolean;
+  type: T;
 };
 
-export type QueryShape =
-    | { kind: 'flat' }
-    | { kind: 'wrapped'; reason: 'projection-expressions' };
+export type PossibleComputedExpressions =
+  | SpatialComputedExpression
+  | TextRelevanceComputedExpression;
 
 export type SpatialDistanceDefinition = {
-    referencePoint: SpatialPoint;
+  referencePoint: SpatialPoint;
 
-    targetColumns: SpatialPointColumns;
+  targetColumns: SpatialPointColumns;
 
-    unit: 'km' | 'miles';
-    earthRadius?: number;
-    alias: string;
+  unit: 'km' | 'miles';
+  earthRadius?: number;
+  alias: string;
 
-    valueClauseKeywords: string[];
-    where?: QueryWhereCondition;
+  valueClauseKeywords: Record<string, string>;
+  where?: QueryComparisonParameters[];
 
-    maxDistance: number;
-    orderByDistance?: 'ASC' | 'DESC';
-    isComputed?: boolean;
+  maxDistance?: number;
+  minDistance?: number;
+  orderByDistance?: 'ASC' | 'DESC';
+  isComputed?: boolean;
 };
 
 export type SpatialQueryExpression = QueryExpression<'spatialDistance'> & {
-    parameters: SpatialDistanceDefinition;
+  parameters: SpatialDistanceDefinition;
 };
 
-export type SpatialComputedExpression = ComputedExpression<'spatialDistance'> & {
+export type SpatialComputedExpression =
+  ComputedExpression<'spatialDistance'> & {
     parameters: SpatialDistanceDefinition;
-};
+  };
 
 export type SpatialPointColumns = {
-    lat: string;
-    lon: string;
+  lat: string;
+  lon: string;
 };
 
 export type SpatialPoint = {
-    lat: number;
-    lon: number;
+  lat: number;
+  lon: number;
 };
 
 export type TextRelevanceDefinition = {
-    targetColumns: string[];
-    searchTerm: string;
+  targetColumns: string[];
+  searchTerm: string;
 
-    alias: string;
-    where?: QueryWhereCondition;
-    valueClauseKeywords: string[];
+  alias: string;
+  where?: QueryComparisonParameters[];
+  valueClauseKeywords: Record<string, string>;
 
-    minimumRelevance?: number;
-    orderByRelevance?: 'ASC' | 'DESC';
+  minimumRelevance?: number;
+  orderByRelevance?: 'ASC' | 'DESC';
 };
 
 export type TextRelevanceQueryExpression = QueryExpression<'textRelevance'> & {
-    parameters: TextRelevanceDefinition;
+  parameters: TextRelevanceDefinition;
 };
 
-export type TextRelevanceComputedExpression = ComputedExpression<'textRelevance'> & {
+export type TextRelevanceComputedExpression =
+  ComputedExpression<'textRelevance'> & {
     parameters: TextRelevanceDefinition;
-};
+  };
 
 export type JsonAggregateDefinition<Tables extends string = string> = {
-    /** Table this aggregate is built from */
-    table: Tables;
+  /** Table this aggregate is built from */
+  table: Tables;
 
-    /** Columns selected from this table */
-    columns: string[];
+  /** Columns selected from this table */
+  columns: string[];
 
-    nonTableColumns?: string[];
+  nonTableColumns?: string[];
 
-    /** GROUP BY columns required for this level */
-    groupByColumns: string[];
+  /** GROUP BY columns required for this level */
+  groupByColumns: string[];
 
-    /** Alias of this JSON object / array */
-    alias: string;
+  /** Alias of this JSON object / array */
+  alias: string;
 
-    /** Computed expressions */
-    computed?: PossibleComputedExpressions[];
+  /** Computed expressions */
+  computed?: PossibleComputedExpressions[];
 
-    /** Having clause */
-    having?: QueryWhereCondition;
+  /** Having clause */
+  having?: QueryComparisonParameters[];
 
-    /** Nested JSON objects or arrays */
-    nested?: NestedJsonAggregateDefinition<Tables>[];
+  /** Nested JSON objects or arrays */
+  nested?: NestedJsonAggregateDefinition<Tables>[];
 };
 
 export type NestedJsonAggregateDefinition<Tables extends string = string> = {
-    /** Table this aggregate is built from */
-    table: Tables;
+  /** Table this aggregate is built from */
+  table: Tables;
 
-    /** Columns selected from this table */
-    columns: string[];
+  /** Columns selected from this table */
+  columns: string[];
 
-    nonTableColumns?: string[];
+  nonTableColumns?: string[];
 
-    /** Alias of this JSON object / array */
-    alias: string;
+  /** Alias of this JSON object / array */
+  alias: string;
 
-    /** Computed expressions */
-    computed?: PossibleComputedExpressions[];
+  /** Computed expressions */
+  computed?: PossibleComputedExpressions[];
 
-    /** Having clause */
-    having?: QueryWhereCondition;
+  /** Having clause */
+  having?: QueryComparisonParameters[];
 
-    /** Nested JSON objects or arrays */
-    nested?: NestedJsonAggregateDefinition<Tables>[];
-}
-
-export type JsonAggregateQueryExpression = QueryExpression<'jsonAggregate'> & {
-    parameters: JsonAggregateDefinition;
+  /** Nested JSON objects or arrays */
+  nested?: NestedJsonAggregateDefinition<Tables>[];
 };
 
-export enum QueryEvaluationPhase {
-    BASE = 'base',
-    PROJECTION = 'projection',
-    LATERAL = 'lateral'
-}
+export type JsonAggregateQueryExpression = QueryExpression<'jsonAggregate'> & {
+  parameters: JsonAggregateDefinition;
+};
 
 export type PossibleBaseExpressions =
-    SpatialQueryExpression |
-    TextRelevanceQueryExpression;
+  | SpatialQueryExpression
+  | TextRelevanceQueryExpression;
 
-export type PossiblePrettyExpressions =
-    JsonAggregateQueryExpression;
+export type PossiblePrettyExpressions = JsonAggregateQueryExpression;

@@ -21,6 +21,7 @@
     "preserveConstEnums": true,
     "experimentalDecorators": true,
     "importHelpers": false,
+    "lib": ["es2019", "DOM"],
     "baseUrl": ".",
     "paths": {
       "@core/*": ["src/*"]

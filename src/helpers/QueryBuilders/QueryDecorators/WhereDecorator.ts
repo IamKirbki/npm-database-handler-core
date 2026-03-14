@@ -1,27 +1,26 @@
-import IQueryBuilder from "@core/interfaces/IQueryBuilder.js";
-import { QueryContext, QueryWhereCondition } from "@core/types/query.js";
-import QueryDecorator from "./QueryDecorator.js";
-import QueryStatementBuilder from "../QueryStatementBuilder.js";
+import { IQueryBuilder } from '@core/interfaces/IQueryBuilder.js';
+import { QueryContext, QueryComparisonParameters } from '@core/types/query.js';
+import { QueryDecorator } from './QueryDecorator.js';
 
-export default class WhereDecorator extends QueryDecorator {
-    private conditions: QueryWhereCondition;
+export class WhereDecorator extends QueryDecorator {
+  private conditions: QueryComparisonParameters[];
 
-    constructor(
-        component: IQueryBuilder,
-        conditions: QueryWhereCondition
-    ) {
-        super(component);
-        this.conditions = conditions;
-    }
+  constructor(
+    component: IQueryBuilder,
+    conditions: QueryComparisonParameters[],
+  ) {
+    super(component);
+    this.conditions = conditions;
+  }
 
-    async build(): Promise<QueryContext> {
-        const context = await this.component.build();
-        const combinedConditions = [...QueryStatementBuilder.normalizeQueryConditions(this.conditions)];
+  async build(): Promise<QueryContext> {
+    const context = await this.component.build();
+    const combinedConditions = [...this.conditions];
 
-        context.conditions ??= {};
-        context.conditions.where ??= [];
-        context.conditions.where.push(...combinedConditions);
+    context.conditions ??= {};
+    context.conditions.where ??= [];
+    context.conditions.where.push(...combinedConditions);
 
-        return context;
-    }
+    return context;
+  }
 }

@@ -1,29 +1,48 @@
 import {
   columnType,
-  QueryWhereCondition,
   QueryIsEqualParameter,
   TableColumnInfo,
-  QueryComparisonParameters,
   QueryConstructorType,
-  RecordFactory,
 } from '@core/types/index.js';
 import { Container, Record, IDatabaseAdapter } from '@core/index.js';
-import UnknownTableError from '@core/helpers/Errors/TableErrors/UnknownTableError.js';
-import UnexpectedEmptyQueryError from '@core/helpers/Errors/QueryErrors/UnexpectedEmptyQueryError.js';
-import QueryCache from '@core/runtime/QueryCache.js';
+import { UnknownTableError } from '@core/helpers/Errors/TableErrors/UnknownTableError.js';
+import { UnexpectedEmptyQueryError } from '@core/helpers/Errors/QueryErrors/UnexpectedEmptyQueryError.js';
+import { QueryExecutionError } from '@core/helpers/Errors/QueryErrors/QueryExecutionError.js';
+import { QueryCache } from '@core/runtime/QueryCache.js';
+import { RecordFactory } from '@core/factories/RecordFactory.js';
 
 /** Query class for executing custom SQL queries */
-export default class Query {
+export class Query {
   public readonly TableName: string;
 
   private readonly _adapter: IDatabaseAdapter;
-  private readonly _recordFactory: RecordFactory;
+  private readonly _recordFactory: RecordFactory<columnType>;
   private readonly _queryCache: QueryCache;
-  private _query?: string;
-  private _parameters: QueryWhereCondition = {};
 
-  public get Parameters(): QueryWhereCondition {
+  private _query?: string;
+  private _parameters: QueryIsEqualParameter = {};
+
+  public get Parameters(): QueryIsEqualParameter {
     return this._parameters;
+  }
+
+  private serializeParameters(parameters: QueryIsEqualParameter): QueryIsEqualParameter {
+    const serialized: QueryIsEqualParameter = {};
+    for (const [key, value] of Object.entries(parameters)) {
+      if (
+        value !== null &&
+        typeof value === 'object' &&
+        !(value instanceof Date) &&
+        !Array.isArray(value)
+      ) {
+        serialized[key] = JSON.stringify(value);
+      } else if (Array.isArray(value)) {
+        serialized[key] = JSON.stringify(value);
+      } else {
+        serialized[key] = value;
+      }
+    }
+    return serialized;
   }
 
   constructor({
@@ -31,15 +50,20 @@ export default class Query {
     query,
     parameters,
     adapterName,
-    recordFactory = (table, values, adapter) =>
-      new Record(table, values, adapter),
+    recordFactory = new RecordFactory<columnType>(),
   }: QueryConstructorType) {
     this.TableName = tableName;
     this._query = query;
 
-    if (parameters) this._parameters = this.ConvertParamsToObject(parameters);
-    // eslint-disable-next-line no-undef
-    if (Container.getInstance().logging) this._query ? console.info(this._query, "\n", this._parameters) : console.info("No query found, probably checking if a table exists or getting the table column information.");
+    if (parameters) this._parameters = this.serializeParameters(parameters);
+    if (Container.getInstance().logging)
+      this._query
+        // eslint-disable-next-line no-undef
+        ? console.info(this._query, '\n', this._parameters)
+        // eslint-disable-next-line no-undef
+        : console.info(
+          'No query found, probably checking if a table exists or getting the table column information.',
+        );
 
     this._adapter = Container.getInstance().getAdapter(adapterName);
     this._queryCache = QueryCache.getInstance();
@@ -64,20 +88,33 @@ export default class Query {
       throw new UnexpectedEmptyQueryError();
     }
 
-    const stmt = await this._adapter.prepare(this._query);
-    return (await stmt.run(this.Parameters)) as Type;
+    try {
+      const stmt = await this._adapter.prepare(this._query);
+      return (await stmt.run(this.Parameters)) as Type;
+    } catch (error) {
+      throw new QueryExecutionError(this._query, error);
+    }
   }
 
   /** Execute a SELECT query and return all matching rows */
   public async All<Type extends columnType>(): Promise<Record<Type>[]> {
     await this.throwIfTableNotExists();
     if (!this._query) {
-      throw new Error('No query defined to run.');
+      throw new UnexpectedEmptyQueryError();
     }
 
-    const stmt = await this._adapter.prepare(this._query);
-    const results = (await stmt.all(this.Parameters)) as Type[];
-    return results.map((res) => this._recordFactory<Type>(this.TableName, res));
+    try {
+      const stmt = await this._adapter.prepare(this._query);
+      const results = (await stmt.all(this.Parameters)) as Type[];
+      return results.map((res) =>
+        this._recordFactory.create({
+          table: this.TableName,
+          values: res,
+        }),
+      ) as Record<Type>[];
+    } catch (error) {
+      throw new QueryExecutionError(this._query, error);
+    }
   }
 
   /** Execute a SELECT query and return the first matching row */
@@ -86,26 +123,40 @@ export default class Query {
   > {
     await this.throwIfTableNotExists();
     if (!this._query) {
-      throw new Error('No query defined to run.');
+      throw new UnexpectedEmptyQueryError();
     }
 
-    const stmt = await this._adapter.prepare(this._query);
-    const results = (await stmt.get(this.Parameters)) as Type | undefined;
-    return results
-      ? this._recordFactory<Type>(this.TableName, results)
-      : undefined;
+    try {
+      const stmt = await this._adapter.prepare(this._query);
+      const results = (await stmt.get(this.Parameters)) as Type | undefined;
+      return results
+        ? (this._recordFactory.create({
+          table: this.TableName,
+          values: results,
+        }) as Record<Type>)
+        : undefined;
+    } catch (error) {
+      throw new QueryExecutionError(this._query, error);
+    }
   }
 
   public async TableColumnInformation(
     tableName: string,
   ): Promise<TableColumnInfo[]> {
     let tableColumnInfo = this._queryCache.getTableColumnInformation(tableName);
-    if (tableColumnInfo) return tableColumnInfo
+    if (tableColumnInfo) return tableColumnInfo;
 
-    tableColumnInfo = await this._adapter.tableColumnInformation(tableName);
-    this._queryCache.setTableColumnInformation(tableName, tableColumnInfo);
+    try {
+      tableColumnInfo = await this._adapter.tableColumnInformation(tableName);
+      this._queryCache.setTableColumnInformation(tableName, tableColumnInfo);
 
-    return tableColumnInfo;
+      return tableColumnInfo;
+    } catch (error) {
+      throw new QueryExecutionError(
+        `TableColumnInformation for ${tableName}`,
+        error,
+      );
+    }
   }
 
   public async DoesTableExist(): Promise<boolean> {
@@ -113,74 +164,33 @@ export default class Query {
       return true;
     }
 
-    const exists = await this._adapter.tableExists(this.TableName);
-    if (exists) {
-      this._queryCache.addExistingTable(this.TableName);
-    }
+    try {
+      const exists = await this._adapter.tableExists(this.TableName);
+      if (exists) {
+        this._queryCache.addExistingTable(this.TableName);
+      }
 
-    return exists;
+      return exists;
+    } catch (error) {
+      throw new QueryExecutionError(
+        `DoesTableExist for ${this.TableName}`,
+        error,
+      );
+    }
   }
 
   public async Count(): Promise<number> {
     await this.throwIfTableNotExists();
     if (!this._query) {
-      throw new Error('No query defined to run.');
+      throw new UnexpectedEmptyQueryError();
     }
 
-    const stmt = await this._adapter.prepare(this._query);
-    const result = (await stmt.get(this.Parameters)) as { count: string };
-    return parseInt(result.count) || 0;
-  }
-
-  public ConvertParamsToArray(
-    params: QueryWhereCondition,
-  ): QueryComparisonParameters[] {
-    const paramArray: QueryComparisonParameters[] = [];
-
-    if (Array.isArray(params)) {
-      return params;
-    } else {
-      Object.entries(params).forEach(([key, value]) => {
-        return paramArray.push({
-          column: key,
-          operator: '=',
-          value,
-        });
-      });
+    try {
+      const stmt = await this._adapter.prepare(this._query);
+      const result = (await stmt.get(this.Parameters)) as { count: string };
+      return parseInt(result.count) || 0;
+    } catch (error) {
+      throw new QueryExecutionError(this._query, error);
     }
-
-    return paramArray;
-  }
-
-  /** Convert various parameter formats to a consistent object format */
-  public ConvertParamsToObject(
-    params: QueryWhereCondition,
-  ): QueryIsEqualParameter {
-    const paramObject: QueryIsEqualParameter = {};
-    if (Array.isArray(params)) {
-      params.forEach((param) => {
-        paramObject[param.column] = param.value;
-      });
-    } else {
-      Object.assign(paramObject, params);
-    }
-
-    return this.ConvertValueToString(paramObject);
-  }
-
-  /** Databases don't like numeric values when inserting with a query */
-  public ConvertValueToString(
-    params: QueryIsEqualParameter,
-  ): QueryIsEqualParameter {
-    return Object.entries(params)
-      .map(([key, value]) => {
-        return {
-          [key]:
-            value !== null && !(value instanceof Date) && value !== undefined
-              ? value.toString()
-              : value,
-        };
-      })
-      .reduce((acc, curr) => ({ ...acc, ...curr }), {});
   }
 }

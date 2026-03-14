@@ -1,7 +1,7 @@
+import { IQueryBuilder } from "@core/interfaces/IQueryBuilder.js";
 import { QueryContext } from "@core/index";
-import IQueryBuilder from "@core/interfaces/IQueryBuilder.js";
 
-export default class BaseSelectQueryBuilder implements IQueryBuilder {
+export class BaseSelectQueryBuilder implements IQueryBuilder {
     private tableName: string;
     private select: string[];
     private joinsSelect?: string[];

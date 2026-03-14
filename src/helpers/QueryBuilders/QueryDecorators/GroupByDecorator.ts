@@ -1,8 +1,8 @@
-import IQueryBuilder from "@core/interfaces/IQueryBuilder.js";
-import QueryDecorator from "./QueryDecorator.js";
+import { IQueryBuilder } from "@core/interfaces/IQueryBuilder.js";
+import { QueryDecorator } from "./QueryDecorator.js";
 import { QueryContext } from "@core/types/query.js";
 
-export default class GroupByDecorator extends QueryDecorator {
+export class GroupByDecorator extends QueryDecorator {
     private groupByColumns?: string[];
 
     constructor(component: IQueryBuilder, groupByColumns?: string[]) {

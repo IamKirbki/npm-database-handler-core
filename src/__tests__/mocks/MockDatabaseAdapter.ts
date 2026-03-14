@@ -1,5 +1,5 @@
-import type IDatabaseAdapter from '@core/interfaces/IDatabaseAdapter.js';
-import type IStatementAdapter from '@core/interfaces/IStatementAdapter.js';
+import type { IDatabaseAdapter } from '@core/interfaces/IDatabaseAdapter.js';
+import type { IStatementAdapter } from '@core/interfaces/IStatementAdapter.js';
 import type ISchemaBuilder from '@core/interfaces/ISchemaBuilder.js';
 import { MockStatementAdapter } from './MockStatementAdapter';
 import { MockSchemaBuilder } from './MockSchemaBuilder';

@@ -11,5 +11,5 @@ export type RequireAtLeastOne<T, Keys extends keyof T = keyof T> =
 export * from './query.js';
 export * from './table.js';
 export * from './model.js';
-export * from './factories.js';
 export * from './expressions.js';
+export * from './repository.js';

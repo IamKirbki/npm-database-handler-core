@@ -1,6 +1,7 @@
-export default class UnexpectedEmptyQueryError extends Error {
+import { DatabaseHandlerError } from "../DatabaseHandlerError.js";
+
+export class UnexpectedEmptyQueryError extends DatabaseHandlerError {
     constructor() {
-        super(`The query is unexpectedly empty. Please ensure that the query is properly constructed and contains valid clauses.`);
-        this.name = "UnexpectedEmptyQueryError";
+        super(`The query is unexpectedly empty. Please ensure that the query is properly constructed and contains valid clauses.`, { code: 'UNEXPECTED_EMPTY_QUERY' });
     }
 }

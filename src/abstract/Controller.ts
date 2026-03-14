@@ -1,8 +1,8 @@
 /* eslint-disable no-unused-vars */
-import Model from './Model.js';
+import { Model } from './Model.js';
 import { columnType } from '@core/types/index.js';
 
-export default abstract class Controller<Type extends columnType> {
+export abstract class Controller<Type extends columnType> {
   abstract index(): Promise<Model<Type>[]>;
   abstract show(value: string | number): Promise<Model<Type>>;
   abstract edit(value: string | number): Promise<Model<Type>>;

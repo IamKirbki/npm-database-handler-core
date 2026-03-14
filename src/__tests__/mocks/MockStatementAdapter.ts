@@ -1,4 +1,4 @@
-import type IStatementAdapter from '@core/interfaces/IStatementAdapter.js';
+import type { IStatementAdapter } from '@core/interfaces/IStatementAdapter.js';
 import type { QueryValues } from '@core/index.js';
 
 /**

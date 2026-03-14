@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import QueryStatementBuilder from '../../helpers/QueryBuilders/QueryStatementBuilder';
+import { QueryStatementBuilder } from '../../helpers/QueryBuilders/QueryStatementBuilder';
 
 describe('QueryStatementBuilder - Spatial Expressions', () => {
     it("should build a query", async () => {
@@ -16,9 +16,13 @@ describe('QueryStatementBuilder - Spatial Expressions', () => {
                         ]
                     }
                 ],
-                where: {
-                    distance: "something"
-                }
+                where: [
+                    {
+                        column: "distance",
+                        operator: "=",
+                        value: "something"
+                    }
+                ]
             },
             pretty: {
                 groupBy: 'locations.region'

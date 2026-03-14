@@ -6,10 +6,10 @@ import {
     TextRelevanceQueryExpression,
     JsonAggregateQueryExpression,
 } from "@core/types/index.js";
-import SpatialDistanceExpression from "./ExpressionBuilders/SpatialDistanceExpression.js";
+import { SpatialDistanceExpression } from "./ExpressionBuilders/SpatialDistanceExpression.js";
 import { UnknownExpressionTypeError } from "../Errors/ExpressionErrors/UnknownExpressionTypeError.js";
-import TextRelevanceExpression from "./ExpressionBuilders/TextRelevanceExpression.js";
-import JsonAggregateExpression from "./ExpressionBuilders/JsonAggregateExpression.js";
+import { TextRelevanceExpression } from "./ExpressionBuilders/TextRelevanceExpression.js";
+import { JsonAggregateExpression } from "./ExpressionBuilders/JsonAggregateExpression.js";
 
 /**
  * A normalized, intermediate representation of a query expression.
@@ -34,7 +34,7 @@ import JsonAggregateExpression from "./ExpressionBuilders/JsonAggregateExpressio
  * Its ONLY job is to translate abstract expressions
  * into structured SQL fragments with metadata.
  */
-export default class QueryExpressionBuilder {
+export class QueryExpressionBuilder {
 
     /**
      * Registry mapping expression "type" → builder function.
@@ -71,27 +71,6 @@ export default class QueryExpressionBuilder {
         // ['jsonAggregation', (expr) => QueryExpressionBuilder.BuildJsonAggregation(expr)]
         // ['windowFunction', (expr) => QueryExpressionBuilder.BuildWindowFunction(expr)]
     ]);
-
-    private static expressionDefaults: Map<string, PossibleExpressions['requirements']> = new Map([
-        [
-            'spatialDistance',
-            new SpatialDistanceExpression().defaultRequirements
-        ],
-        [
-            'textRelevance',
-            new TextRelevanceExpression().defaultRequirements
-        ],
-        [
-            'jsonAggregate',
-            new JsonAggregateExpression().defaultRequirements
-        ]
-    ]);
-
-    public static getExpressionDefaultRequirements(
-        type: string
-    ): PossibleExpressions['requirements'] | undefined {
-        return this.expressionDefaults.get(type);
-    }
 
     /**
      * Registers a new expression builder at runtime.

@@ -1,6 +1,6 @@
 import { ColumnDefinition } from "@core/types/index.js";
 
-export default abstract class SchemaTableBuilder {
+export abstract class SchemaTableBuilder {
     protected columns: ColumnDefinition[] = [];
 
     protected addColumn(data: ColumnDefinition): this {

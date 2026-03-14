@@ -1,8 +1,8 @@
-import IQueryBuilder from "@core/interfaces/IQueryBuilder.js";
-import QueryDecorator from "./QueryDecorator.js";
+import { IQueryBuilder } from "@core/interfaces/IQueryBuilder.js";
+import { QueryDecorator } from "./QueryDecorator.js";
 import { OrderByDefinition, QueryContext } from "@core/types/query.js";
 
-export default class OrderByDecorator extends QueryDecorator {
+export class OrderByDecorator extends QueryDecorator {
     private orderByColumns?: OrderByDefinition[];
 
     constructor(component: IQueryBuilder, orderByColumns?: OrderByDefinition[]) {

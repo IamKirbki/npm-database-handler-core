@@ -1,5 +1,5 @@
-import type ISchemaBuilder from '../../interfaces/ISchemaBuilder';
-import type SchemaTableBuilder from '../../abstract/SchemaTableBuilder';
+import type { ISchemaBuilder } from '../../interfaces/ISchemaBuilder';
+import type { SchemaTableBuilder } from '../../abstract/SchemaTableBuilder';
 
 /**
  * Mock schema builder for testing schema operations

@@ -1,44 +1,8 @@
 /** Model configuration and types */
 
-import Model from "@core/abstract/Model";
-import { columnType, QueryWhereCondition } from "./index";
-
-export type ModelEventType =
-    | 'retrieved'
-    | 'creating'
-    | 'created'
-    | 'updating'
-    | 'updated'
-    | 'saving'
-    | 'saved'
-    | 'deleting'
-    | 'deleted'
-    | 'restoring'
-    | 'restored'
-    | 'forceDeleting'
-    | 'forceDeleted';
-
-export type ModelEventHandler<T> = (model: T) => void | Promise<void>;
-
-export type ModelObserver<T> = {
-    retrieved?(model: T): void | Promise<void>;
-    creating?(model: T): void | Promise<void>;
-    created?(model: T): void | Promise<void>;
-    updating?(model: T): void | Promise<void>;
-    updated?(model: T): void | Promise<void>;
-    saving?(model: T): void | Promise<void>;
-    saved?(model: T): void | Promise<void>;
-    deleting?(model: T): void | Promise<void>;
-    deleted?(model: T): void | Promise<void>;
-    restoring?(model: T): void | Promise<void>;
-    restored?(model: T): void | Promise<void>;
-    forceDeleting?(model: T): void | Promise<void>;
-    forceDeleted?(model: T): void | Promise<void>;
-}
-
-export type ModelScope = {
-    (query: any): void;
-}
+import { Model } from "@core/abstract/Model";
+import { columnType } from "./index";
+import { QueryComparisonParameters } from "./query";
 
 export type ModelConfig = {
     /** Table name - defaults to lowercase class name */
@@ -117,6 +81,7 @@ export type ModelWithTimestamps = {
 
 export type joinedEntity = {
     relation: string;
+    alias?: string;
     path: string;
-    queryScopes?: QueryWhereCondition;
+    queryScopes?: QueryComparisonParameters[];
 }
