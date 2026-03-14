@@ -139,10 +139,10 @@ export abstract class Model<
     )
       ? conditions
       : Object.entries(conditions).map(([key, value]) => ({
-          column: key,
-          operator: '=',
-          value,
-        }));
+        column: key,
+        operator: '=',
+        value,
+      }));
 
     if (this.queryLayers.base.where) {
       this.queryLayers.base.where.push(...normalizedConditions);
@@ -503,10 +503,10 @@ export abstract class Model<
           ? Array.isArray(having)
             ? having
             : Object.entries(having).map(([key, value]) => ({
-                column: key,
-                operator: '=',
-                value: value as QueryValues,
-              }))
+              column: key,
+              operator: '=',
+              value: value as QueryValues,
+            }))
           : undefined,
       },
     };

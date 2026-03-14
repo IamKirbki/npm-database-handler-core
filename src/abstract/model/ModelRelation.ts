@@ -219,12 +219,12 @@ export abstract class ModelRelations<
     const scopesArray = isSingleParameter
       ? [queryScopes as QueryComparisonParameters]
       : ((Array.isArray(queryScopes)
-          ? queryScopes
-          : Object.entries(queryScopes).map(([key, value]) => ({
-              column: key,
-              operator: '=',
-              value,
-            }))) as QueryComparisonParameters[]);
+        ? queryScopes
+        : Object.entries(queryScopes).map(([key, value]) => ({
+          column: key,
+          operator: '=',
+          value,
+        }))) as QueryComparisonParameters[]);
 
     return scopesArray.map((scope) => ({
       ...scope,
